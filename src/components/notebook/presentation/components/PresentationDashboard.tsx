@@ -20,7 +20,7 @@ import { formatDistanceToNow } from "date-fns";
 import { FilePlus2, Globe, Loader2, Presentation, Sparkles } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 const LANGUAGES = [
@@ -38,10 +38,15 @@ const LANGUAGES = [
   ["ar", "Arabic"],
 ] as const;
 
-export function PresentationDashboard() {
+export function PresentationDashboard({
+  initialGenerationType = "Flow",
+}: {
+  initialGenerationType?: "Flow" | "HTML";
+}) {
   const router = useRouter();
   const { resolvedTheme } = useTheme();
   const [isCreating, setIsCreating] = useState(false);
+  const [generationType, setGenerationType] = useState<"Flow">("Flow");
   const {
     presentationInput,
     setPresentationInput,
@@ -53,11 +58,20 @@ export function PresentationDashboard() {
     setNumSlides,
     webSearchEnabled,
     setWebSearchEnabled,
+    setOutputFormat,
     setCurrentPresentation,
     setPendingCreateRequest,
     setTheme,
     resetPresentationState,
   } = usePresentationState();
+
+  useEffect(() => {
+    setGenerationType("Flow");
+  }, [initialGenerationType]);
+
+  useEffect(() => {
+    setOutputFormat("flow");
+  }, [generationType, setOutputFormat]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["presentations"],
@@ -85,6 +99,7 @@ export function PresentationDashboard() {
         modelId,
         modelProvider,
         numSlides: selectedNumSlides,
+        outputFormat: "flow",
         webSearchEnabled: selectedWebSearchEnabled,
       });
       router.push("/presentation/create");

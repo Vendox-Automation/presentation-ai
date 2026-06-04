@@ -1294,7 +1294,7 @@ export const usePresentationState = create<PresentationState>()(
           outlineTemplateOverrides: {},
         })),
 
-      // Comprehensive reset when navigating back to /presentations page
+      // Comprehensive reset when navigating back to the presentation dashboard.
       resetPresentationState: () =>
         set(() => ({
           // Clear presentation-specific state

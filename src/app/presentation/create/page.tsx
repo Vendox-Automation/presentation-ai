@@ -65,13 +65,13 @@ export default function Page() {
       } else {
         setIsGeneratingOutline(false);
         toast.error(result.message || "Failed to create presentation");
-        router.push("/presentations");
+        router.push("/presentation");
       }
     } catch (error) {
       setIsGeneratingOutline(false);
       console.error("Error creating presentation:", error);
       toast.error("Failed to create presentation");
-      router.push("/presentations");
+      router.push("/presentation");
     }
   };
 
@@ -86,13 +86,14 @@ export default function Page() {
       prompt,
       webSearchEnabled,
     };
-    const pendingCreateRequest = presentationState.pendingCreateRequest;
     const request =
-      queryRequest.prompt.length > 0 ? queryRequest : pendingCreateRequest;
+      queryRequest.prompt.length > 0
+        ? queryRequest
+        : presentationState.consumePendingCreateRequest();
 
     if (!request || !request.prompt) {
       presentationState.setPendingCreateRequest(null);
-      router.replace("/presentations");
+      router.replace("/presentation");
       return;
     }
 
