@@ -88,7 +88,7 @@ function parseOutlineItems(content: string): string[] {
 }
 
 function usesStockSearchForPresentation(
-  imageSource: "automatic" | "ai" | "stock",
+  imageSource: "automatic" | "ai" | "stock" | "gif",
 ): boolean {
   return imageSource === "automatic" || imageSource === "stock";
 }
@@ -743,7 +743,7 @@ export function PresentationGenerationManager() {
             rootImageGeneration: {
               ...state.rootImageGeneration,
               [slideId]: {
-                ...(state.rootImageGeneration[slideId] ?? { query: gen.query }),
+                ...gen,
                 status: "generating",
               },
             },

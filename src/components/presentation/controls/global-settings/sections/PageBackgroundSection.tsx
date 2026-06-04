@@ -1,12 +1,13 @@
 "use client";
 
+import { RotateCcw } from "lucide-react";
+import { useCallback, useMemo } from "react";
+
 import { CompactBackgroundSelector } from "@/components/notebook/presentation/components/theme/create-theme/CompactBackgroundSelector";
 import { Button } from "@/components/ui/button";
 import { useDebouncedSave } from "@/hooks/presentation/useDebouncedSave";
 import { type ThemeBackground } from "@/lib/presentation/themes";
 import { usePresentationState } from "@/states/presentation-state";
-import { RotateCcw } from "lucide-react";
-import { useCallback, useMemo } from "react";
 
 function isGradientString(input?: string | null) {
   if (!input) return false;
@@ -83,7 +84,7 @@ export function PageBackgroundSection() {
       }
 
       setPageBackground(next);
-      save();
+      save({ includeMetadata: true });
     },
     [pageBackground, save, setPageBackground],
   );

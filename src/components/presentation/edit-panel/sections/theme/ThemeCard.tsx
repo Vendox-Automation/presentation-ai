@@ -1,15 +1,17 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
+import { Settings2, Star } from "lucide-react";
+import type React from "react";
+import { useEffect, useState, useTransition, type KeyboardEvent } from "react";
+
 import { toggleFavoriteTheme } from "@/app/_actions/presentation/theme-favorite-actions";
 import { toggleLikeTheme } from "@/app/_actions/presentation/theme-like-actions";
-import type React from "react";
-import { useEffect, useState, useTransition } from "react";
-
+import { isBuiltInPresentationTheme } from "@/lib/presentation/theme-resolution";
 import { type ThemeProperties } from "@/lib/presentation/themes";
 import { cn } from "@/lib/utils";
 import { usePresentationState } from "@/states/presentation-state";
-import { useQueryClient } from "@tanstack/react-query";
-import { Star } from "lucide-react";
+import { openThemeCustomizer } from "./customize-theme";
 import { useThemePanelState } from "./theme-panel-state";
 
 interface ThemeCardProps {
@@ -23,9 +25,18 @@ interface ThemeCardProps {
   showFavoriteButton?: boolean;
   showEllipsis?: boolean;
   showInfo?: boolean;
+  personalizeLabel?: string;
   onSelect?: (id: string) => void;
+  isFocused?: boolean;
   isOwner?: boolean;
   isPublic?: boolean;
+  isAdminTheme?: boolean;
+  canEditSystemTheme?: boolean;
+  refCallback?: (node: HTMLDivElement | null) => void;
+  tabIndex?: number;
+  onFocus?: () => void;
+  onKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void;
+  onKeyUp?: (event: KeyboardEvent<HTMLDivElement>) => void;
 }
 
 export function ThemeCard({
@@ -39,15 +50,25 @@ export function ThemeCard({
   showFavoriteButton = true,
   showEllipsis = true,
   showInfo = true,
+  personalizeLabel,
   onSelect,
+  isFocused = false,
   isOwner = false,
   isPublic = false,
+  isAdminTheme = false,
+  canEditSystemTheme = false,
+  refCallback,
+  tabIndex = 0,
+  onFocus,
+  onKeyDown,
+  onKeyUp,
 }: ThemeCardProps) {
   const {
     openEditMenu,
     setOpenEditMenu,
     setEditingTheme,
     setOpenCreateThemeModal,
+    setIsCustomizing,
   } = useThemePanelState();
   const identifier = themeId;
   const showEditMenu = openEditMenu === identifier;
@@ -168,24 +189,58 @@ export function ThemeCard({
   };
 
   // Only show ellipsis if user is owner
-  const canEdit = isOwner;
+  const canEdit = isOwner || (isAdminTheme && canEditSystemTheme);
   // Only show delete if user is owner AND theme is private
   const canDelete = isOwner && !isPublic;
+  const shouldShowPersonalizeButton = isSelected && personalizeLabel;
 
   // Use local state for display
+  const isVisuallyActive = isSelected || isFocused;
+
+  const handlePersonalizeClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    if (isOwner && !isAdminTheme) {
+      setEditingTheme({
+        id: themeId,
+        name: theme.name,
+        description: theme.description ?? null,
+        themeData: theme,
+        isPublic,
+        isAdmin: false,
+        logoUrl: null,
+        userId: "",
+      });
+      setIsCustomizing(false);
+      setOpenCreateThemeModal(true);
+      setOpenEditMenu(null);
+      return;
+    }
+
+    openThemeCustomizer();
+  };
+
   return (
-    <div className="relative h-full w-full min-w-0 overflow-hidden rounded-lg border border-primary/20">
+    <div
+      className={cn(
+        "relative size-full min-w-0 overflow-hidden rounded-lg border-2 transition-all",
+        isVisuallyActive
+          ? "border-primary shadow-[0_0_0_1px_hsl(var(--primary)/0.35),0_10px_24px_hsl(var(--primary)/0.14)]"
+          : "border-border/70 hover:border-primary/50",
+      )}
+    >
       {/* Action buttons in top right */}
       <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
         {themeId && showFavoriteButton && (
           <button
+            type="button"
             onClick={handleToggleFavorite}
             disabled={isPendingFavorite}
             className="rounded-full bg-background/80 p-1 transition-colors hover:bg-background disabled:opacity-50"
           >
             <Star
               className={cn(
-                "h-3.5 w-3.5",
+                "size-3.5",
                 localIsFavorite
                   ? "fill-yellow-500 text-yellow-500"
                   : "text-muted-foreground",
@@ -197,11 +252,13 @@ export function ThemeCard({
         {showEllipsis && canEdit && (
           <div className="relative">
             <button
+              aria-label="theme card control"
+              type="button"
               onClick={handleEditMenuToggle}
               className="rounded-full bg-background/80 p-1 transition-colors hover:bg-background"
             >
               <svg
-                className="h-3.5 w-3.5 text-muted-foreground"
+                className="size-3.5 text-muted-foreground"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -217,6 +274,7 @@ export function ThemeCard({
             {showEditMenu && (
               <div className="absolute top-full right-0 z-20 mt-1 w-28 rounded-lg border border-border bg-background py-1 shadow-lg">
                 <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     setEditingTheme({
@@ -225,6 +283,7 @@ export function ThemeCard({
                       description: theme.description ?? null,
                       themeData: theme,
                       isPublic: isPublic,
+                      isAdmin: isAdminTheme,
                       logoUrl: null,
                       userId: "",
                     });
@@ -237,6 +296,7 @@ export function ThemeCard({
                 </button>
                 {canDelete && (
                   <button
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                     }}
@@ -251,34 +311,46 @@ export function ThemeCard({
         )}
       </div>
 
-      <button
+      <div
+        ref={refCallback}
+        role="button"
+        aria-pressed={isSelected}
+        data-panel-arrow-target="true"
+        tabIndex={tabIndex}
         onClick={() => {
           if (onSelect) {
             onSelect(themeId);
             return;
           }
-          usePresentationState.getState().setTheme(themeId, theme);
+          usePresentationState
+            .getState()
+            .setTheme(
+              themeId,
+              isBuiltInPresentationTheme(themeId) ? undefined : theme,
+            );
         }}
+        onFocus={onFocus}
+        onKeyDown={onKeyDown}
+        onKeyUp={onKeyUp}
         className={cn(
-          "h-full w-full rounded-lg transition-all hover:shadow-lg",
-          isSelected
-            ? "ring-2 ring-purple-600 ring-offset-2 ring-offset-background"
-            : "hover:ring-2 hover:ring-primary/80",
+          "size-full rounded-md transition-all hover:shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none",
+          isVisuallyActive ? "bg-primary/5" : "hover:bg-primary/5",
         )}
       >
         {/* Like button for public themes */}
         {showLikeButton && themeId && (
           <button
+            type="button"
             onClick={handleToggleLike}
             disabled={isPendingLike}
             className={cn(
-              "absolute top-2 left-2 z-10 flex items-center gap-1 rounded-full bg-background/90 px-2 py-1 backdrop-blur-xs transition-colors hover:bg-background/95 disabled:opacity-50",
+              "absolute top-2 left-2 z-10 flex items-center gap-1 rounded-full bg-background/90 px-2 py-1 backdrop-blur-sm transition-colors hover:bg-background/95 disabled:opacity-50",
               localIsLiked && "bg-red-50 dark:bg-red-950/30",
             )}
           >
             <svg
               className={cn(
-                "h-3 w-3",
+                "size-3",
                 localIsLiked
                   ? "fill-red-500 text-red-500"
                   : "fill-transparent stroke-red-500 text-red-500",
@@ -303,7 +375,7 @@ export function ThemeCard({
           >
             {/* Slide background - uses theme.colors.background */}
             <div
-              className="flex h-full w-full flex-col items-center justify-center p-3"
+              className="flex size-full flex-col items-center justify-center p-3"
               style={{
                 backgroundColor: theme.colors.background,
                 borderRadius: theme.borderRadius.card,
@@ -338,6 +410,16 @@ export function ThemeCard({
                 title="Smart Layout"
               />
             </div>
+            {shouldShowPersonalizeButton && (
+              <button
+                onClick={handlePersonalizeClick}
+                className="absolute right-0.5 bottom-0.5 z-10 flex h-7 items-center gap-1.5 rounded-full bg-purple-600 px-2.5 text-[11px] font-medium text-white shadow-sm transition-colors hover:bg-purple-700"
+                type="button"
+              >
+                <Settings2 className="size-3" />
+                <span>{personalizeLabel}</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -353,9 +435,9 @@ export function ThemeCard({
               </span>
             </div>
             {isSelected && (
-              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-purple-600">
+              <div className="flex size-5 shrink-0 items-center justify-center rounded-full bg-purple-600">
                 <svg
-                  className="h-3 w-3 text-white"
+                  className="size-3 text-white"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -371,7 +453,7 @@ export function ThemeCard({
             )}
           </div>
         )}
-      </button>
+      </div>
     </div>
   );
 }

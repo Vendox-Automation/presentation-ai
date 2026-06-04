@@ -1,15 +1,33 @@
+import { type ElementDragItemNode } from "@platejs/dnd";
+import { insertColumnGroup } from "@platejs/layout";
+import { NodeApi, PathApi, type Path, type TElement } from "platejs";
 import { type PlateEditor } from "platejs/react";
 import { type DropTargetMonitor } from "react-dnd";
 
-import { insertColumnGroup } from "@platejs/layout";
-import { NodeApi, type Path, type TElement } from "platejs";
-
-import { type ElementDragItemNode } from "@platejs/dnd";
+import { usePresentationState } from "@/states/presentation-state";
+import { COLUMN_GROUP, COLUMN_ITEM } from "../../lib";
+import {
+  clonePaletteDropElements,
+  getElementId,
+  getPaletteDragItemKey,
+  getPaletteDragSource,
+  getPaletteMutableSignature,
+} from "../../utils/paletteDrop";
 import { type UseDropNodeOptions } from "../hooks";
-
-import { getDropPath } from "../utils/getDropPath";
+import {
+  getActiveFreeformDropTarget,
+  syncFreeformDropTargetFromClientOffset,
+} from "../utils/freeformDrop";
+import {
+  canDropAtPath,
+  getDropPath,
+  type DropPathResult,
+} from "../utils/getDropPath";
 import { getHoverDirection } from "../utils/getHoverDirection";
-import { updateSiblingsAfterDrop } from "../utils/updateSiblingsForcefully";
+import {
+  updateDroppedElementAfterDrop,
+  updateSiblingsAfterDropById,
+} from "../utils/updateSiblingsForcefully";
 
 /**
  * Handle the drop of a node.
@@ -32,14 +50,21 @@ export const onDropNode = (
     canCreateColumns?: boolean;
   } & Pick<UseDropNodeOptions, "canDropNode" | "element" | "nodeRef">,
 ) => {
-  let result = getDropPath(editor, {
-    canDropNode,
-    canCreateColumns,
+  const freeformTarget = syncFreeformDropTargetFromClientOffset(
+    editor,
     dragItem,
-    element,
-    monitor,
-    nodeRef,
-  });
+    monitor.getClientOffset(),
+  );
+  let result =
+    freeformTarget?.dropPath ??
+    getDropPath(editor, {
+      canDropNode,
+      canCreateColumns,
+      dragItem,
+      element,
+      monitor,
+      nodeRef,
+    });
 
   // If getDropPath returns null, try bubble-up for root elements over nested content
   if (!result) {
@@ -101,6 +126,35 @@ export const onDropNode = (
     if (!result) return;
   }
 
+  applyDropPathResult(editor, { dragItem, result });
+};
+
+export const dropNodeAtFreeformTarget = (
+  editor: PlateEditor,
+  dragItem: ElementDragItemNode,
+): boolean => {
+  const target = getActiveFreeformDropTarget(editor);
+
+  if (!target) return false;
+
+  applyDropPathResult(editor, {
+    dragItem,
+    result: target.dropPath,
+  });
+
+  return true;
+};
+
+export const applyDropPathResult = (
+  editor: PlateEditor,
+  {
+    dragItem,
+    result,
+  }: {
+    dragItem: ElementDragItemNode;
+    result: DropPathResult;
+  },
+): void => {
   const {
     direction,
     dragPath,
@@ -108,17 +162,123 @@ export const onDropNode = (
     hoveredPath,
     isExternalNode,
     createColumns,
+    isNoop,
   } = result;
+
+  if (isNoop) return;
+
+  if (!canDropAtPath(editor, dragItem, result)) return;
+
   const draggedIds = Array.isArray(dragItem.id) ? dragItem.id : [dragItem.id];
+  const draggedElementIds = draggedIds.filter(
+    (id): id is string => typeof id === "string",
+  );
+  const trackPaletteDrop = (insertedElementId: string | null) => {
+    const source = getPaletteDragSource(dragItem);
+
+    if (!source || !insertedElementId) return;
+
+    const insertedEntry = editor.api.node({ id: insertedElementId, at: [] });
+    const [insertedElement] = insertedEntry ?? [];
+
+    usePresentationState.getState().setPaletteDropTarget({
+      editorId: editor.id,
+      elementId: insertedElementId,
+      itemKey: getPaletteDragItemKey(dragItem),
+      source,
+      mutableSignature: insertedElement
+        ? getPaletteMutableSignature(insertedElement)
+        : undefined,
+    });
+  };
 
   // Handle column creation (only when canCreateColumns=true AND direction is left/right)
   if (createColumns && (direction === "left" || direction === "right")) {
     if (!hoveredPath) return;
 
-    const targetElementId =
-      (NodeApi.get(editor, hoveredPath) as TElement)?.id ||
-      (element.id as string);
-    const draggedElementIds = new Set(draggedIds);
+    const existingColumnItemPath = getContainingColumnItemPath(
+      editor,
+      hoveredPath,
+    );
+
+    if (existingColumnItemPath) {
+      const columnGroupPath = PathApi.parent(existingColumnItemPath);
+      const targetColumnIndex = existingColumnItemPath.at(-1);
+      const columnGroup = NodeApi.get(editor, columnGroupPath) as
+        | TElement
+        | undefined;
+
+      if (
+        typeof targetColumnIndex !== "number" ||
+        !isElementNode(columnGroup)
+      ) {
+        return;
+      }
+
+      const newColumnIndex =
+        direction === "left" ? targetColumnIndex : targetColumnIndex + 1;
+      const newColumnPath = [...columnGroupPath, newColumnIndex];
+      const draggedElementIdSet = new Set(draggedElementIds);
+      const currentWidths = getColumnWidths(columnGroup);
+      const targetWidth =
+        currentWidths[targetColumnIndex] ?? 100 / currentWidths.length;
+      const newColumnWidth = roundWidth(targetWidth / 2);
+      const targetColumnWidth = roundWidth(targetWidth - newColumnWidth);
+      const finalWidths = [...currentWidths];
+
+      finalWidths[targetColumnIndex] = targetColumnWidth;
+      finalWidths.splice(newColumnIndex, 0, newColumnWidth);
+
+      editor.tf.withoutNormalizing(() => {
+        editor.tf.insertNodes(
+          {
+            type: COLUMN_ITEM,
+            width: newColumnWidth,
+            children: [],
+          },
+          { at: newColumnPath },
+        );
+
+        finalWidths.forEach((width, index) => {
+          editor.tf.setNodes({ width }, { at: [...columnGroupPath, index] });
+        });
+
+        if (
+          isExternalNode &&
+          dragItem.element &&
+          typeof dragItem.element === "object"
+        ) {
+          const elements = clonePaletteDropElements(dragItem.element);
+
+          elements.forEach((elem, index) => {
+            editor.tf.insertNodes(elem, {
+              at: [...newColumnPath, index],
+            });
+          });
+          trackPaletteDrop(getElementId(elements[0]));
+        } else {
+          editor.tf.moveNodes({
+            at: [],
+            to: [...newColumnPath, 0],
+            match: (n) => draggedElementIdSet.has(n.id as string),
+          });
+        }
+
+        draggedElementIdSet.forEach((id) => {
+          updateSiblingsAfterDropById(editor, id);
+        });
+      });
+
+      return;
+    }
+
+    const targetElementId = (
+      NodeApi.get(editor, hoveredPath) as TElement | undefined
+    )?.id as string | undefined;
+
+    if (!targetElementId) return;
+
+    const draggedElementIdSet = new Set(draggedElementIds);
 
     // Create a column group with 2 columns at the hovered position
     insertColumnGroup(editor, {
@@ -137,6 +297,9 @@ export const onDropNode = (
       direction === "left" ? firstColumnPath : secondColumnPath;
 
     editor.tf.withoutNormalizing(() => {
+      editor.tf.setNodes({ width: 50 }, { at: firstColumnPath });
+      editor.tf.setNodes({ width: 50 }, { at: secondColumnPath });
+
       // Move the target element into its column
       editor.tf.moveNodes({
         at: [],
@@ -149,22 +312,18 @@ export const onDropNode = (
         dragItem.element &&
         typeof dragItem.element === "object"
       ) {
-        // Handle external node insertion
-        if (Array.isArray(dragItem.element)) {
-          dragItem.element.forEach((elem, index) => {
-            editor.tf.insertNodes(elem, {
-              at: [...draggedColumnPath, index],
-            });
+        const elements = clonePaletteDropElements(dragItem.element);
+
+        elements.forEach((elem, index) => {
+          editor.tf.insertNodes(elem, {
+            at: [...draggedColumnPath, index],
           });
-        } else {
-          editor.tf.insertNodes(dragItem.element as TElement, {
-            at: [...draggedColumnPath, 0],
-          });
-        }
+        });
+        trackPaletteDrop(getElementId(elements[0]));
       } else {
         // Move all dragged nodes into the dragged column
         const nodesToMove: TElement[] = [];
-        draggedElementIds.forEach((id) => {
+        draggedElementIdSet.forEach((id) => {
           const entry = editor.api.node({ id, at: [] });
           if (entry) {
             nodesToMove.push(entry[0] as TElement);
@@ -175,23 +334,15 @@ export const onDropNode = (
           editor.tf.moveNodes({
             at: [],
             to: [...draggedColumnPath, 0],
-            match: (n) => draggedElementIds.has(n.id as string),
+            match: (n) => draggedElementIdSet.has(n.id as string),
           });
         }
       }
 
-      // Update siblings for dropped elements
-      draggedElementIds.forEach((id) => {
-        const entry = editor.api.node({ id });
-        const node = entry?.[0];
-
-        if (node && typeof node === "object" && "type" in node) {
-          updateSiblingsAfterDrop(
-            editor,
-            node as TElement,
-            [...draggedColumnPath, 0],
-          );
-        }
+      // Resolve by id after the move. Adjacent same-parent moves can make the
+      // requested target path stale once Slate applies path transforms.
+      draggedElementIdSet.forEach((id) => {
+        updateSiblingsAfterDropById(editor, id);
       });
     });
 
@@ -203,21 +354,29 @@ export const onDropNode = (
 
   if (draggedIds.length > 1) {
     // Handle multi-node drop
-    const draggedElementIds = new Set(draggedIds);
+    const draggedElementIdSet = new Set(draggedElementIds);
+    const draggedPathRefs = draggedElementIds.flatMap((id) => {
+      const entry = editor.api.node({ id, at: [] });
+
+      return entry ? [editor.api.pathRef(entry[1])] : [];
+    });
 
     editor.tf.moveNodes({
       at: [],
       to,
-      match: (n) => draggedElementIds.has(n.id as string),
+      match: (n) => draggedElementIdSet.has(n.id as string),
     });
 
-    // Update siblings for dropped elements
-    draggedElementIds.forEach((id) => {
-      const entry = editor.api.node({ id });
-      const node = entry?.[0];
+    draggedPathRefs.forEach((pathRef, index) => {
+      const droppedPath = pathRef.unref();
 
-      if (node && typeof node === "object" && "type" in node) {
-        updateSiblingsAfterDrop(editor, node as TElement, to);
+      if (droppedPath) {
+        updateDroppedElementAfterDrop(editor, droppedPath);
+      }
+
+      const droppedElementId = draggedElementIds[index];
+      if (droppedElementId) {
+        updateSiblingsAfterDropById(editor, droppedElementId);
       }
     });
   } else if (
@@ -226,22 +385,102 @@ export const onDropNode = (
     typeof dragItem.element === "object"
   ) {
     // External node - insert at position
-    editor.tf.insertNodes(dragItem.element as TElement, {
+    const elements = clonePaletteDropElements(dragItem.element);
+    const firstElement = elements[0];
+
+    if (!firstElement) return;
+
+    editor.tf.insertNodes(elements.length === 1 ? firstElement : elements, {
       at: to,
     });
+    trackPaletteDrop(getElementId(firstElement));
+
+    const insertionIndex = to.at(-1);
+    if (typeof insertionIndex === "number") {
+      elements.forEach((_, index) => {
+        updateDroppedElementAfterDrop(editor, [
+          ...to.slice(0, -1),
+          insertionIndex + index,
+        ]);
+      });
+    }
   } else if (dragPath) {
+    const droppedPathRef = editor.api.pathRef(dragPath);
+
     // Single node drop - standard move
     editor.tf.moveNodes({
       at: dragPath,
       to,
     });
 
-    // Update siblings for dropped element
-    const droppedElement = editor.api.node(to);
-    const node = droppedElement?.[0];
+    const droppedPath = droppedPathRef.unref();
+    const droppedElementId = draggedElementIds[0];
 
-    if (node && typeof node === "object" && "type" in node) {
-      updateSiblingsAfterDrop(editor, node as TElement, to);
+    if (droppedPath) {
+      updateDroppedElementAfterDrop(editor, droppedPath);
+    }
+
+    if (droppedElementId) {
+      updateSiblingsAfterDropById(editor, droppedElementId);
     }
   }
 };
+
+function getContainingColumnItemPath(
+  editor: PlateEditor,
+  path: Path,
+): Path | undefined {
+  let currentPath = path;
+
+  while (currentPath.length > 0) {
+    const node = NodeApi.get(editor, currentPath);
+
+    if (isElementNode(node) && node.type === COLUMN_ITEM) {
+      const parentPath = PathApi.parent(currentPath);
+      const parent = NodeApi.get(editor, parentPath);
+
+      if (isElementNode(parent) && parent.type === COLUMN_GROUP) {
+        return currentPath;
+      }
+    }
+
+    currentPath = PathApi.parent(currentPath);
+  }
+
+  return undefined;
+}
+
+function isElementNode(node: unknown): node is TElement {
+  return (
+    typeof node === "object" &&
+    node !== null &&
+    "type" in node &&
+    "children" in node
+  );
+}
+
+function getColumnWidths(columnGroup: TElement): number[] {
+  const columns = columnGroup.children.filter(
+    (child): child is TElement =>
+      isElementNode(child) && child.type === COLUMN_ITEM,
+  );
+  const fallbackWidth = 100 / Math.max(columns.length, 1);
+
+  return columns.map(
+    (column) => parseColumnWidth(column.width) ?? fallbackWidth,
+  );
+}
+
+function parseColumnWidth(width: unknown): number | null {
+  if (width === undefined || width === null) return null;
+
+  const parsed = Number.parseFloat(String(width));
+
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+
+  return parsed;
+}
+
+function roundWidth(width: number): number {
+  return Math.round(width * 100) / 100;
+}

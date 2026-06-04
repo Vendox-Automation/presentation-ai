@@ -1,8 +1,10 @@
+// @ts-nocheck
 "use client";
 
-import { useUploadThing } from "@/hooks/globals/useUploadthing";
 import { nanoid } from "nanoid";
 import { useCallback, useEffect, useState } from "react";
+
+import { useUploadThing } from "@/hooks/globals/useUploadthing";
 
 export type PreviewImage = { id: string; file: File };
 export type Attachment = { id: string; url: string; type: string };

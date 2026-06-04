@@ -1,7 +1,6 @@
-import { type TSuggestionText } from "platejs";
-import { type SlateLeafProps, SlateLeaf } from "platejs/static";
-
 import { BaseSuggestionPlugin } from "@platejs/suggestion";
+import { type TSuggestionText } from "platejs";
+import { SlateLeaf, type SlateLeafProps } from "platejs/static";
 
 import { cn } from "@/lib/utils";
 
@@ -32,5 +31,3 @@ export function SuggestionLeafStatic(props: SlateLeafProps<TSuggestionText>) {
     </SlateLeaf>
   );
 }
-
-

@@ -1,13 +1,15 @@
+import { useEffect, useRef, useState } from "react";
+
 import { FontLoader } from "@/components/plate/utils/font-loader";
 import { usePresentationTheme } from "@/components/presentation/providers/PresentationThemeProvider";
+import { resolvePresentationThemeData } from "@/lib/presentation/theme-resolution";
 import {
   setThemeVariables,
-  themes,
   type ThemeProperties,
+  type themes,
 } from "@/lib/presentation/themes";
 import { cn } from "@/lib/utils";
 import { usePresentationState } from "@/states/presentation-state";
-import { useEffect, useRef, useState } from "react";
 
 interface ThemeBackgroundProps {
   className?: string;
@@ -16,6 +18,7 @@ interface ThemeBackgroundProps {
   themeModeOverride?: "light" | "dark";
   themeDataOverride?: ThemeProperties;
   suppressThemeUpdates?: boolean;
+  ignorePageBackgroundOverride?: boolean;
 }
 
 export function ThemeBackground({
@@ -25,6 +28,7 @@ export function ThemeBackground({
   themeModeOverride,
   themeDataOverride,
   suppressThemeUpdates,
+  ignorePageBackgroundOverride = false,
 }: ThemeBackgroundProps) {
   const presentationTheme = usePresentationState((s) => s.theme);
   const customThemeData = usePresentationState((s) => s.customThemeData);
@@ -35,8 +39,10 @@ export function ThemeBackground({
   const themeBackgroundRef = useRef<HTMLDivElement>(null);
 
   const theme = themeOverride ?? presentationTheme;
-  const themeMode = themeModeOverride ?? resolvedTheme;
-  const themeData = themeDataOverride ?? customThemeData;
+  const themeData =
+    themeDataOverride ??
+    resolvePresentationThemeData({ customThemeData, theme });
+  const themeMode = themeModeOverride ?? themeData?.mode ?? resolvedTheme;
 
   const isDark = themeMode === "dark";
   const [mounted, setMounted] = useState(false);
@@ -51,14 +57,7 @@ export function ThemeBackground({
     if (mounted && (theme || themeData)) {
       // Check if we're using a custom theme or a predefined theme
       if (themeData) {
-        // Use custom theme data
         setThemeVariables(themeData, themeBackgroundRef.current ?? undefined);
-      } else if (typeof theme === "string" && theme in themes) {
-        // Use predefined theme
-        setThemeVariables(
-          themes[theme as keyof typeof themes],
-          themeBackgroundRef.current ?? undefined,
-        );
       }
     }
   }, [theme, JSON.stringify(themeData), isDark, mounted]);
@@ -72,11 +71,7 @@ export function ThemeBackground({
     let currentThemeData: ThemeProperties | null = null;
 
     // Get the current theme data
-    if (themeData) {
-      currentThemeData = themeData;
-    } else if (typeof theme === "string" && theme in themes) {
-      currentThemeData = themes[theme as keyof typeof themes];
-    }
+    currentThemeData = themeData ?? null;
 
     // Sync the theme mode to match presentation theme mode
     if (currentThemeData) {
@@ -95,12 +90,7 @@ export function ThemeBackground({
   ]);
 
   // Get the current theme colors
-  let currentTheme: ThemeProperties | undefined;
-  if (themeData) {
-    currentTheme = themeData;
-  } else if (typeof theme === "string" && theme in themes) {
-    currentTheme = themes[theme as keyof typeof themes];
-  }
+  const currentTheme: ThemeProperties | undefined = themeData ?? undefined;
 
   if (!currentTheme || !mounted) {
     return (
@@ -119,7 +109,7 @@ export function ThemeBackground({
   // Note: We don't use colors.background here because that's the slide color,
   // and we want the theme background to be independent
   const computedBackground =
-    pageBackground.backgroundOverride || // User override takes priority
+    (!ignorePageBackgroundOverride && pageBackground.backgroundOverride) ||
     themeBackground?.override || // Theme background
     (isDark ? "#0a0a0a" : "#ffffff"); // Neutral fallback (not tied to slide color)
 

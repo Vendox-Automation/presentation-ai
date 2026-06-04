@@ -1,11 +1,9 @@
 "use client";
 
-import { type TAudioElement } from "platejs";
-import { type PlateElementProps } from "platejs/react";
-
 import { useMediaState } from "@platejs/media/react";
 import { ResizableProvider } from "@platejs/resizable";
-import { PlateElement, withHOC } from "platejs/react";
+import { type TAudioElement } from "platejs";
+import { PlateElement, withHOC, type PlateElementProps } from "platejs/react";
 
 import { Caption, CaptionTextarea } from "./caption";
 
@@ -21,7 +19,14 @@ export const AudioElement = withHOC(
           contentEditable={false}
         >
           <div className="h-16">
-            <audio className="size-full" src={unsafeUrl} controls />
+            <audio
+              aria-label="media audio node control"
+              className="size-full"
+              src={unsafeUrl}
+              controls
+            >
+              <track kind="captions" src="data:text/vtt,WEBVTT%0A" />
+            </audio>
           </div>
 
           <Caption style={{ width: "100%" }} align={align}>

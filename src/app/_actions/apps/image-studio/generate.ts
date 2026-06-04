@@ -1,25 +1,18 @@
 "use server";
 
-import {
-  generateImageAction as generateTogetherImageAction,
-  type ImageModelList as TogetherImageModelList,
-} from "@/app/_actions/image/generate";
 import { utapi } from "@/app/api/uploadthing/core";
+import {
+  DEFAULT_IMAGE_MODEL,
+  getFalImageGenerationInput,
+  type ImageAspectRatio,
+  type ImageModelList,
+} from "@/constants/image-models";
 import { env } from "@/env";
 import { requireOptionalIntegration } from "@/lib/env/optional-integrations";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { fal } from "@fal-ai/client";
 import { UTFile } from "uploadthing/server";
-
-export type FalImageModelList =
-  | "fal-ai/flux-2/flash"
-  | "fal-ai/flux-2/turbo"
-  | "fal-ai/flux/dev"
-  | "fal-ai/flux-2-pro"
-  | "fal-ai/nano-banana-pro";
-
-export type ImageModelList = TogetherImageModelList | FalImageModelList;
 
 async function persistGeneratedImage(
   imageUrl: string,
@@ -53,8 +46,9 @@ async function persistGeneratedImage(
 
 async function generateFalImage(
   prompt: string,
-  model: FalImageModelList,
+  model: ImageModelList,
   userId: string,
+  aspectRatio: ImageAspectRatio,
 ) {
   const falConfig = requireOptionalIntegration({
     integration: "FAL",
@@ -75,11 +69,7 @@ async function generateFalImage(
   });
 
   const result = await fal.subscribe(model, {
-    input: {
-      prompt,
-      num_images: 1,
-      aspect_ratio: "1:1",
-    },
+    input: getFalImageGenerationInput({ model, prompt, aspectRatio }),
   });
 
   const imageUrl = result.data?.images?.[0]?.url;
@@ -97,7 +87,8 @@ async function generateFalImage(
 
 export async function generateImageAction(
   prompt: string,
-  model: ImageModelList = "fal-ai/flux-2/flash",
+  model: ImageModelList = DEFAULT_IMAGE_MODEL,
+  aspectRatio: ImageAspectRatio = "16:9",
 ) {
   const session = await auth();
 
@@ -109,17 +100,12 @@ export async function generateImageAction(
   }
 
   try {
-    if (model.startsWith("fal-ai/")) {
-      return await generateFalImage(
-        prompt,
-        model as FalImageModelList,
-        session.user.id,
-      );
-    }
-
-    return await generateTogetherImageAction(
+    const actualModel = session.user.isAdmin ? model : DEFAULT_IMAGE_MODEL;
+    return await generateFalImage(
       prompt,
-      model as TogetherImageModelList,
+      actualModel,
+      session.user.id,
+      aspectRatio,
     );
   } catch (error) {
     console.error("Error generating image:", error);

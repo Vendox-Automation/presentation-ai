@@ -14,6 +14,14 @@ export async function searchPixabayImages(
   return { success: true, images: [] };
 }
 
+export async function getTrendingPixabayImages(): Promise<{
+  success: boolean;
+  images?: PixabayImage[];
+  error?: string;
+}> {
+  return { success: true, images: [] };
+}
+
 export async function getImageFromPixabay(
   query: string,
   _layoutType?: string,

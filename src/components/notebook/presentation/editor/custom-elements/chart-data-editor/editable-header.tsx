@@ -1,6 +1,7 @@
 import { X } from "lucide-react";
 import type React from "react";
 import { useEffect, useState } from "react";
+
 import { ChartTypePicker } from "./chart-type-picker";
 import { type SeriesChartType } from "./types";
 
@@ -32,7 +33,7 @@ export function EditableHeader({
     setLocalValue(value);
   }, [value]);
 
-  const handleBlur = () => {
+  const commitHeaderRename = () => {
     setIsEditing(false);
     if (localValue.trim() && localValue !== value) {
       onRename(localValue);
@@ -61,20 +62,22 @@ export function EditableHeader({
         <ChartTypePicker value={chartType} onChange={onChartTypeChange} />
       )}
       <input
+        aria-label="editable header control"
         value={localValue}
         onChange={(e) => setLocalValue(e.target.value)}
-        onBlur={handleBlur}
+        onBlur={commitHeaderRename}
         onFocus={() => setIsEditing(true)}
         onKeyDown={handleKeyDown}
-        className={`h-6 min-w-0 flex-1 border-0 bg-transparent px-1 text-xs font-semibold outline-hidden ${isEditing ? "bg-background ring-1 ring-primary" : ""} truncate focus:bg-background focus:ring-1 focus:ring-primary`}
+        className={`h-6 min-w-0 flex-1 border-0 bg-transparent px-1 text-xs font-semibold outline-none ${isEditing ? "bg-background ring ring-primary" : ""} truncate focus:bg-background focus:ring focus:ring-primary`}
         placeholder="Series"
       />
       {canRemove && (
         <button
+          type="button"
           onClick={onRemove}
           className="p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
         >
-          <X className="h-3 w-3" />
+          <X className="size-3" />
         </button>
       )}
     </div>

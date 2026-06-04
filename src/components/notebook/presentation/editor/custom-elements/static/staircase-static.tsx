@@ -1,4 +1,4 @@
-import { type SlateElementProps, SlateElement } from "platejs/static";
+import { SlateElement, type SlateElementProps } from "platejs/static";
 
 import { cn } from "@/lib/utils";
 
@@ -12,7 +12,7 @@ export default function StaircaseStatic(props: SlateElementProps) {
       {/* Container for alignment control */}
       <div
         className={cn(
-          "my-8 flex w-full",
+          "my-0 flex w-full",
           // Apply alignment to the container, not the staircase structure
           alignment === "left" && "justify-start",
           alignment === "right" && "justify-end",
@@ -20,10 +20,8 @@ export default function StaircaseStatic(props: SlateElementProps) {
         )}
       >
         {/* Staircase structure - always full width, vertical flow */}
-        <div className="w-full">{props.children}</div>
+        <div className="flex w-full flex-col gap-2">{props.children}</div>
       </div>
     </SlateElement>
   );
 }
-
-

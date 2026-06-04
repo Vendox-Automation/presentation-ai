@@ -1,24 +1,14 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useDebouncedSave } from "@/hooks/presentation/useDebouncedSave";
-import { cn } from "@/lib/utils";
-import { usePresentationState } from "@/states/presentation-state";
 import { Check, Edit3, Trash2 } from "lucide-react";
-import { useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 
 import {
   ChartDataEditorDialog,
@@ -26,6 +16,10 @@ import {
   type ChartDataType,
   type SeriesChartType,
 } from "@/components/notebook/presentation/editor/custom-elements/chart-data-editor-dialog";
+import {
+  sanitizeSankeyCycleData,
+  type RemovedSankeyCycleLink,
+} from "@/components/notebook/presentation/editor/custom-elements/chart-utils";
 import {
   AREA_CHART_ELEMENT,
   areChartTypesCompatible,
@@ -38,6 +32,7 @@ import {
   CONE_FUNNEL_CHART_ELEMENT,
   DONUT_CHART_ELEMENT,
   FUNNEL_CHART_ELEMENT,
+  getChartDataCategory,
   HEATMAP_CHART_ELEMENT,
   HISTOGRAM_CHART_ELEMENT,
   LINE_CHART_ELEMENT,
@@ -58,8 +53,37 @@ import {
   TREEMAP_CHART_ELEMENT,
   WATERFALL_CHART_ELEMENT,
 } from "@/components/notebook/presentation/editor/lib";
+import { PALETTE_DROP_MUTABLE_KEY } from "@/components/notebook/presentation/editor/utils/paletteDrop";
 import { BlurInput } from "@/components/ui/blur-input";
-import { ChartPreview } from "./ChartPreview";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useDebouncedSave } from "@/hooks/presentation/useDebouncedSave";
+import { cn } from "@/lib/utils";
+import { usePresentationState } from "@/states/presentation-state";
+import { InteractiveChartPreview } from "./InteractiveChartPreview";
+import { matchesPanelSearch, PanelSearchFilter } from "./PanelSearchFilter";
+
+const KEYBOARD_APPLY_DELAY_MS = 250;
 
 // Chart type display names
 const CHART_TYPE_NAMES: Record<string, string> = {
@@ -100,8 +124,8 @@ const ALL_CHART_TYPES = [
   { type: DONUT_CHART_ELEMENT, name: "Donut Chart" },
   { type: RADAR_CHART_ELEMENT, name: "Radar Chart" },
   { type: RADIAL_BAR_CHART_ELEMENT, name: "Radial Bar" },
-  { type: NIGHTINGALE_CHART_ELEMENT, name: "Nightingale" },
   { type: RADIAL_COLUMN_CHART_ELEMENT, name: "Radial Column" },
+  { type: NIGHTINGALE_CHART_ELEMENT, name: "Nightingale" },
   // Cartesian charts (label + values on x/y axes)
   { type: BAR_CHART_ELEMENT, name: "Bar Chart" },
   { type: LINE_CHART_ELEMENT, name: "Line Chart" },
@@ -431,6 +455,42 @@ interface ChartEditorControlsProps {
   slideId: string;
 }
 
+type InlineChartEditorData = {
+  chartType: string;
+  chartData: unknown;
+  chartOptions: Record<string, unknown>;
+};
+
+function getChartVariantGroupName(type: string) {
+  if (type === BAR_CHART_ELEMENT) return "Bar Charts";
+  if (type === LINE_CHART_ELEMENT) return "Line Charts";
+  if (type === AREA_CHART_ELEMENT) return "Area Charts";
+  if (type === FUNNEL_CHART_ELEMENT) return "Funnel Charts";
+  if (type === RANGE_BAR_CHART_ELEMENT) return "Range Charts";
+  if (type === LINEAR_GAUGE_ELEMENT) return "Gauge Charts";
+  if (type === RADIAL_GAUGE_ELEMENT) return "Gauge Charts";
+  if (
+    type === RADIAL_BAR_CHART_ELEMENT ||
+    type === NIGHTINGALE_CHART_ELEMENT ||
+    type === RADIAL_COLUMN_CHART_ELEMENT
+  ) {
+    return "Polar Charts";
+  }
+  if (type === PIE_CHART_ELEMENT || type === DONUT_CHART_ELEMENT) {
+    return "Pie Charts";
+  }
+  if (type === TREEMAP_CHART_ELEMENT || type === SUNBURST_CHART_ELEMENT) {
+    return "Hierarchical Charts";
+  }
+  if (type === SCATTER_CHART_ELEMENT || type === BUBBLE_CHART_ELEMENT) {
+    return "Coordinate Charts";
+  }
+  if (type === SANKEY_CHART_ELEMENT || type === CHORD_CHART_ELEMENT) {
+    return "Flow Charts";
+  }
+  return CHART_TYPE_NAMES[type] || "Charts";
+}
+
 export function ChartEditorControls({ slideId }: ChartEditorControlsProps) {
   const { saveImmediately } = useDebouncedSave();
   const slides = usePresentationState((s) => s.slides);
@@ -441,9 +501,30 @@ export function ChartEditorControls({ slideId }: ChartEditorControlsProps) {
   // Get inline chart editor data from state (when editing inline chart elements)
   const chartEditorData = usePresentationState((s) => s.chartEditorData);
   const boundUpdateElement = usePresentationState((s) => s.boundUpdateElement);
+  const setPaletteDropTarget = usePresentationState(
+    (s) => s.setPaletteDropTarget,
+  );
+  const [inlineChartEditorData, setInlineChartEditorData] =
+    useState<InlineChartEditorData | null>(chartEditorData);
+  const [removedSankeyLinks, setRemovedSankeyLinks] = useState<
+    RemovedSankeyCycleLink[]
+  >([]);
+  const [focusedChartVariantIndex, setFocusedChartVariantIndex] = useState(0);
+  const [chartSearchQuery, setChartSearchQuery] = useState("");
+  const chartVariantRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const applyChartVariantTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+
+  useEffect(() => {
+    setInlineChartEditorData(chartEditorData);
+  }, [chartEditorData]);
 
   // Determine if we're editing an inline chart (via boundUpdateElement) or root image chart
   const isInlineChartEditing = !!boundUpdateElement && !!chartEditorData;
+  const activeInlineChartData = isInlineChartEditing
+    ? inlineChartEditorData
+    : null;
 
   // Get current slide data for root image chart editing
   const currentSlide = slides.find((s) => s.id === slideId);
@@ -451,13 +532,13 @@ export function ChartEditorControls({ slideId }: ChartEditorControlsProps) {
 
   // Chart properties - use chartEditorData for inline charts, rootImage for root image charts
   const chartType = isInlineChartEditing
-    ? chartEditorData.chartType
+    ? (activeInlineChartData?.chartType ?? "")
     : (rootImage?.chartType ?? "");
   const chartData = isInlineChartEditing
-    ? (chartEditorData.chartData as ChartDataType | undefined)
+    ? (activeInlineChartData?.chartData as ChartDataType | undefined)
     : (rootImage?.chartData as ChartDataType | undefined);
   const chartOptions = isInlineChartEditing
-    ? chartEditorData.chartOptions
+    ? (activeInlineChartData?.chartOptions ?? {})
     : ((rootImage?.chartOptions ?? {}) as Record<string, unknown>);
 
   const normalizeTitle = (title?: AxisConfig["title"]) =>
@@ -466,8 +547,68 @@ export function ChartEditorControls({ slideId }: ChartEditorControlsProps) {
   const yAxisConfig = (chartOptions?.yAxis as AxisConfig) ?? {};
 
   // Get compatible chart types for conversion
-  const compatibleChartTypes = ALL_CHART_TYPES.filter((chart) =>
-    areChartTypesCompatible(chartType, chart.type),
+  const compatibleChartTypes = useMemo(
+    () =>
+      ALL_CHART_TYPES.filter((chart) =>
+        areChartTypesCompatible(chartType, chart.type),
+      ),
+    [chartType],
+  );
+  const chartVariants = useMemo(
+    () => generateChartVariants(compatibleChartTypes),
+    [compatibleChartTypes],
+  );
+  const filteredChartVariants = useMemo(
+    () =>
+      chartVariants.filter((variant) => {
+        const groupName = getChartVariantGroupName(variant.type);
+
+        return matchesPanelSearch(chartSearchQuery, [
+          variant.name,
+          variant.type,
+          groupName,
+        ]);
+      }),
+    [chartSearchQuery, chartVariants],
+  );
+  const groupedChartVariants = useMemo(() => {
+    return filteredChartVariants.reduce<Record<string, ChartVariant[]>>(
+      (acc, variant) => {
+        const groupName = getChartVariantGroupName(variant.type);
+        const group = acc[groupName] ?? [];
+
+        group.push(variant);
+        acc[groupName] = group;
+        return acc;
+      },
+      {},
+    );
+  }, [filteredChartVariants]);
+
+  useEffect(() => {
+    chartVariantRefs.current = chartVariantRefs.current.slice(
+      0,
+      filteredChartVariants.length,
+    );
+  }, [filteredChartVariants.length]);
+
+  useEffect(() => {
+    setFocusedChartVariantIndex(0);
+  }, [chartSearchQuery]);
+
+  useEffect(() => {
+    window.requestAnimationFrame(() => {
+      chartVariantRefs.current[focusedChartVariantIndex]?.focus();
+    });
+  }, [focusedChartVariantIndex]);
+
+  useEffect(
+    () => () => {
+      if (applyChartVariantTimeoutRef.current) {
+        clearTimeout(applyChartVariantTimeoutRef.current);
+      }
+    },
+    [],
   );
 
   // Chart title and subtitle
@@ -596,13 +737,36 @@ export function ChartEditorControls({ slideId }: ChartEditorControlsProps) {
 
   // Determine chart data mode
   const chartDataMode: ChartDataMode =
-    chartType === "chart-scatter" ? "xy" : "multi-series";
+    (getChartDataCategory(chartType) as ChartDataMode | null) ?? "categorical";
+
+  const updateInlineChartEditorData = useCallback(
+    (updates: Partial<InlineChartEditorData>) => {
+      setInlineChartEditorData((current) =>
+        current
+          ? {
+              ...current,
+              ...updates,
+              chartOptions: updates.chartOptions ?? current.chartOptions,
+            }
+          : current,
+      );
+    },
+    [],
+  );
 
   // Update chart options handler
   const updateChartOption = (key: string, value: unknown) => {
     // For inline charts, use boundUpdateElement
+    setPaletteDropTarget(null);
+
     if (isInlineChartEditing && boundUpdateElement) {
-      boundUpdateElement({ [key]: value });
+      boundUpdateElement({ [key]: value, [PALETTE_DROP_MUTABLE_KEY]: false });
+      updateInlineChartEditorData({
+        chartOptions: {
+          ...chartOptions,
+          [key]: value,
+        },
+      });
       return;
     }
 
@@ -620,6 +784,7 @@ export function ChartEditorControls({ slideId }: ChartEditorControlsProps) {
                   ...slide.rootImage?.chartOptions,
                   [key]: value,
                 },
+                paletteDropMutable: false,
               },
             }
           : slide,
@@ -631,8 +796,16 @@ export function ChartEditorControls({ slideId }: ChartEditorControlsProps) {
   // Update multiple chart options handler
   const updateChartOptions = (updates: Record<string, unknown>) => {
     // For inline charts, use boundUpdateElement
+    setPaletteDropTarget(null);
+
     if (isInlineChartEditing && boundUpdateElement) {
-      boundUpdateElement(updates);
+      boundUpdateElement({ ...updates, [PALETTE_DROP_MUTABLE_KEY]: false });
+      updateInlineChartEditorData({
+        chartOptions: {
+          ...chartOptions,
+          ...updates,
+        },
+      });
       return;
     }
 
@@ -650,6 +823,7 @@ export function ChartEditorControls({ slideId }: ChartEditorControlsProps) {
                   ...slide.rootImage?.chartOptions,
                   ...updates,
                 },
+                paletteDropMutable: false,
               },
             }
           : slide,
@@ -661,8 +835,14 @@ export function ChartEditorControls({ slideId }: ChartEditorControlsProps) {
   // Update chart data handler
   const handleChartDataUpdate = (newData: ChartDataType) => {
     // For inline charts, use boundUpdateElement
+    setPaletteDropTarget(null);
+
     if (isInlineChartEditing && boundUpdateElement) {
-      boundUpdateElement({ data: newData });
+      boundUpdateElement({
+        data: newData,
+        [PALETTE_DROP_MUTABLE_KEY]: false,
+      });
+      updateInlineChartEditorData({ chartData: newData });
       return;
     }
 
@@ -677,6 +857,7 @@ export function ChartEditorControls({ slideId }: ChartEditorControlsProps) {
               rootImage: {
                 ...slide.rootImage!,
                 chartData: newData,
+                paletteDropMutable: false,
               },
             }
           : slide,
@@ -722,6 +903,7 @@ export function ChartEditorControls({ slideId }: ChartEditorControlsProps) {
   // Remove chart handler
   const handleRemoveChart = () => {
     if (!currentSlide) return;
+    setPaletteDropTarget(null);
 
     setSlides(
       slides.map((slide) =>
@@ -733,6 +915,7 @@ export function ChartEditorControls({ slideId }: ChartEditorControlsProps) {
                 chartType: undefined,
                 chartData: undefined,
                 chartOptions: undefined,
+                paletteDropMutable: false,
               },
             }
           : slide,
@@ -741,6 +924,176 @@ export function ChartEditorControls({ slideId }: ChartEditorControlsProps) {
     void saveImmediately();
     closeChartEditor();
   };
+
+  const applyChartVariant = useCallback(
+    (chartVariant: ChartVariant) => {
+      if (applyChartVariantTimeoutRef.current) {
+        clearTimeout(applyChartVariantTimeoutRef.current);
+        applyChartVariantTimeoutRef.current = null;
+      }
+
+      const nextOptions = chartVariant.options ?? {};
+      const sankeySanitization =
+        chartVariant.type === SANKEY_CHART_ELEMENT
+          ? sanitizeSankeyCycleData(chartData)
+          : null;
+      const nextChartData = sankeySanitization?.data ?? chartData;
+
+      if (sankeySanitization && sankeySanitization.removedLinks.length > 0) {
+        setRemovedSankeyLinks(sankeySanitization.removedLinks);
+      }
+
+      setPaletteDropTarget(null);
+
+      if (isInlineChartEditing && boundUpdateElement) {
+        boundUpdateElement(
+          chartVariant.type !== chartType
+            ? {
+                type: chartVariant.type,
+                data: nextChartData,
+                ...nextOptions,
+                [PALETTE_DROP_MUTABLE_KEY]: false,
+              }
+            : {
+                data: nextChartData,
+                ...nextOptions,
+                [PALETTE_DROP_MUTABLE_KEY]: false,
+              },
+        );
+        updateInlineChartEditorData({
+          chartType: chartVariant.type,
+          chartData: nextChartData,
+          chartOptions: {
+            ...chartOptions,
+            ...nextOptions,
+          },
+        });
+        return;
+      }
+
+      if (!currentSlide) return;
+
+      setSlides(
+        slides.map((slide) =>
+          slide.id === slideId
+            ? {
+                ...slide,
+                rootImage: {
+                  ...slide.rootImage!,
+                  ...(chartVariant.type !== chartType
+                    ? { chartType: chartVariant.type }
+                    : {}),
+                  chartData: nextChartData,
+                  chartOptions: {
+                    ...slide.rootImage?.chartOptions,
+                    ...nextOptions,
+                  },
+                  paletteDropMutable: false,
+                },
+              }
+            : slide,
+        ),
+      );
+      void saveImmediately();
+    },
+    [
+      boundUpdateElement,
+      chartData,
+      chartOptions,
+      chartType,
+      currentSlide,
+      isInlineChartEditing,
+      saveImmediately,
+      setSlides,
+      setPaletteDropTarget,
+      slideId,
+      slides,
+      updateInlineChartEditorData,
+    ],
+  );
+
+  const scheduleChartVariantApply = useCallback(
+    (chartVariant: ChartVariant, index: number) => {
+      if (applyChartVariantTimeoutRef.current) {
+        clearTimeout(applyChartVariantTimeoutRef.current);
+      }
+
+      applyChartVariantTimeoutRef.current = setTimeout(() => {
+        applyChartVariantTimeoutRef.current = null;
+        applyChartVariant(chartVariant);
+
+        window.requestAnimationFrame(() => {
+          chartVariantRefs.current[index]?.focus();
+        });
+      }, KEYBOARD_APPLY_DELAY_MS);
+    },
+    [applyChartVariant],
+  );
+
+  const focusChartVariant = useCallback(
+    (nextIndex: number, shouldApply = false) => {
+      if (filteredChartVariants.length === 0) return;
+
+      const boundedIndex =
+        (nextIndex + filteredChartVariants.length) %
+        filteredChartVariants.length;
+      const chartVariant = filteredChartVariants[boundedIndex];
+
+      setFocusedChartVariantIndex(boundedIndex);
+
+      if (shouldApply && chartVariant) {
+        scheduleChartVariantApply(chartVariant, boundedIndex);
+      }
+
+      window.requestAnimationFrame(() => {
+        chartVariantRefs.current[boundedIndex]?.scrollIntoView({
+          block: "nearest",
+          behavior: "smooth",
+        });
+        chartVariantRefs.current[boundedIndex]?.focus();
+      });
+    },
+    [filteredChartVariants, scheduleChartVariantApply],
+  );
+
+  const handleChartVariantKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+      switch (event.key) {
+        case "ArrowLeft":
+        case "ArrowUp":
+          event.preventDefault();
+          event.stopPropagation();
+          focusChartVariant(index - 1, true);
+          break;
+        case "ArrowRight":
+        case "ArrowDown":
+          event.preventDefault();
+          event.stopPropagation();
+          focusChartVariant(index + 1, true);
+          break;
+        case "Home":
+          event.preventDefault();
+          event.stopPropagation();
+          focusChartVariant(0, true);
+          break;
+        case "End":
+          event.preventDefault();
+          event.stopPropagation();
+          focusChartVariant(filteredChartVariants.length - 1, true);
+          break;
+        case "Enter": {
+          event.preventDefault();
+          event.stopPropagation();
+          const chartVariant = filteredChartVariants[index];
+          if (chartVariant) {
+            applyChartVariant(chartVariant);
+          }
+          break;
+        }
+      }
+    },
+    [applyChartVariant, filteredChartVariants, focusChartVariant],
+  );
 
   // If no chart data, show empty state
   if (!chartType || !chartData) {
@@ -779,73 +1132,25 @@ export function ChartEditorControls({ slideId }: ChartEditorControlsProps) {
                 </p>
               </div>
 
-              {/* Group variants by base chart type */}
-              {(() => {
-                const variants = generateChartVariants(compatibleChartTypes);
+              <PanelSearchFilter
+                className="-mx-6 border-y"
+                onQueryChange={setChartSearchQuery}
+                placeholder="Search chart types..."
+                query={chartSearchQuery}
+              />
 
-                // Get the chart type display name
-                const getGroupName = (type: string) => {
-                  if (type === BAR_CHART_ELEMENT) return "Bar Charts";
-                  if (type === LINE_CHART_ELEMENT) return "Line Charts";
-                  if (type === AREA_CHART_ELEMENT) return "Area Charts";
-                  if (type === FUNNEL_CHART_ELEMENT) return "Funnel Charts";
-                  if (type === RANGE_BAR_CHART_ELEMENT) return "Range Charts";
-                  if (type === LINEAR_GAUGE_ELEMENT) return "Gauge Charts";
-                  if (type === RADIAL_GAUGE_ELEMENT) return "Gauge Charts";
-                  // Group polar charts together
-                  if (
-                    type === RADIAL_BAR_CHART_ELEMENT ||
-                    type === NIGHTINGALE_CHART_ELEMENT ||
-                    type === RADIAL_COLUMN_CHART_ELEMENT
-                  )
-                    return "Polar Charts";
-                  // Group pie charts together
-                  if (
-                    type === PIE_CHART_ELEMENT ||
-                    type === DONUT_CHART_ELEMENT
-                  )
-                    return "Pie Charts";
-                  // Group hierarchical charts
-                  if (
-                    type === TREEMAP_CHART_ELEMENT ||
-                    type === SUNBURST_CHART_ELEMENT
-                  )
-                    return "Hierarchical Charts";
-                  // Group coordinate charts
-                  if (
-                    type === SCATTER_CHART_ELEMENT ||
-                    type === BUBBLE_CHART_ELEMENT
-                  )
-                    return "Coordinate Charts";
-                  // Group flow charts
-                  if (
-                    type === SANKEY_CHART_ELEMENT ||
-                    type === CHORD_CHART_ELEMENT
-                  )
-                    return "Flow Charts";
-                  return CHART_TYPE_NAMES[type] || "Charts";
-                };
-
-                // Group variants by display group name (not just chart type)
-                const groupedByName = variants.reduce(
-                  (acc, variant) => {
-                    const groupName = getGroupName(variant.type);
-                    if (!acc[groupName]) acc[groupName] = [];
-                    acc[groupName].push(variant);
-                    return acc;
-                  },
-                  {} as Record<string, ChartVariant[]>,
-                );
-
-                return Object.entries(groupedByName).map(
-                  ([groupName, chartVariants]) => (
+              {filteredChartVariants.length > 0 ? (
+                Object.entries(groupedChartVariants).map(
+                  ([groupName, groupChartVariants]) => (
                     <div key={groupName} className="space-y-3">
                       {/* Show group header */}
                       <h3 className="text-xs font-medium text-muted-foreground">
                         {groupName}
                       </h3>
                       <div className="grid grid-cols-2 gap-3">
-                        {chartVariants.map((variant, index) => {
+                        {groupChartVariants.map((variant) => {
+                          const absoluteIndex =
+                            filteredChartVariants.indexOf(variant);
                           // Check if this variant matches current chart type AND options
                           const isCurrentVariant =
                             chartType === variant.type &&
@@ -867,75 +1172,35 @@ export function ChartEditorControls({ slideId }: ChartEditorControlsProps) {
 
                           return (
                             <button
-                              key={`${variant.type}-${variant.name}-${index}`}
-                              onClick={() => {
-                                // For inline charts, use boundUpdateElement
-                                if (
-                                  isInlineChartEditing &&
-                                  boundUpdateElement
-                                ) {
-                                  if (variant.type !== chartType) {
-                                    // Change chart type and apply options
-                                    boundUpdateElement({
-                                      type: variant.type,
-                                      ...variant.options,
-                                    });
-                                  } else {
-                                    // Same chart type, update options only
-                                    boundUpdateElement(variant.options ?? {});
-                                  }
-                                  return;
-                                }
-
-                                // For root image charts, use setSlides
-                                if (variant.type !== chartType) {
-                                  // Change chart type and apply options
-                                  setSlides(
-                                    slides.map((slide) =>
-                                      slide.id === slideId
-                                        ? {
-                                            ...slide,
-                                            rootImage: {
-                                              ...slide.rootImage!,
-                                              chartType: variant.type,
-                                              chartOptions: {
-                                                ...slide.rootImage
-                                                  ?.chartOptions,
-                                                ...variant.options,
-                                              },
-                                            },
-                                          }
-                                        : slide,
-                                    ),
-                                  );
-                                  void saveImmediately();
-                                } else {
-                                  // Same chart type, update options directly via state
-                                  setSlides(
-                                    slides.map((slide) =>
-                                      slide.id === slideId
-                                        ? {
-                                            ...slide,
-                                            rootImage: {
-                                              ...slide.rootImage!,
-                                              chartOptions: {
-                                                ...slide.rootImage
-                                                  ?.chartOptions,
-                                                ...variant.options,
-                                              },
-                                            },
-                                          }
-                                        : slide,
-                                    ),
-                                  );
-                                  void saveImmediately();
+                              key={`${variant.type}-${variant.name}-${absoluteIndex}`}
+                              ref={(node) => {
+                                if (absoluteIndex >= 0) {
+                                  chartVariantRefs.current[absoluteIndex] =
+                                    node;
                                 }
                               }}
+                              type="button"
+                              aria-pressed={isCurrentVariant}
+                              tabIndex={
+                                absoluteIndex === focusedChartVariantIndex
+                                  ? 0
+                                  : -1
+                              }
+                              data-panel-arrow-target="true"
+                              onClick={() => applyChartVariant(variant)}
+                              onFocus={() =>
+                                setFocusedChartVariantIndex(absoluteIndex)
+                              }
+                              onKeyDown={(event) =>
+                                handleChartVariantKeyDown(event, absoluteIndex)
+                              }
                               className={cn(
-                                "group relative flex flex-col items-center justify-center gap-2 rounded-lg border-2 p-3 transition-all hover:border-primary/50 hover:bg-accent",
+                                "group relative flex flex-col items-center justify-center gap-2 rounded-lg border-2 p-3 transition-all hover:border-primary/50 hover:bg-accent focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none",
                                 isCurrentVariant
                                   ? "border-primary bg-primary/5"
                                   : "border-border",
+                                absoluteIndex === focusedChartVariantIndex &&
+                                  "ring-1 ring-primary",
                               )}
                             >
                               {isCurrentVariant && (
@@ -944,7 +1209,7 @@ export function ChartEditorControls({ slideId }: ChartEditorControlsProps) {
                                 </div>
                               )}
                               <div className="w-full overflow-hidden rounded-md bg-background/50">
-                                <ChartPreview
+                                <InteractiveChartPreview
                                   chartType={variant.type}
                                   variantOptions={variant.options}
                                   className="h-full w-full"
@@ -959,8 +1224,12 @@ export function ChartEditorControls({ slideId }: ChartEditorControlsProps) {
                       </div>
                     </div>
                   ),
-                );
-              })()}
+                )
+              ) : (
+                <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+                  No chart variants match your search.
+                </div>
+              )}
             </div>
           </TabsContent>
 
@@ -1568,6 +1837,51 @@ export function ChartEditorControls({ slideId }: ChartEditorControlsProps) {
         </ScrollArea>
       </Tabs>
 
+      <Dialog
+        open={removedSankeyLinks.length > 0}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRemovedSankeyLinks([]);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sankey cycle removed</DialogTitle>
+            <DialogDescription>
+              Sankey charts cannot contain circular flow paths. The conversion
+              was applied after removing{" "}
+              {removedSankeyLinks.length === 1
+                ? "1 link"
+                : `${removedSankeyLinks.length} links`}{" "}
+              that would create a cycle.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-md border bg-muted/30 p-3 text-sm">
+            <div className="space-y-1">
+              {removedSankeyLinks.slice(0, 4).map((link) => (
+                <div
+                  key={`${link.index}-${link.source}-${link.target}`}
+                  className="text-muted-foreground"
+                >
+                  {link.source} {"->"} {link.target}
+                </div>
+              ))}
+            </div>
+            {removedSankeyLinks.length > 4 && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {removedSankeyLinks.length - 4} more removed.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setRemovedSankeyLinks([])}>
+              Close warning
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Chart Data Editor Dialog */}
       <ChartDataEditorDialog
         open={chartDataEditorOpen}
@@ -1579,6 +1893,8 @@ export function ChartEditorControls({ slideId }: ChartEditorControlsProps) {
         isComposedChart={isComposedChart}
         seriesChartTypes={seriesChartTypes}
         onSeriesChartTypesChange={handleSeriesChartTypesUpdate}
+        previewChartType={chartType}
+        chartOptions={chartOptions}
       />
     </>
   );

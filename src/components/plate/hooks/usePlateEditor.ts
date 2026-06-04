@@ -1,5 +1,3 @@
-import React from "react";
-
 import { MarkdownPlugin } from "@platejs/markdown";
 import { type Value } from "@platejs/slate";
 import { type AnyPluginConfig } from "platejs";
@@ -8,6 +6,7 @@ import {
   type CreatePlateEditorOptions,
   type PlateEditor,
 } from "platejs/react";
+import React from "react";
 
 /**
  * Creates a memoized Plate editor for React components.

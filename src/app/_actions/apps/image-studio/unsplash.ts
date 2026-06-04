@@ -32,6 +32,8 @@ interface UnsplashResponse {
   results: UnsplashImage[];
 }
 
+type UnsplashTrendingImage = UnsplashImage;
+
 export async function searchUnsplashImages(
   query: string,
   perPage = 30,
@@ -110,6 +112,68 @@ export async function triggerUnsplashDownload(downloadLocation: string) {
   } catch (error) {
     console.error("Unsplash download trigger failed:", error);
     return { success: false };
+  }
+}
+
+export async function getTrendingUnsplashImages(
+  perPage = 30,
+  page = 1,
+): Promise<{ success: boolean; images?: UnsplashImageResult[]; error?: string }> {
+  const unsplashConfig = requireOptionalIntegration({
+    integration: "Unsplash",
+    envVar: "UNSPLASH_ACCESS_KEY",
+    value: env.UNSPLASH_ACCESS_KEY,
+    feature: "Unsplash image search",
+  });
+
+  if (!unsplashConfig.ok) {
+    return {
+      success: false,
+      error: unsplashConfig.error,
+    };
+  }
+
+  try {
+    const params = new URLSearchParams({
+      order_by: "popular",
+      page: String(page),
+      per_page: String(perPage),
+    });
+    const response = await fetch(
+      `https://api.unsplash.com/photos?${params.toString()}`,
+      {
+        headers: {
+          Authorization: `Client-ID ${unsplashConfig.value}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(`Unsplash API error: ${response.status}`);
+    }
+
+    const data = (await response.json()) as UnsplashTrendingImage[];
+
+    return {
+      success: true,
+      images: data.map((image) => ({
+        url: image.urls.regular,
+        thumb: image.urls.thumb,
+        author: image.user.name,
+        username: image.user.username,
+        downloadLocation: image.links.download_location,
+        link: image.links.html,
+      })),
+    };
+  } catch (error) {
+    console.error("Unsplash trending search failed:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to load trending Unsplash images",
+    };
   }
 }
 

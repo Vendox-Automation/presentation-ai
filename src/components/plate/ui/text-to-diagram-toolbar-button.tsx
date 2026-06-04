@@ -1,7 +1,5 @@
 "use client";
 
-import { ANTV_INFOGRAPHIC } from "@/components/notebook/presentation/editor/lib";
-import { type TAntvInfographicElement } from "@/components/notebook/presentation/editor/plugins/antv-infographic-plugin";
 import { MarkdownPlugin } from "@platejs/markdown";
 import { BlockSelectionPlugin } from "@platejs/selection/react";
 import { ZapIcon } from "lucide-react";
@@ -9,6 +7,8 @@ import { nanoid } from "platejs";
 import { useEditorRef } from "platejs/react";
 import { useCallback } from "react";
 
+import { ANTV_INFOGRAPHIC } from "@/components/notebook/presentation/editor/lib";
+import { type TAntvInfographicElement } from "@/components/notebook/presentation/editor/plugins/antv-infographic-plugin";
 import { ToolbarButton } from "./toolbar";
 
 export function TextToDiagramToolbarButton() {

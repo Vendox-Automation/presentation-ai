@@ -1,5 +1,7 @@
 import { type TElement } from "platejs";
 import { createTPlatePlugin } from "platejs/react";
+
+import { type ImageCropSettings } from "../../utils/types";
 import { IconList } from "../custom-elements/icon-list";
 import { IconListElement } from "../custom-elements/icon-list-item";
 import { ICON_LIST, ICON_LIST_ITEM } from "../lib";
@@ -17,6 +19,7 @@ export const IconListItemPlugin = createTPlatePlugin({
   key: ICON_LIST_ITEM,
   node: {
     isElement: true,
+    isStrictSiblings: true,
     type: ICON_LIST_ITEM,
     component: IconListElement,
   },
@@ -26,9 +29,19 @@ export interface TIconListItemElement extends TElement {
   type: typeof ICON_LIST_ITEM;
   alignment?: "left" | "center" | "right";
   icon?: string;
+  cropSettings?: ImageCropSettings;
+  imageGenerationStatus?: "failed";
+  imageSource?: "generate" | "search" | "gif" | "upload";
+  prompt?: string;
+  query?: string;
+  stockImageProvider?: "unsplash" | "pixabay" | "google";
+  url?: string;
 }
 export interface TIconListElement extends TElement {
   type: typeof ICON_LIST;
   alignment?: "left" | "center" | "right";
   columnSize?: "sm" | "md" | "lg" | "xl";
+  mediaSize?: number;
+  orientation?: "side" | "top";
+  variant?: "icon" | "image";
 }

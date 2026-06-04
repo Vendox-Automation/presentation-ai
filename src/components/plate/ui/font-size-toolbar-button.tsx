@@ -1,14 +1,11 @@
 "use client";
 
-import * as React from "react";
-
-import { type NodeEntry, type TElement } from "platejs";
-
 import { toUnitLess } from "@platejs/basic-styles";
 import { FontSizePlugin } from "@platejs/basic-styles/react";
 import { Minus, Plus } from "lucide-react";
-import { KEYS } from "platejs";
+import { KEYS, type NodeEntry, type TElement } from "platejs";
 import { useEditorPlugin, useEditorSelector } from "platejs/react";
+import * as React from "react";
 
 import {
   Popover,
@@ -16,7 +13,6 @@ import {
   PopoverTrigger,
 } from "@/components/plate/ui/popover";
 import { cn } from "@/lib/utils";
-
 import { ToolbarButton } from "./toolbar";
 
 const DEFAULT_FONT_SIZE = "16";
@@ -101,6 +97,7 @@ export function FontSizeToolbarButton() {
       <Popover open={isFocused} modal={false}>
         <PopoverTrigger asChild>
           <input
+            aria-label="font size toolbar button control"
             className={cn(
               "h-full w-10 shrink-0 bg-transparent px-1 text-center text-sm hover:bg-muted",
             )}

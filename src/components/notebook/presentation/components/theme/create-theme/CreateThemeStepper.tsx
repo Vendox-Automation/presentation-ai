@@ -3,7 +3,6 @@
 import { Check, Palette, Shapes, Type } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-
 import { type CreateThemeStep } from "./create-theme-types";
 
 interface CreateThemeStepperProps {
@@ -37,7 +36,7 @@ export function CreateThemeStepper({
             <button
               onClick={() => onStepClick(item.id)}
               className={cn(
-                "flex h-10 w-10 items-center justify-center rounded-full transition-all duration-200",
+                "flex size-10 items-center justify-center rounded-full transition-all duration-200",
                 isActive
                   ? "scale-110 bg-blue-600 text-white shadow-lg"
                   : "bg-muted text-muted-foreground hover:bg-muted/70",
@@ -45,7 +44,7 @@ export function CreateThemeStepper({
               title={item.label}
               type="button"
             >
-              <IconComponent className="h-5 w-5" />
+              <IconComponent className="size-5" />
             </button>
             {index < steps.length - 1 && (
               <div className="h-0.5 w-12 bg-muted" />

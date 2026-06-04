@@ -1,12 +1,11 @@
 "use client";
 
-import { type PlateEditor } from "platejs/react";
-
 import { insertCallout } from "@platejs/callout";
 import { insertCodeBlock } from "@platejs/code-block";
 import { insertDate } from "@platejs/date";
 import { insertColumnGroup, toggleColumnGroup } from "@platejs/layout";
 import { triggerFloatingLink } from "@platejs/link/react";
+import { isOrderedList } from "@platejs/list";
 import { insertEquation, insertInlineEquation } from "@platejs/math";
 import {
   insertAudioPlaceholder,
@@ -18,14 +17,19 @@ import { SuggestionPlugin } from "@platejs/suggestion/react";
 import { TablePlugin } from "@platejs/table/react";
 import { insertToc } from "@platejs/toc";
 import {
+  KEYS,
+  PathApi,
   type NodeEntry,
   type Path,
   type TElement,
-  KEYS,
-  PathApi,
 } from "platejs";
+import { type PlateEditor } from "platejs/react";
 
 const ACTION_THREE_COLUMNS = "action_three_columns";
+const LIST_STYLE_TYPE_KEY = "listStyleType";
+const LIST_START_KEY = "listStart";
+const LIST_RESTART_KEY = "listRestart";
+const LIST_RESTART_POLITE_KEY = "listRestartPolite";
 
 const insertList = (editor: PlateEditor, type: string) => {
   editor.tf.insertNodes(
@@ -39,7 +43,7 @@ const insertList = (editor: PlateEditor, type: string) => {
 
 const insertBlockMap: Record<
   string,
-  (editor: PlateEditor, type: string) => void
+  (editor: PlateEditor, type: string, props?: Partial<TElement>) => void
 > = {
   [KEYS.listTodo]: insertList,
   [KEYS.ol]: insertList,
@@ -47,7 +51,12 @@ const insertBlockMap: Record<
   [ACTION_THREE_COLUMNS]: (editor) =>
     insertColumnGroup(editor, { columns: 3, select: true }),
   [KEYS.audio]: (editor) => insertAudioPlaceholder(editor, { select: true }),
-  [KEYS.callout]: (editor) => insertCallout(editor, { select: true }),
+  [KEYS.callout]: (editor, _type, props) =>
+    insertCallout(editor, {
+      icon: getStringProp(props, "icon"),
+      select: true,
+      variant: getStringProp(props, "variant"),
+    }),
   [KEYS.codeBlock]: (editor) => insertCodeBlock(editor, { select: true }),
   [KEYS.equation]: (editor) => insertEquation(editor, { select: true }),
   [KEYS.file]: (editor) => insertFilePlaceholder(editor, { select: true }),
@@ -77,15 +86,19 @@ const insertInlineMap: Record<
   [KEYS.link]: (editor) => triggerFloatingLink(editor, { focused: true }),
 };
 
-export const insertBlock = (editor: PlateEditor, type: string) => {
+export const insertBlock = (
+  editor: PlateEditor,
+  type: string,
+  { props }: { props?: Partial<TElement> } = {},
+) => {
   editor.tf.withoutNormalizing(() => {
     const block = editor.api.block();
 
     if (!block) return;
     if (type in insertBlockMap) {
-      insertBlockMap[type]!(editor, type);
+      insertBlockMap[type]!(editor, type, props);
     } else {
-      editor.tf.insertNodes(editor.api.create.block({ type }), {
+      editor.tf.insertNodes(editor.api.create.block({ ...props, type }), {
         at: PathApi.next(block[1]),
         select: true,
       });
@@ -97,6 +110,12 @@ export const insertBlock = (editor: PlateEditor, type: string) => {
     }
   });
 };
+
+function getStringProp(props: Partial<TElement> | undefined, key: string) {
+  const value = props?.[key];
+
+  return typeof value === "string" ? value : undefined;
+}
 
 export const insertInlineElement = (editor: PlateEditor, type: string) => {
   if (insertInlineMap[type]) {
@@ -130,23 +149,40 @@ const setBlockMap: Record<
   [ACTION_THREE_COLUMNS]: (editor) => toggleColumnGroup(editor, { columns: 3 }),
 };
 
+type SetBlockTypeOptions = {
+  at?: Path;
+  props?: Partial<TElement>;
+};
+
 export const setBlockType = (
   editor: PlateEditor,
   type: string,
-  { at }: { at?: Path } = {},
+  { at, props }: SetBlockTypeOptions = {},
 ) => {
   editor.tf.withoutNormalizing(() => {
     const setEntry = (entry: NodeEntry<TElement>) => {
       const [node, path] = entry;
 
-      if (node[KEYS.listType]) {
-        editor.tf.unsetNodes([KEYS.listType, "indent"], { at: path });
+      if (node[KEYS.listType] || node[LIST_STYLE_TYPE_KEY]) {
+        editor.tf.unsetNodes(
+          [
+            KEYS.listType,
+            "indent",
+            LIST_STYLE_TYPE_KEY,
+            LIST_START_KEY,
+            LIST_RESTART_KEY,
+            LIST_RESTART_POLITE_KEY,
+          ],
+          { at: path },
+        );
       }
       if (type in setBlockMap) {
         return setBlockMap[type]!(editor, type, entry);
       }
       if (node.type !== type) {
-        editor.tf.setNodes({ type }, { at: path });
+        editor.tf.setNodes({ ...props, type }, { at: path });
+      } else if (props) {
+        editor.tf.setNodes(props, { at: path });
       }
     };
 
@@ -167,6 +203,14 @@ export const setBlockType = (
 };
 
 export const getBlockType = (block: TElement) => {
+  if (typeof block[LIST_STYLE_TYPE_KEY] === "string") {
+    if (block[LIST_STYLE_TYPE_KEY] === KEYS.listTodo) {
+      return KEYS.listTodo;
+    }
+
+    return isOrderedList(block) ? KEYS.ol : KEYS.ul;
+  }
+
   if (block[KEYS.listType]) {
     if (block[KEYS.listType] === KEYS.ol) {
       return KEYS.ol;

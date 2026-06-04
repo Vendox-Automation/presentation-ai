@@ -1,19 +1,21 @@
 /** biome-ignore-all lint/performance/noImgElement: This is a valid use case */
 "use client";
 
-import * as React from "react";
-
-import { type TPlaceholderElement } from "platejs";
-import { type PlateElementProps } from "platejs/react";
-
 import {
   PlaceholderPlugin,
   PlaceholderProvider,
   updateUploadHistory,
 } from "@platejs/media/react";
 import { AudioLines, FileUp, Film, ImageIcon, Loader2Icon } from "lucide-react";
-import { KEYS } from "platejs";
-import { PlateElement, useEditorPlugin, withHOC } from "platejs/react";
+import Image from "next/image";
+import { KEYS, type TPlaceholderElement } from "platejs";
+import {
+  PlateElement,
+  useEditorPlugin,
+  withHOC,
+  type PlateElementProps,
+} from "platejs/react";
+import * as React from "react";
 import { useFilePicker } from "use-file-picker";
 
 import { useUploadFile } from "@/components/plate/hooks/use-upload-file";
@@ -184,7 +186,7 @@ export const PlaceholderElement = withHOC(
   },
 );
 
-export function ImageProgress({
+function ImageProgress({
   className,
   file,
   imageRef,
@@ -212,14 +214,17 @@ export function ImageProgress({
 
   return (
     <div className={cn("relative", className)} contentEditable={false}>
-      <img
+      <Image
+        unoptimized
+        width={400}
+        height={300}
         ref={imageRef}
         className="h-auto w-full rounded-sm object-cover"
         alt={file.name}
         src={objectUrl}
       />
       {progress < 100 && (
-        <div className="absolute right-1 bottom-1 flex items-center space-x-2 rounded-full bg-black/50 px-1 py-0.5">
+        <div className="absolute right-1 bottom-1 flex items-center gap-x-2 rounded-full bg-black/50 px-1 py-0.5">
           <Loader2Icon className="size-3.5 animate-spin text-muted-foreground" />
           <span className="text-xs font-medium text-white">
             {Math.round(progress)}%

@@ -1,15 +1,15 @@
 "use client";
 
+import { Check } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { usePresentationState } from "@/states/presentation-state";
-import { Check } from "lucide-react";
 
 const ZOOM_LEVELS = [
   { value: 1.8, label: "180%" },
@@ -40,7 +40,7 @@ export function ZoomControl() {
         <Button
           variant="ghost"
           size="sm"
-          className="h-8 rounded-full border border-primary/10 px-2 text-xs"
+          className="h-8 rounded-full px-2 text-xs text-foreground hover:bg-accent hover:text-accent-foreground"
         >
           {displayPercentage}%
         </Button>
@@ -53,16 +53,15 @@ export function ZoomControl() {
             onClick={() => setZoomLevel(level.value)}
           >
             <span>{level.label}</span>
-            {zoomLevel === level.value && <Check className="h-4 w-4" />}
+            {zoomLevel === level.value && <Check className="size-4" />}
           </DropdownMenuItem>
         ))}
-        <DropdownMenuSeparator />
         <DropdownMenuItem
           className="flex items-center justify-between"
           onClick={() => setZoomLevel(1)}
         >
           <span>Fit</span>
-          {zoomLevel === 1 && <Check className="h-4 w-4" />}
+          {zoomLevel === 1 && <Check className="size-4" />}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

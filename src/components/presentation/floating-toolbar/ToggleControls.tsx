@@ -30,7 +30,7 @@ export function ToggleControls() {
             }}
             tooltip="Toggle Numbered"
           >
-            <ListOrdered className="h-4 w-4" />
+            <ListOrdered className="size-4" />
           </ToolbarButton>
         </ToolbarGroup>
       )}
@@ -45,7 +45,7 @@ export function ToggleControls() {
             }}
             tooltip="Toggle Show Line"
           >
-            <MinusIcon className="h-4 w-4" />
+            <MinusIcon className="size-4" />
           </ToolbarButton>
         </ToolbarGroup>
       )}

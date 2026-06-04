@@ -1,19 +1,26 @@
 "use client";
 
-import * as React from "react";
-
-import { type TSuggestionData, type TSuggestionText } from "platejs";
-import { type PlateLeafProps, type RenderNodeWrapper } from "platejs/react";
-
-import { BaseSuggestionPlugin } from "@platejs/suggestion";
+import {
+  BaseSuggestionPlugin,
+  type BaseSuggestionConfig,
+} from "@platejs/suggestion";
 import { cva } from "class-variance-authority";
 import { CornerDownLeftIcon } from "lucide-react";
 import {
+  type ExtendConfig,
+  type Path,
+  type TSuggestionData,
+  type TSuggestionText,
+} from "platejs";
+import {
   PlateLeaf,
-  type PlatePlugin,
   useEditorPlugin,
   usePluginOption,
+  type PlateLeafProps,
+  type PlatePlugin,
+  type RenderNodeWrapper,
 } from "platejs/react";
+import * as React from "react";
 
 import { type SuggestionConfig } from "@/components/plate/plugins/suggestion-kit";
 import { cn } from "@/lib/utils";
@@ -22,6 +29,15 @@ import { cn } from "@/lib/utils";
 // with suggestion-kit.tsx. Plugins are resolved by key at runtime, so this is safe.
 const suggestionPlugin =
   BaseSuggestionPlugin as unknown as PlatePlugin<SuggestionConfig>;
+
+type SuggestionRenderConfig = ExtendConfig<
+  BaseSuggestionConfig,
+  Partial<{
+    activeId: string | null;
+    hoverId: string | null;
+    uniquePathMap: Map<string, Path>;
+  }>
+>;
 
 const suggestionVariants = cva(
   cn(
@@ -90,13 +106,13 @@ export function SuggestionLeaf(props: PlateLeafProps<TSuggestionText>) {
     </PlateLeaf>
   );
 }
-export const SuggestionLineBreak: RenderNodeWrapper<SuggestionConfig> = ({
+export const SuggestionLineBreak: RenderNodeWrapper<SuggestionRenderConfig> = ({
   api,
   element,
 }) => {
   if (!api.suggestion.isBlockSuggestion(element)) return;
 
-  const suggestionData = element.suggestion;
+  const suggestionData = element.suggestion as TSuggestionData;
 
   return function Component({ children }) {
     return (

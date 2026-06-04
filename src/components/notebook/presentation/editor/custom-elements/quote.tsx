@@ -1,17 +1,22 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import { cva } from "class-variance-authority";
-import { PlateElement, type PlateElementProps } from "platejs/react";
+import {
+  PlateElement,
+  useReadOnly,
+  type PlateElementProps,
+} from "platejs/react";
+
+import { cn } from "@/lib/utils";
 import { type TQuoteElement } from "../plugins/quote-plugin";
 
-const quoteVariants = cva("relative my-6", {
+const quoteVariants = cva("relative my-3 w-full max-w-full overflow-hidden", {
   variants: {
     variant: {
-      large: "flex flex-col items-center py-8 text-center",
+      large: "flex flex-col items-center py-4 text-center",
       "sidequote-icon":
-        "rounded-r-lg border-l-4 border-(--presentation-primary) bg-(--presentation-primary)/5 py-4 pl-6",
-      sidequote: "border-l-4 border-(--presentation-primary) py-2 pl-4",
+        "rounded-r-lg border-l-4 border-(--presentation-primary) bg-(--presentation-primary)/5 py-3 pr-4 pl-12",
+      sidequote: "border-l-4 border-(--presentation-primary) py-2 pr-4 pl-4",
     },
   },
   defaultVariants: {
@@ -49,6 +54,49 @@ const QuoteIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+interface QuoteAuthorProps {
+  author: string;
+  className: string;
+  isReadOnly: boolean;
+  prefix?: string;
+  onChange: (author: string) => void;
+  onFocus: () => void;
+}
+
+function QuoteAuthor({
+  author,
+  className,
+  isReadOnly,
+  prefix = "",
+  onChange,
+  onFocus,
+}: QuoteAuthorProps) {
+  if (isReadOnly) {
+    if (!author) return null;
+
+    return <p className={className}>{`${prefix}${author}`}</p>;
+  }
+
+  return (
+    <input
+      type="text"
+      value={author}
+      placeholder="Author name"
+      onFocus={onFocus}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+      }}
+      onChange={(e) => onChange(e.target.value)}
+      onBlur={(e) => onChange(e.target.value)}
+      className={cn(
+        "border-none bg-transparent outline-none placeholder:text-(--presentation-muted-foreground)/60",
+        className,
+      )}
+      aria-label="Quote author"
+    />
+  );
+}
+
 export function QuoteElement({
   element,
   children,
@@ -56,7 +104,21 @@ export function QuoteElement({
   ref,
   ...props
 }: PlateElementProps<TQuoteElement>) {
-  const { variant = "large", author } = element;
+  const readOnly = useReadOnly();
+  const { variant = "large", author = "" } = element;
+
+  const handleAuthorChange = (newAuthor: string) => {
+    if (readOnly) return;
+
+    const quotePath = props.editor.api.findPath(element);
+    if (!quotePath) return;
+
+    props.editor.tf.setNodes({ author: newAuthor }, { at: quotePath });
+  };
+
+  const blurEditor = () => {
+    props.editor.tf.blur();
+  };
 
   if (variant === "large") {
     return (
@@ -66,22 +128,31 @@ export function QuoteElement({
         className={cn(quoteVariants({ variant }), className)}
         {...props}
       >
-        <div className="flex max-w-3xl items-start gap-4">
-          <QuoteMark className="-mt-2 shrink-0" />
+        <div className="relative w-full max-w-3xl px-10">
+          <QuoteMark className="absolute top-0 left-0 size-8" />
 
           <div className="flex flex-1 flex-col items-center">
             <blockquote className="font-serif text-xl text-(--presentation-foreground) italic md:text-2xl">
               {children}
             </blockquote>
 
-            {author && (
-              <p className="mt-4 text-sm font-medium text-(--presentation-muted-foreground)">
-                - {author}
-              </p>
-            )}
+            <div
+              contentEditable={false}
+              data-decor="true"
+              data-slate-void="true"
+            >
+              <QuoteAuthor
+                author={author}
+                className="mt-4 w-full text-center text-sm font-medium text-(--presentation-muted-foreground)"
+                isReadOnly={readOnly}
+                prefix="- "
+                onChange={handleAuthorChange}
+                onFocus={blurEditor}
+              />
+            </div>
           </div>
 
-          <QuoteMark className="-mt-2 shrink-0" flip />
+          <QuoteMark className="absolute top-0 right-0 size-8" flip />
         </div>
       </PlateElement>
     );
@@ -95,17 +166,21 @@ export function QuoteElement({
         className={cn(quoteVariants({ variant }), className)}
         {...props}
       >
-        <QuoteIcon className="mb-2" />
+        <QuoteIcon className="absolute top-3 left-4" />
 
         <blockquote className="text-base text-(--presentation-foreground) italic md:text-lg">
           {children}
         </blockquote>
 
-        {author && (
-          <p className="mt-3 text-sm font-semibold text-(--presentation-foreground)">
-            {author}
-          </p>
-        )}
+        <div contentEditable={false} data-decor="true" data-slate-void="true">
+          <QuoteAuthor
+            author={author}
+            className="mt-3 w-full text-sm font-semibold text-(--presentation-foreground)"
+            isReadOnly={readOnly}
+            onChange={handleAuthorChange}
+            onFocus={blurEditor}
+          />
+        </div>
       </PlateElement>
     );
   }
@@ -121,11 +196,16 @@ export function QuoteElement({
         {children}
       </blockquote>
 
-      {author && (
-        <p className="mt-2 text-sm text-(--presentation-muted-foreground)">
-          - {author}
-        </p>
-      )}
+      <div contentEditable={false} data-decor="true" data-slate-void="true">
+        <QuoteAuthor
+          author={author}
+          className="mt-2 w-full text-sm text-(--presentation-muted-foreground)"
+          isReadOnly={readOnly}
+          prefix="- "
+          onChange={handleAuthorChange}
+          onFocus={blurEditor}
+        />
+      </div>
     </PlateElement>
   );
 }

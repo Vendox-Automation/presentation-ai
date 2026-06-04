@@ -1,15 +1,16 @@
 "use client";
 
-import { useUploadFile } from "@/components/plate/hooks/use-upload-file";
-import { Button } from "@/components/ui/button";
-import { useDebouncedSave } from "@/hooks/presentation/useDebouncedSave";
-import { cn } from "@/lib/utils";
-import { usePresentationState } from "@/states/presentation-state";
 import { Download, Loader2, Scan, Scissors, Trash, Upload } from "lucide-react";
 import { type TElement } from "platejs";
 import { useEditorRef } from "platejs/react";
 import { useCallback, useRef } from "react";
 import { toast } from "sonner";
+
+import { useUploadFile } from "@/components/plate/hooks/use-upload-file";
+import { Button } from "@/components/ui/button";
+import { useDebouncedSave } from "@/hooks/presentation/useDebouncedSave";
+import { cn } from "@/lib/utils";
+import { usePresentationState } from "@/states/presentation-state";
 import { type RootImage as RootImageType } from "../../../utils/parser";
 import { type ImageCropSettings } from "../../../utils/types";
 
@@ -40,8 +41,12 @@ export function ActionButtons({
 
   const { uploadFile, isUploading, progress } = useUploadFile({
     onUploadComplete: (file) => {
-      const { setSlides } = usePresentationState.getState();
+      const { clearRootImageGeneration, setSlides } =
+        usePresentationState.getState();
       if (isRootImage) {
+        if (slideId) {
+          clearRootImageGeneration(slideId);
+        }
         setSlides((slides) =>
           slides.map((slide) =>
             slide.id === slideId
@@ -50,7 +55,11 @@ export function ActionButtons({
                   rootImage: {
                     ...slide.rootImage!,
                     url: file.ufsUrl,
-                    embedType: undefined, // Clear embed type when uploading image
+                    imageSource: "upload",
+                    embedType: undefined,
+                    chartType: undefined,
+                    chartData: undefined,
+                    chartOptions: undefined,
                   },
                 }
               : slide,
@@ -59,7 +68,11 @@ export function ActionButtons({
         void saveImmediately();
       } else {
         editor.tf.setNodes(
-          { url: file.ufsUrl, embedType: undefined }, // Clear embed type when uploading image
+          {
+            url: file.ufsUrl,
+            imageSource: "upload",
+            embedType: undefined,
+          },
           { at: editor.api.findPath(element) },
         );
       }

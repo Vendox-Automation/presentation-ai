@@ -32,7 +32,7 @@ export function AlignmentControl() {
             tooltip="Align Left"
             size="sm"
           >
-            <AlignLeft className="h-4 w-4" />
+            <AlignLeft className="size-4" />
           </ToolbarButton>
         )}
         {alignmentOptions.includes("center") && (
@@ -44,7 +44,7 @@ export function AlignmentControl() {
             tooltip="Align Center"
             size="sm"
           >
-            <AlignCenter className="h-4 w-4" />
+            <AlignCenter className="size-4" />
           </ToolbarButton>
         )}
         {alignmentOptions.includes("right") && (
@@ -56,7 +56,7 @@ export function AlignmentControl() {
             tooltip="Align Right"
             size="sm"
           >
-            <AlignRight className="h-4 w-4" />
+            <AlignRight className="size-4" />
           </ToolbarButton>
         )}
       </ToolbarGroup>
@@ -74,7 +74,7 @@ export function AlignmentControl() {
         tooltip="Align Left"
         size="sm"
       >
-        <AlignLeft className="h-4 w-4" />
+        <AlignLeft className="size-4" />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => {
@@ -84,7 +84,7 @@ export function AlignmentControl() {
         tooltip="Align Center"
         size="sm"
       >
-        <AlignCenter className="h-4 w-4" />
+        <AlignCenter className="size-4" />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => {
@@ -94,7 +94,7 @@ export function AlignmentControl() {
         tooltip="Align Right"
         size="sm"
       >
-        <AlignRight className="h-4 w-4" />
+        <AlignRight className="size-4" />
       </ToolbarButton>
     </ToolbarGroup>
   );

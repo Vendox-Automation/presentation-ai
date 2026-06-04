@@ -1,5 +1,8 @@
 "use client";
 
+import { UploadCloud } from "lucide-react";
+import React from "react";
+
 import { SharedGenerateControls } from "@/components/presentation/shared/SharedGenerateControls";
 import { SharedImageSearchControls } from "@/components/presentation/shared/SharedImageSearchControls";
 import { Button } from "@/components/ui/button";
@@ -14,8 +17,6 @@ import {
 } from "@/components/ui/select";
 import { useUploadFile } from "@/hooks/canvas/useUploadFile";
 import { cn } from "@/lib/utils";
-import { UploadCloud } from "lucide-react";
-import React from "react";
 
 export function BackgroundImageEditor({
   config,
@@ -67,7 +68,7 @@ export function BackgroundImageEditor({
           <SelectContent>
             <SelectItem value="upload-url">Image upload or URL</SelectItem>
             <SelectItem value="ai">AI images</SelectItem>
-            <SelectItem value="search">Web & Stock images</SelectItem>
+            <SelectItem value="search">Stock & web images</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -117,7 +118,7 @@ export function BackgroundImageEditor({
       )}
 
       {previewUrl && imageMode !== "upload-url" && (
-        <div className="sticky right-0 bottom-0 left-0 z-10 mt-auto border-t bg-background/80 p-2 backdrop-blur-sm supports-backdrop-filter:bg-background/60">
+        <div className="sticky right-0 bottom-0 left-0 z-10 mt-auto border-t bg-background/80 p-2 backdrop-blur supports-backdrop-filter:bg-background/60">
           <div className="flex gap-2">
             <Button className="flex-1" onClick={applyUrl}>
               Apply Selected
@@ -150,6 +151,7 @@ function PrettyUploadZone({
 
   return (
     <div className="relative w-full rounded-lg border-2 border-dashed p-6 text-center transition-colors hover:bg-accent/10">
+      aria-label="background image editor control"
       <input
         ref={inputRef}
         type="file"
@@ -162,7 +164,7 @@ function PrettyUploadZone({
       />
       <div className="flex flex-col items-center gap-2">
         <div className="rounded-md border p-2 text-primary">
-          <UploadCloud className="h-5 w-5" />
+          <UploadCloud className="size-5" />
         </div>
         <div className="text-sm">
           Drag a file or

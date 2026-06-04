@@ -1,0 +1,1038 @@
+diff --git a/dist/index.d.mts b/dist/index.d.mts
+index d067e49a..d0dbf5b2 100644
+--- a/dist/index.d.mts
++++ b/dist/index.d.mts
+@@ -110,6 +110,31 @@ declare function convertModelMessages(modelMessages: ModelMessage[]): BaseMessag
+  * ```
+  */
+ declare function toUIMessageStream<TState = unknown>(stream: AsyncIterable<AIMessageChunk> | ReadableStream, callbacks?: StreamCallbacks<TState>): ReadableStream<UIMessageChunk>;
++declare function baseMessagesToUIMessages(messages: BaseMessage[]): UIMessage[];
++interface InterruptActionRequest {
++    name: string;
++    args?: Record<string, unknown>;
++    arguments?: Record<string, unknown>;
++    id?: string;
++}
++interface InterruptValue {
++    actionRequests?: InterruptActionRequest[];
++    action_requests?: InterruptActionRequest[];
++}
++interface PregelInterrupt {
++    value?: InterruptValue | unknown;
++}
++interface PregelTask {
++    interrupts?: PregelInterrupt[];
++    [key: string]: unknown;
++}
++interface StateSnapshotLike {
++    values: {
++        messages?: BaseMessage[];
++    } & Record<string, unknown>;
++    tasks?: PregelTask[];
++}
++declare function stateSnapshotToUIMessages(snapshot: StateSnapshotLike): UIMessage[];
+ 
+ /**
+  * Options for configuring a LangSmith deployment transport.
+@@ -156,4 +181,4 @@ declare class LangSmithDeploymentTransport<UI_MESSAGE extends UIMessage> impleme
+     } & ChatRequestOptions): Promise<ReadableStream<UIMessageChunk> | null>;
+ }
+ 
+-export { LangSmithDeploymentTransport, type LangSmithDeploymentTransportOptions, type StreamCallbacks, convertModelMessages, toBaseMessages, toUIMessageStream };
++export { LangSmithDeploymentTransport, type LangSmithDeploymentTransportOptions, type StateSnapshotLike, type StreamCallbacks, baseMessagesToUIMessages, convertModelMessages, stateSnapshotToUIMessages, toBaseMessages, toUIMessageStream };
+diff --git a/dist/index.d.ts b/dist/index.d.ts
+index d067e49a..d0dbf5b2 100644
+--- a/dist/index.d.ts
++++ b/dist/index.d.ts
+@@ -110,6 +110,31 @@ declare function convertModelMessages(modelMessages: ModelMessage[]): BaseMessag
+  * ```
+  */
+ declare function toUIMessageStream<TState = unknown>(stream: AsyncIterable<AIMessageChunk> | ReadableStream, callbacks?: StreamCallbacks<TState>): ReadableStream<UIMessageChunk>;
++declare function baseMessagesToUIMessages(messages: BaseMessage[]): UIMessage[];
++interface InterruptActionRequest {
++    name: string;
++    args?: Record<string, unknown>;
++    arguments?: Record<string, unknown>;
++    id?: string;
++}
++interface InterruptValue {
++    actionRequests?: InterruptActionRequest[];
++    action_requests?: InterruptActionRequest[];
++}
++interface PregelInterrupt {
++    value?: InterruptValue | unknown;
++}
++interface PregelTask {
++    interrupts?: PregelInterrupt[];
++    [key: string]: unknown;
++}
++interface StateSnapshotLike {
++    values: {
++        messages?: BaseMessage[];
++    } & Record<string, unknown>;
++    tasks?: PregelTask[];
++}
++declare function stateSnapshotToUIMessages(snapshot: StateSnapshotLike): UIMessage[];
+ 
+ /**
+  * Options for configuring a LangSmith deployment transport.
+@@ -156,4 +181,4 @@ declare class LangSmithDeploymentTransport<UI_MESSAGE extends UIMessage> impleme
+     } & ChatRequestOptions): Promise<ReadableStream<UIMessageChunk> | null>;
+ }
+ 
+-export { LangSmithDeploymentTransport, type LangSmithDeploymentTransportOptions, type StreamCallbacks, convertModelMessages, toBaseMessages, toUIMessageStream };
++export { LangSmithDeploymentTransport, type LangSmithDeploymentTransportOptions, type StateSnapshotLike, type StreamCallbacks, baseMessagesToUIMessages, convertModelMessages, stateSnapshotToUIMessages, toBaseMessages, toUIMessageStream };
+diff --git a/dist/index.js b/dist/index.js
+index 1430e7fb..02350d54 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -21,9 +21,11 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
+ var src_exports = {};
+ __export(src_exports, {
+   LangSmithDeploymentTransport: () => LangSmithDeploymentTransport,
++  baseMessagesToUIMessages: () => baseMessagesToUIMessages,
+   convertModelMessages: () => convertModelMessages,
++  stateSnapshotToUIMessages: () => stateSnapshotToUIMessages,
+   toBaseMessages: () => toBaseMessages,
+-  toUIMessageStream: () => toUIMessageStream
++ toUIMessageStream: () => toUIMessageStream
+ });
+ module.exports = __toCommonJS(src_exports);
+ 
+@@ -1071,6 +1073,236 @@ function toUIMessageStream(stream, callbacks) {
+     }
+   });
+ }
++function getMessageType(msg) {
++  if (msg == null || typeof msg !== "object") {
++    return void 0;
++  }
++  const msgObj = msg;
++  if (typeof msgObj._getType === "function") {
++    return msgObj._getType();
++  }
++  if (typeof msgObj.type === "string" && msgObj.type !== "constructor") {
++    return msgObj.type;
++  }
++  if (msgObj.type === "constructor" && Array.isArray(msgObj.id)) {
++    const ids = msgObj.id;
++    if (ids.includes("HumanMessage") || ids.includes("HumanMessageChunk")) {
++      return "human";
++    }
++    if (ids.includes("AIMessage") || ids.includes("AIMessageChunk")) {
++      return "ai";
++    }
++    if (ids.includes("SystemMessage") || ids.includes("SystemMessageChunk")) {
++      return "system";
++    }
++    if (ids.includes("ToolMessage") || ids.includes("ToolMessageChunk")) {
++      return "tool";
++    }
++  }
++  return void 0;
++}
++function getToolCallId(msg) {
++  if (msg == null || typeof msg !== "object") {
++    return void 0;
++  }
++  const msgObj = msg;
++  const dataSource = msgObj.type === "constructor" && msgObj.kwargs && typeof msgObj.kwargs === "object" ? msgObj.kwargs : msgObj;
++  return typeof dataSource.tool_call_id === "string" ? dataSource.tool_call_id : void 0;
++}
++function getToolCalls(msg) {
++  if (msg == null || typeof msg !== "object") {
++    return [];
++  }
++  const msgObj = msg;
++  const dataSource = msgObj.type === "constructor" && msgObj.kwargs && typeof msgObj.kwargs === "object" ? msgObj.kwargs : msgObj;
++  if (Array.isArray(dataSource.tool_calls)) {
++    return dataSource.tool_calls;
++  }
++  if (dataSource.additional_kwargs && typeof dataSource.additional_kwargs === "object") {
++    const additionalKwargs = dataSource.additional_kwargs;
++    if (Array.isArray(additionalKwargs.tool_calls)) {
++      return additionalKwargs.tool_calls.map((toolCall, idx) => {
++        let args;
++        try {
++          args = toolCall.function && toolCall.function.arguments ? JSON.parse(toolCall.function.arguments) : {};
++        } catch {
++          args = {};
++        }
++        return {
++          id: toolCall.id ?? `call_${idx}`,
++          name: toolCall.function && toolCall.function.name ? toolCall.function.name : "unknown",
++          args
++        };
++      });
++    }
++  }
++  return [];
++}
++function getAdditionalKwargs(msg) {
++  if (msg == null || typeof msg !== "object") {
++    return void 0;
++  }
++  const msgObj = msg;
++  const dataSource = msgObj.type === "constructor" && msgObj.kwargs && typeof msgObj.kwargs === "object" ? msgObj.kwargs : msgObj;
++  return dataSource.additional_kwargs;
++}
++function baseMessagesToUIMessages(messages) {
++  const result = [];
++  let currentAssistant = null;
++  for (const msg of messages) {
++    const msgType = getMessageType(msg);
++    const msgId = getMessageId(msg) ?? (0, import_ai.generateId)();
++    switch (msgType) {
++      case "human": {
++        currentAssistant = null;
++        const text = getMessageText(msg);
++        result.push({
++          id: msgId,
++          role: "user",
++          parts: [{ type: "text", text }]
++        });
++        break;
++      }
++      case "system": {
++        currentAssistant = null;
++        const text = getMessageText(msg);
++        result.push({
++          id: msgId,
++          role: "system",
++          parts: [{ type: "text", text }]
++        });
++        break;
++      }
++      case "ai": {
++        const parts = [];
++        const reasoning = extractReasoningFromContentBlocks(msg) || extractReasoningFromValuesMessage(msg);
++        if (reasoning) {
++          parts.push({ type: "reasoning", text: reasoning, state: "done" });
++        }
++        const text = getMessageText(msg);
++        if (text) {
++          parts.push({ type: "text", text });
++        }
++        const additionalKwargs = getAdditionalKwargs(msg);
++        const imageOutputs = extractImageOutputs(additionalKwargs);
++        for (const imageOutput of imageOutputs) {
++          if (imageOutput.result) {
++            const mediaType = `image/${imageOutput.output_format ?? "png"}`;
++            parts.push({
++              type: "file",
++              mediaType,
++              url: `data:${mediaType};base64,${imageOutput.result}`
++            });
++          }
++        }
++        const toolCalls = getToolCalls(msg);
++        for (const toolCall of toolCalls) {
++          parts.push({
++            type: "dynamic-tool",
++            toolCallId: toolCall.id,
++            toolName: toolCall.name,
++            state: "input-available",
++            input: toolCall.args
++          });
++        }
++        const assistantMessage = {
++          id: msgId,
++          role: "assistant",
++          parts
++        };
++        result.push(assistantMessage);
++        currentAssistant = assistantMessage;
++        break;
++      }
++      case "tool": {
++        const toolCallId = getToolCallId(msg);
++        if (toolCallId && currentAssistant) {
++          const toolPart = currentAssistant.parts.find((part) => part.type === "dynamic-tool" && part.toolCallId === toolCallId);
++          if (toolPart) {
++            const idx = currentAssistant.parts.indexOf(toolPart);
++            const content = getMessageText(msg);
++            currentAssistant.parts[idx] = {
++              type: "dynamic-tool",
++              toolCallId: toolPart.toolCallId,
++              toolName: toolPart.toolName,
++              state: "output-available",
++              input: toolPart.input,
++              output: content
++            };
++          }
++        }
++        break;
++      }
++    }
++  }
++  return result;
++}
++function extractInterruptParts(tasks) {
++  if (!Array.isArray(tasks)) {
++    return [];
++  }
++  const parts = [];
++  for (const task of tasks) {
++    if (!Array.isArray(task.interrupts)) {
++      continue;
++    }
++    for (const interrupt of task.interrupts) {
++      if (!interrupt.value || typeof interrupt.value !== "object") {
++        continue;
++      }
++      const interruptValue = interrupt.value;
++      const actionRequests = interruptValue.actionRequests ?? interruptValue.action_requests;
++      if (!Array.isArray(actionRequests)) {
++        continue;
++      }
++      for (const request of actionRequests) {
++        parts.push({
++          type: "dynamic-tool",
++          toolCallId: request.id ?? (0, import_ai.generateId)(),
++          toolName: request.name,
++          state: "input-available",
++          input: request.args ?? request.arguments ?? {}
++        });
++      }
++    }
++  }
++  return parts;
++}
++function stateSnapshotToUIMessages(snapshot) {
++  var _a;
++  const messages = (_a = snapshot.values) == null ? void 0 : _a.messages;
++  if (!Array.isArray(messages)) {
++    return [];
++  }
++  const uiMessages = baseMessagesToUIMessages(messages);
++  const interruptParts = extractInterruptParts(snapshot.tasks);
++  if (interruptParts.length > 0) {
++    let lastAssistant = uiMessages.findLast((message) => message.role === "assistant");
++    if (!lastAssistant) {
++      lastAssistant = {
++        id: (0, import_ai.generateId)(),
++        role: "assistant",
++        parts: []
++      };
++      uiMessages.push(lastAssistant);
++    }
++    const existingToolCallIds = new Set();
++    const existingToolParts = new Set();
++    for (const part of lastAssistant.parts) {
++      if (part.type === "dynamic-tool") {
++        existingToolCallIds.add(part.toolCallId);
++        existingToolParts.add(`${part.toolName}:${JSON.stringify(part.input)}`);
++      }
++    }
++    for (const interruptPart of interruptParts) {
++      const toolCallKey = `${interruptPart.toolName}:${JSON.stringify(interruptPart.input)}`;
++      if (!existingToolCallIds.has(interruptPart.toolCallId) && !existingToolParts.has(toolCallKey)) {
++        lastAssistant.parts.push(interruptPart);
++      }
++    }
++  }
++  return uiMessages;
++}
+ 
+ // src/transport.ts
+ var import_remote = require("@langchain/langgraph/remote");
+@@ -1099,8 +1331,10 @@ var LangSmithDeploymentTransport = class {
+ // Annotate the CommonJS export names for ESM import in node:
+ 0 && (module.exports = {
+   LangSmithDeploymentTransport,
++  baseMessagesToUIMessages,
+   convertModelMessages,
++  stateSnapshotToUIMessages,
+   toBaseMessages,
+-  toUIMessageStream
++ toUIMessageStream
+ });
+ //# sourceMappingURL=index.js.map
+\ No newline at end of file
+diff --git a/dist/index.mjs b/dist/index.mjs
+index 94f5fa8b..751e20d2 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -3,7 +3,8 @@ import {
+   SystemMessage
+ } from "@langchain/core/messages";
+ import {
+-  convertToModelMessages
++  convertToModelMessages,
++  generateId
+ } from "ai";
+ 
+ // src/utils.ts
+@@ -1051,6 +1052,236 @@ function toUIMessageStream(stream, callbacks) {
+     }
+   });
+ }
++function getMessageType(msg) {
++  if (msg == null || typeof msg !== "object") {
++    return void 0;
++  }
++  const msgObj = msg;
++  if (typeof msgObj._getType === "function") {
++    return msgObj._getType();
++  }
++  if (typeof msgObj.type === "string" && msgObj.type !== "constructor") {
++    return msgObj.type;
++  }
++  if (msgObj.type === "constructor" && Array.isArray(msgObj.id)) {
++    const ids = msgObj.id;
++    if (ids.includes("HumanMessage") || ids.includes("HumanMessageChunk")) {
++      return "human";
++    }
++    if (ids.includes("AIMessage") || ids.includes("AIMessageChunk")) {
++      return "ai";
++    }
++    if (ids.includes("SystemMessage") || ids.includes("SystemMessageChunk")) {
++      return "system";
++    }
++    if (ids.includes("ToolMessage") || ids.includes("ToolMessageChunk")) {
++      return "tool";
++    }
++  }
++  return void 0;
++}
++function getToolCallId(msg) {
++  if (msg == null || typeof msg !== "object") {
++    return void 0;
++  }
++  const msgObj = msg;
++  const dataSource = msgObj.type === "constructor" && msgObj.kwargs && typeof msgObj.kwargs === "object" ? msgObj.kwargs : msgObj;
++  return typeof dataSource.tool_call_id === "string" ? dataSource.tool_call_id : void 0;
++}
++function getToolCalls(msg) {
++  if (msg == null || typeof msg !== "object") {
++    return [];
++  }
++  const msgObj = msg;
++  const dataSource = msgObj.type === "constructor" && msgObj.kwargs && typeof msgObj.kwargs === "object" ? msgObj.kwargs : msgObj;
++  if (Array.isArray(dataSource.tool_calls)) {
++    return dataSource.tool_calls;
++  }
++  if (dataSource.additional_kwargs && typeof dataSource.additional_kwargs === "object") {
++    const additionalKwargs = dataSource.additional_kwargs;
++    if (Array.isArray(additionalKwargs.tool_calls)) {
++      return additionalKwargs.tool_calls.map((toolCall, idx) => {
++        let args;
++        try {
++          args = toolCall.function && toolCall.function.arguments ? JSON.parse(toolCall.function.arguments) : {};
++        } catch {
++          args = {};
++        }
++        return {
++          id: toolCall.id ?? `call_${idx}`,
++          name: toolCall.function && toolCall.function.name ? toolCall.function.name : "unknown",
++          args
++        };
++      });
++    }
++  }
++  return [];
++}
++function getAdditionalKwargs(msg) {
++  if (msg == null || typeof msg !== "object") {
++    return void 0;
++  }
++  const msgObj = msg;
++  const dataSource = msgObj.type === "constructor" && msgObj.kwargs && typeof msgObj.kwargs === "object" ? msgObj.kwargs : msgObj;
++  return dataSource.additional_kwargs;
++}
++function baseMessagesToUIMessages(messages) {
++  const result = [];
++  let currentAssistant = null;
++  for (const msg of messages) {
++    const msgType = getMessageType(msg);
++    const msgId = getMessageId(msg) ?? generateId();
++    switch (msgType) {
++      case "human": {
++        currentAssistant = null;
++        const text = getMessageText(msg);
++        result.push({
++          id: msgId,
++          role: "user",
++          parts: [{ type: "text", text }]
++        });
++        break;
++      }
++      case "system": {
++        currentAssistant = null;
++        const text = getMessageText(msg);
++        result.push({
++          id: msgId,
++          role: "system",
++          parts: [{ type: "text", text }]
++        });
++        break;
++      }
++      case "ai": {
++        const parts = [];
++        const reasoning = extractReasoningFromContentBlocks(msg) || extractReasoningFromValuesMessage(msg);
++        if (reasoning) {
++          parts.push({ type: "reasoning", text: reasoning, state: "done" });
++        }
++        const text = getMessageText(msg);
++        if (text) {
++          parts.push({ type: "text", text });
++        }
++        const additionalKwargs = getAdditionalKwargs(msg);
++        const imageOutputs = extractImageOutputs(additionalKwargs);
++        for (const imageOutput of imageOutputs) {
++          if (imageOutput.result) {
++            const mediaType = `image/${imageOutput.output_format ?? "png"}`;
++            parts.push({
++              type: "file",
++              mediaType,
++              url: `data:${mediaType};base64,${imageOutput.result}`
++            });
++          }
++        }
++        const toolCalls = getToolCalls(msg);
++        for (const toolCall of toolCalls) {
++          parts.push({
++            type: "dynamic-tool",
++            toolCallId: toolCall.id,
++            toolName: toolCall.name,
++            state: "input-available",
++            input: toolCall.args
++          });
++        }
++        const assistantMessage = {
++          id: msgId,
++          role: "assistant",
++          parts
++        };
++        result.push(assistantMessage);
++        currentAssistant = assistantMessage;
++        break;
++      }
++      case "tool": {
++        const toolCallId = getToolCallId(msg);
++        if (toolCallId && currentAssistant) {
++          const toolPart = currentAssistant.parts.find((part) => part.type === "dynamic-tool" && part.toolCallId === toolCallId);
++          if (toolPart) {
++            const idx = currentAssistant.parts.indexOf(toolPart);
++            const content = getMessageText(msg);
++            currentAssistant.parts[idx] = {
++              type: "dynamic-tool",
++              toolCallId: toolPart.toolCallId,
++              toolName: toolPart.toolName,
++              state: "output-available",
++              input: toolPart.input,
++              output: content
++            };
++          }
++        }
++        break;
++      }
++    }
++  }
++  return result;
++}
++function extractInterruptParts(tasks) {
++  if (!Array.isArray(tasks)) {
++    return [];
++  }
++  const parts = [];
++  for (const task of tasks) {
++    if (!Array.isArray(task.interrupts)) {
++      continue;
++    }
++    for (const interrupt of task.interrupts) {
++      if (!interrupt.value || typeof interrupt.value !== "object") {
++        continue;
++      }
++      const interruptValue = interrupt.value;
++      const actionRequests = interruptValue.actionRequests ?? interruptValue.action_requests;
++      if (!Array.isArray(actionRequests)) {
++        continue;
++      }
++      for (const request of actionRequests) {
++        parts.push({
++          type: "dynamic-tool",
++          toolCallId: request.id ?? generateId(),
++          toolName: request.name,
++          state: "input-available",
++          input: request.args ?? request.arguments ?? {}
++        });
++      }
++    }
++  }
++  return parts;
++}
++function stateSnapshotToUIMessages(snapshot) {
++  var _a;
++  const messages = (_a = snapshot.values) == null ? void 0 : _a.messages;
++  if (!Array.isArray(messages)) {
++    return [];
++  }
++  const uiMessages = baseMessagesToUIMessages(messages);
++  const interruptParts = extractInterruptParts(snapshot.tasks);
++  if (interruptParts.length > 0) {
++    let lastAssistant = uiMessages.findLast((message) => message.role === "assistant");
++    if (!lastAssistant) {
++      lastAssistant = {
++        id: generateId(),
++        role: "assistant",
++        parts: []
++      };
++      uiMessages.push(lastAssistant);
++    }
++    const existingToolCallIds = new Set();
++    const existingToolParts = new Set();
++    for (const part of lastAssistant.parts) {
++      if (part.type === "dynamic-tool") {
++        existingToolCallIds.add(part.toolCallId);
++        existingToolParts.add(`${part.toolName}:${JSON.stringify(part.input)}`);
++      }
++    }
++    for (const interruptPart of interruptParts) {
++      const toolCallKey = `${interruptPart.toolName}:${JSON.stringify(interruptPart.input)}`;
++      if (!existingToolCallIds.has(interruptPart.toolCallId) && !existingToolParts.has(toolCallKey)) {
++        lastAssistant.parts.push(interruptPart);
++      }
++    }
++  }
++  return uiMessages;
++}
+ 
+ // src/transport.ts
+ import {
+@@ -1080,8 +1311,10 @@ var LangSmithDeploymentTransport = class {
+ };
+ export {
+   LangSmithDeploymentTransport,
++  baseMessagesToUIMessages,
+   convertModelMessages,
++  stateSnapshotToUIMessages,
+   toBaseMessages,
+-  toUIMessageStream
++ toUIMessageStream
+ };
+ //# sourceMappingURL=index.mjs.map
+\ No newline at end of file
+diff --git a/src/adapter.ts b/src/adapter.ts
+index 0994b4b8..033361d2 100644
+--- a/src/adapter.ts
++++ b/src/adapter.ts
+@@ -7,6 +7,7 @@ import {
+   type UIMessage,
+   type UIMessageChunk,
+   convertToModelMessages,
++  generateId,
+   type ModelMessage,
+ } from 'ai';
+ import {
+@@ -18,6 +19,10 @@ import {
+   parseLangGraphEvent,
+   isToolResultPart,
+   extractReasoningFromContentBlocks,
++  getMessageText,
++  getMessageId,
++  extractReasoningFromValuesMessage,
++  extractImageOutputs,
+ } from './utils';
+ import { type LangGraphEventState } from './types';
+ import { type StreamCallbacks } from './stream-callbacks';
+@@ -571,3 +576,385 @@ export function toUIMessageStream<TState = unknown>(
+     },
+   });
+ }
++
++function getMessageType(msg: unknown): string | undefined {
++  if (msg == null || typeof msg !== 'object') {
++    return undefined;
++  }
++
++  const msgObj = msg as Record<string, unknown>;
++
++  if (typeof msgObj._getType === 'function') {
++    return (msgObj._getType as () => string)();
++  }
++
++  if (typeof msgObj.type === 'string' && msgObj.type !== 'constructor') {
++    return msgObj.type;
++  }
++
++  if (msgObj.type === 'constructor' && Array.isArray(msgObj.id)) {
++    const ids = msgObj.id as string[];
++
++    if (ids.includes('HumanMessage') || ids.includes('HumanMessageChunk')) {
++      return 'human';
++    }
++
++    if (ids.includes('AIMessage') || ids.includes('AIMessageChunk')) {
++      return 'ai';
++    }
++
++    if (ids.includes('SystemMessage') || ids.includes('SystemMessageChunk')) {
++      return 'system';
++    }
++
++    if (ids.includes('ToolMessage') || ids.includes('ToolMessageChunk')) {
++      return 'tool';
++    }
++  }
++
++  return undefined;
++}
++
++function getToolCallId(msg: unknown): string | undefined {
++  if (msg == null || typeof msg !== 'object') {
++    return undefined;
++  }
++
++  const msgObj = msg as Record<string, unknown>;
++  const dataSource =
++    msgObj.type === 'constructor' &&
++    msgObj.kwargs &&
++    typeof msgObj.kwargs === 'object'
++      ? (msgObj.kwargs as Record<string, unknown>)
++      : msgObj;
++
++  return typeof dataSource.tool_call_id === 'string'
++    ? dataSource.tool_call_id
++    : undefined;
++}
++
++function getToolCalls(
++  msg: unknown,
++): Array<{ id: string; name: string; args: Record<string, unknown> }> {
++  if (msg == null || typeof msg !== 'object') {
++    return [];
++  }
++
++  const msgObj = msg as Record<string, unknown>;
++  const dataSource =
++    msgObj.type === 'constructor' &&
++    msgObj.kwargs &&
++    typeof msgObj.kwargs === 'object'
++      ? (msgObj.kwargs as Record<string, unknown>)
++      : msgObj;
++
++  if (Array.isArray(dataSource.tool_calls)) {
++    return dataSource.tool_calls as Array<{
++      id: string;
++      name: string;
++      args: Record<string, unknown>;
++    }>;
++  }
++
++  if (
++    dataSource.additional_kwargs &&
++    typeof dataSource.additional_kwargs === 'object'
++  ) {
++    const additionalKwargs = dataSource.additional_kwargs as Record<
++      string,
++      unknown
++    >;
++
++    if (Array.isArray(additionalKwargs.tool_calls)) {
++      return (
++        additionalKwargs.tool_calls as Array<{
++          id?: string;
++          function?: { name?: string; arguments?: string };
++        }>
++      ).map((toolCall, idx) => {
++        let args: Record<string, unknown>;
++
++        try {
++          args = toolCall.function?.arguments
++            ? (JSON.parse(toolCall.function.arguments) as Record<
++                string,
++                unknown
++              >)
++            : {};
++        } catch {
++          args = {};
++        }
++
++        return {
++          id: toolCall.id ?? `call_${idx}`,
++          name: toolCall.function?.name ?? 'unknown',
++          args,
++        };
++      });
++    }
++  }
++
++  return [];
++}
++
++function getAdditionalKwargs(
++  msg: unknown,
++): Record<string, unknown> | undefined {
++  if (msg == null || typeof msg !== 'object') {
++    return undefined;
++  }
++
++  const msgObj = msg as Record<string, unknown>;
++  const dataSource =
++    msgObj.type === 'constructor' &&
++    msgObj.kwargs &&
++    typeof msgObj.kwargs === 'object'
++      ? (msgObj.kwargs as Record<string, unknown>)
++      : msgObj;
++
++  return dataSource.additional_kwargs as Record<string, unknown> | undefined;
++}
++
++export function baseMessagesToUIMessages(messages: BaseMessage[]): UIMessage[] {
++  const result: UIMessage[] = [];
++  let currentAssistant: UIMessage | null = null;
++
++  for (const msg of messages) {
++    const msgType = getMessageType(msg);
++    const msgId = getMessageId(msg) ?? generateId();
++
++    switch (msgType) {
++      case 'human': {
++        currentAssistant = null;
++        const text = getMessageText(msg);
++
++        result.push({
++          id: msgId,
++          role: 'user',
++          parts: [{ type: 'text', text }],
++        });
++        break;
++      }
++
++      case 'system': {
++        currentAssistant = null;
++        const text = getMessageText(msg);
++
++        result.push({
++          id: msgId,
++          role: 'system',
++          parts: [{ type: 'text', text }],
++        });
++        break;
++      }
++
++      case 'ai': {
++        const parts: UIMessage['parts'] = [];
++
++        const reasoning =
++          extractReasoningFromContentBlocks(msg) ||
++          extractReasoningFromValuesMessage(msg);
++        if (reasoning) {
++          parts.push({ type: 'reasoning', text: reasoning, state: 'done' });
++        }
++
++        const text = getMessageText(msg);
++        if (text) {
++          parts.push({ type: 'text', text });
++        }
++
++        const additionalKwargs = getAdditionalKwargs(msg);
++        const imageOutputs = extractImageOutputs(additionalKwargs);
++        for (const imageOutput of imageOutputs) {
++          if (imageOutput.result) {
++            const mediaType = `image/${imageOutput.output_format ?? 'png'}`;
++            parts.push({
++              type: 'file',
++              mediaType,
++              url: `data:${mediaType};base64,${imageOutput.result}`,
++            });
++          }
++        }
++
++        const toolCalls = getToolCalls(msg);
++        for (const toolCall of toolCalls) {
++          parts.push({
++            type: 'dynamic-tool',
++            toolCallId: toolCall.id,
++            toolName: toolCall.name,
++            state: 'input-available',
++            input: toolCall.args,
++          });
++        }
++
++        const assistantMessage: UIMessage = {
++          id: msgId,
++          role: 'assistant',
++          parts,
++        };
++
++        result.push(assistantMessage);
++        currentAssistant = assistantMessage;
++        break;
++      }
++
++      case 'tool': {
++        const toolCallId = getToolCallId(msg);
++
++        if (toolCallId && currentAssistant) {
++          const toolPart = currentAssistant.parts.find(
++            (
++              part,
++            ): part is Extract<
++              UIMessage['parts'][number],
++              { type: 'dynamic-tool' }
++            > => part.type === 'dynamic-tool' && part.toolCallId === toolCallId,
++          );
++
++          if (toolPart) {
++            const idx = currentAssistant.parts.indexOf(toolPart);
++            const content = getMessageText(msg);
++
++            currentAssistant.parts[idx] = {
++              type: 'dynamic-tool',
++              toolCallId: toolPart.toolCallId,
++              toolName: toolPart.toolName,
++              state: 'output-available',
++              input: toolPart.input,
++              output: content,
++            };
++          }
++        }
++
++        break;
++      }
++    }
++  }
++
++  return result;
++}
++
++interface InterruptActionRequest {
++  name: string;
++  args?: Record<string, unknown>;
++  arguments?: Record<string, unknown>;
++  id?: string;
++}
++
++interface InterruptValue {
++  actionRequests?: InterruptActionRequest[];
++  action_requests?: InterruptActionRequest[];
++}
++
++interface PregelInterrupt {
++  value?: InterruptValue | unknown;
++}
++
++interface PregelTask {
++  interrupts?: PregelInterrupt[];
++  [key: string]: unknown;
++}
++
++interface StateSnapshotLike {
++  values: { messages?: BaseMessage[] } & Record<string, unknown>;
++  tasks?: PregelTask[];
++}
++
++function extractInterruptParts(tasks?: PregelTask[]): Array<{
++  type: 'dynamic-tool';
++  toolCallId: string;
++  toolName: string;
++  state: 'input-available';
++  input: Record<string, unknown>;
++}> {
++  if (!Array.isArray(tasks)) {
++    return [];
++  }
++
++  const parts: Array<{
++    type: 'dynamic-tool';
++    toolCallId: string;
++    toolName: string;
++    state: 'input-available';
++    input: Record<string, unknown>;
++  }> = [];
++
++  for (const task of tasks) {
++    if (!Array.isArray(task.interrupts)) {
++      continue;
++    }
++
++    for (const interrupt of task.interrupts) {
++      if (!interrupt.value || typeof interrupt.value !== 'object') {
++        continue;
++      }
++
++      const interruptValue = interrupt.value as InterruptValue;
++      const actionRequests =
++        interruptValue.actionRequests ?? interruptValue.action_requests;
++
++      if (!Array.isArray(actionRequests)) {
++        continue;
++      }
++
++      for (const request of actionRequests) {
++        parts.push({
++          type: 'dynamic-tool',
++          toolCallId: request.id ?? generateId(),
++          toolName: request.name,
++          state: 'input-available',
++          input: request.args ?? request.arguments ?? {},
++        });
++      }
++    }
++  }
++
++  return parts;
++}
++
++export function stateSnapshotToUIMessages(
++  snapshot: StateSnapshotLike,
++): UIMessage[] {
++  const messages = snapshot.values?.messages;
++  if (!Array.isArray(messages)) {
++    return [];
++  }
++
++  const uiMessages = baseMessagesToUIMessages(messages);
++  const interruptParts = extractInterruptParts(snapshot.tasks);
++
++  if (interruptParts.length > 0) {
++    let lastAssistant = uiMessages.findLast(message => message.role === 'assistant');
++
++    if (!lastAssistant) {
++      lastAssistant = {
++        id: generateId(),
++        role: 'assistant',
++        parts: [],
++      };
++      uiMessages.push(lastAssistant);
++    }
++
++    const existingToolCallIds = new Set<string>();
++    const existingToolParts = new Set<string>();
++
++    for (const part of lastAssistant.parts) {
++      if (part.type === 'dynamic-tool') {
++        existingToolCallIds.add(part.toolCallId);
++        existingToolParts.add(`${part.toolName}:${JSON.stringify(part.input)}`);
++      }
++    }
++
++    for (const interruptPart of interruptParts) {
++      const toolCallKey = `${interruptPart.toolName}:${JSON.stringify(interruptPart.input)}`;
++      if (
++        !existingToolCallIds.has(interruptPart.toolCallId) &&
++        !existingToolParts.has(toolCallKey)
++      ) {
++        lastAssistant.parts.push(interruptPart);
++      }
++    }
++  }
++
++  return uiMessages;
++}
+diff --git a/src/index.ts b/src/index.ts
+index 76ad34b8..f45829c8 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -1,6 +1,8 @@
+ export {
++  baseMessagesToUIMessages,
++  stateSnapshotToUIMessages,
+   toBaseMessages,
+-  toUIMessageStream,
++ toUIMessageStream,
+   convertModelMessages,
+ } from './adapter';
+ 

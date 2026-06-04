@@ -1,5 +1,9 @@
 "use client";
 
+import { Check, ChevronRight, LayoutGrid, Menu, X } from "lucide-react";
+import { motion } from "motion/react";
+import { useCallback, useEffect, useState } from "react";
+
 import { Button } from "@/components/ui/button";
 import {
   Credenza,
@@ -11,14 +15,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMediaQuery } from "@/hooks/globals/useMediaQuery";
 import { cn } from "@/lib/utils";
 import { usePresentationState } from "@/states/presentation-state";
-import { Check, ChevronRight, LayoutGrid, Menu, X } from "lucide-react";
-import { motion } from "motion/react";
-import { useCallback, useEffect, useState } from "react";
 import {
+  isTemplateSelected,
+  removeTemplateSelection,
   TEMPLATE_CATEGORIES,
   TEMPLATE_DEFINITIONS,
   type TemplateDefinition,
 } from "../../utils/templates";
+import { persistOutlineLayoutSelection } from "./persistOutlineLayoutSelection";
 
 interface SelectableTemplateCardProps {
   template: TemplateDefinition;
@@ -46,7 +50,7 @@ function SelectableTemplateCard({
     >
       <div
         className={cn(
-          "aspect-4/3 w-full overflow-hidden rounded-lg border bg-card shadow-xs transition-all",
+          "aspect-4/3 w-full overflow-hidden rounded-lg border bg-card shadow transition-all",
           isSelected
             ? "border-primary ring-2 ring-primary/20"
             : "border-border group-hover:border-primary/50 group-hover:shadow-md",
@@ -55,8 +59,8 @@ function SelectableTemplateCard({
         {template.preview}
         {/* Selection indicator */}
         {isSelected && (
-          <div className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
-            <Check className="h-3 w-3" />
+          <div className="absolute top-2 right-2 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+            <Check className="size-3" />
           </div>
         )}
       </div>
@@ -93,31 +97,29 @@ export function OutlineTemplateModal({
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
 
-  useEffect(() => {
-    setIsSidebarVisible(isDesktop);
-  }, [isDesktop]);
-
-  useEffect(() => {
-    if (isOpen && mode === "single") {
-      setLocalSelection([]);
-    }
-  }, [isOpen, mode, outlineId]);
-
   const {
     selectedSlideTemplates,
     setSelectedSlideTemplates,
     numSlides,
+    outlineTemplateOverrides,
     setOutlineTemplateOverride,
   } = usePresentationState();
 
-  // For single mode, we track local selection until apply
-  const [localSelection, setLocalSelection] = useState<string[]>(
-    mode === "single" ? [] : selectedSlideTemplates,
-  );
+  const singleTemplateId =
+    mode === "single" && outlineId ? outlineTemplateOverrides[outlineId] : null;
 
-  // Sync local selection with global when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setIsSidebarVisible(isDesktop);
+    }
+  }, [isDesktop, isOpen]);
+
   const effectiveSelection =
-    mode === "global" ? selectedSlideTemplates : localSelection;
+    mode === "global"
+      ? selectedSlideTemplates
+      : singleTemplateId
+        ? [singleTemplateId]
+        : [];
 
   const filteredTemplates = selectedCategory
     ? TEMPLATE_DEFINITIONS.filter((t) => t.categoryId === selectedCategory)
@@ -125,22 +127,35 @@ export function OutlineTemplateModal({
 
   const handleTemplateToggle = useCallback(
     (templateId: string) => {
+      const template = TEMPLATE_DEFINITIONS.find(
+        (item) => item.id === templateId,
+      );
+
+      if (!template) {
+        return;
+      }
+
       if (mode === "global") {
-        const isSelected = selectedSlideTemplates.includes(templateId);
+        const isSelected = isTemplateSelected(selectedSlideTemplates, template);
         if (isSelected) {
           setSelectedSlideTemplates(
-            selectedSlideTemplates.filter((id) => id !== templateId),
+            removeTemplateSelection(selectedSlideTemplates, template),
           );
         } else if (selectedSlideTemplates.length < numSlides) {
           setSelectedSlideTemplates([...selectedSlideTemplates, templateId]);
         }
+
+        void persistOutlineLayoutSelection();
       } else {
-        // Single mode - local state
-        const isSelected = localSelection.includes(templateId);
-        if (isSelected) {
-          setLocalSelection(localSelection.filter((id) => id !== templateId));
-        } else if (localSelection.length < numSlides) {
-          setLocalSelection([...localSelection, templateId]);
+        // Single mode - one explicit layout per outline item.
+        const isSelected = singleTemplateId
+          ? isTemplateSelected([singleTemplateId], template)
+          : false;
+        const nextTemplateId = isSelected ? null : templateId;
+
+        if (outlineId) {
+          setOutlineTemplateOverride(outlineId, nextTemplateId);
+          void persistOutlineLayoutSelection();
         }
       }
     },
@@ -149,34 +164,32 @@ export function OutlineTemplateModal({
       selectedSlideTemplates,
       setSelectedSlideTemplates,
       numSlides,
-      localSelection,
+      singleTemplateId,
+      outlineId,
+      setOutlineTemplateOverride,
     ],
   );
 
   const handleClearAll = () => {
     if (mode === "global") {
       setSelectedSlideTemplates([]);
-    } else {
-      setLocalSelection([]);
+    } else if (outlineId) {
+      setOutlineTemplateOverride(outlineId, null);
     }
+
+    void persistOutlineLayoutSelection();
   };
 
   const handleApply = () => {
-    if (mode === "single" && outlineId && localSelection.length > 0) {
-      // For single mode, add to global templates if not already there and set override
-      const newTemplateId = localSelection[0];
-      if (newTemplateId && !selectedSlideTemplates.includes(newTemplateId)) {
-        setSelectedSlideTemplates([...selectedSlideTemplates, newTemplateId]);
-      }
-      setOutlineTemplateOverride(outlineId, newTemplateId ?? null);
-    }
     onClose();
   };
 
   const getTemplatesByCategory = (categoryId: string) =>
     TEMPLATE_DEFINITIONS.filter((t) => t.categoryId === categoryId);
 
-  const isAtLimit = effectiveSelection.length >= numSlides;
+  const selectionLimit = mode === "global" ? numSlides : 1;
+  const isAtLimit =
+    mode === "global" && effectiveSelection.length >= selectionLimit;
 
   const renderTemplateGrid = (templates: TemplateDefinition[]) => (
     <div className="grid grid-cols-2 gap-3 p-1 sm:grid-cols-3 lg:grid-cols-4 lg:gap-4">
@@ -184,9 +197,11 @@ export function OutlineTemplateModal({
         <SelectableTemplateCard
           key={template.id}
           template={template}
-          isSelected={effectiveSelection.includes(template.id)}
+          isSelected={isTemplateSelected(effectiveSelection, template)}
           onToggle={() => handleTemplateToggle(template.id)}
-          disabled={isAtLimit && !effectiveSelection.includes(template.id)}
+          disabled={
+            isAtLimit && !isTemplateSelected(effectiveSelection, template)
+          }
         />
       ))}
     </div>
@@ -203,7 +218,7 @@ export function OutlineTemplateModal({
     >
       <CredenzaContent
         shouldHaveClose={false}
-        className="h-[92dvh] max-h-[92dvh] max-w-[1000px] gap-0 overflow-hidden p-0 md:h-auto"
+        className="h-[92dvh] max-h-[92dvh] max-w-250 gap-0 overflow-hidden p-0 md:h-auto"
       >
         <CredenzaHeader className="border-b px-4 py-4 sm:px-6">
           <div className="flex items-start justify-between gap-3">
@@ -213,9 +228,9 @@ export function OutlineTemplateModal({
                   onClick={() => setIsSidebarVisible(!isSidebarVisible)}
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8"
+                  className="size-8"
                 >
-                  <Menu className="h-4 w-4" />
+                  <Menu className="size-4" />
                 </Button>
               )}
               <div className="min-w-0">
@@ -223,7 +238,7 @@ export function OutlineTemplateModal({
                   {mode === "global" ? "Select Layouts" : "Select Layout"}
                 </CredenzaTitle>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {effectiveSelection.length}/{numSlides} selected
+                  {effectiveSelection.length}/{selectionLimit} selected
                 </p>
               </div>
             </div>
@@ -246,9 +261,9 @@ export function OutlineTemplateModal({
                   onClick={onClose}
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8"
+                  className="size-8"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="size-4" />
                 </Button>
               </div>
             )}
@@ -257,9 +272,9 @@ export function OutlineTemplateModal({
                 onClick={onClose}
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8"
+                className="size-8"
               >
-                <X className="h-4 w-4" />
+                <X className="size-4" />
               </Button>
             )}
           </div>
@@ -272,6 +287,7 @@ export function OutlineTemplateModal({
               <div className="w-60 border-r bg-muted/30">
                 <ScrollArea className="h-full space-y-2 p-3">
                   <button
+                    type="button"
                     onClick={() => setSelectedCategory(null)}
                     className={cn(
                       "mb-1 flex w-full items-center gap-2 rounded-lg p-4 text-sm transition-colors",
@@ -280,11 +296,12 @@ export function OutlineTemplateModal({
                         : "hover:bg-muted",
                     )}
                   >
-                    <LayoutGrid className="h-4 w-4" />
+                    <LayoutGrid className="size-4" />
                     <span>All Templates</span>
                   </button>
                   {TEMPLATE_CATEGORIES.map((category) => (
                     <button
+                      type="button"
                       key={category.id}
                       onClick={() => setSelectedCategory(category.id)}
                       className={cn(
@@ -310,13 +327,17 @@ export function OutlineTemplateModal({
               {selectedCategory === null ? (
                 <div className="space-y-8 px-1">
                   {TEMPLATE_CATEGORIES.map((category) => {
-                    const categoryTemplates = getTemplatesByCategory(category.id);
+                    const categoryTemplates = getTemplatesByCategory(
+                      category.id,
+                    );
                     if (categoryTemplates.length === 0) return null;
                     return (
                       <section key={category.id}>
                         <div className="mb-3 flex items-center gap-2">
                           {category.icon}
-                          <h3 className="text-sm font-medium">{category.name}</h3>
+                          <h3 className="text-sm font-medium">
+                            {category.name}
+                          </h3>
                         </div>
                         {renderTemplateGrid(categoryTemplates)}
                       </section>
@@ -333,6 +354,7 @@ export function OutlineTemplateModal({
             <div className="overflow-x-auto border-b">
               <div className="flex w-max gap-2 px-4 py-3">
                 <button
+                  type="button"
                   onClick={() => setSelectedCategory(null)}
                   className={cn(
                     "flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-sm transition-colors",
@@ -341,11 +363,12 @@ export function OutlineTemplateModal({
                       : "border-border bg-background hover:bg-muted",
                   )}
                 >
-                  <LayoutGrid className="h-4 w-4" />
+                  <LayoutGrid className="size-4" />
                   <span>All Layouts</span>
                 </button>
                 {TEMPLATE_CATEGORIES.map((category) => (
                   <button
+                    type="button"
                     key={category.id}
                     onClick={() => setSelectedCategory(category.id)}
                     className={cn(
@@ -366,13 +389,17 @@ export function OutlineTemplateModal({
               {selectedCategory === null ? (
                 <div className="space-y-6">
                   {TEMPLATE_CATEGORIES.map((category) => {
-                    const categoryTemplates = getTemplatesByCategory(category.id);
+                    const categoryTemplates = getTemplatesByCategory(
+                      category.id,
+                    );
                     if (categoryTemplates.length === 0) return null;
                     return (
                       <section key={category.id}>
                         <div className="mb-3 flex items-center gap-2">
                           {category.icon}
-                          <h3 className="text-sm font-medium">{category.name}</h3>
+                          <h3 className="text-sm font-medium">
+                            {category.name}
+                          </h3>
                         </div>
                         {renderTemplateGrid(categoryTemplates)}
                       </section>

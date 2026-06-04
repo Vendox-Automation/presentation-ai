@@ -1,13 +1,13 @@
 "use client";
 
-import * as React from "react";
-
-import { type DropdownMenuProps } from "@radix-ui/react-dropdown-menu";
-
 import { LineHeightPlugin } from "@platejs/basic-styles/react";
-import { DropdownMenuItemIndicator } from "@radix-ui/react-dropdown-menu";
+import {
+  DropdownMenuItemIndicator,
+  type DropdownMenuProps,
+} from "@radix-ui/react-dropdown-menu";
 import { CheckIcon, WrapText } from "lucide-react";
 import { useEditorRef, useSelectionFragmentProp } from "platejs/react";
+import * as React from "react";
 
 import {
   DropdownMenu,
@@ -16,7 +16,6 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/plate/ui/dropdown-menu";
-
 import { ToolbarButton } from "./toolbar";
 
 export function LineHeightToolbarButton(props: DropdownMenuProps) {
@@ -52,7 +51,7 @@ export function LineHeightToolbarButton(props: DropdownMenuProps) {
           {values.map((value) => (
             <DropdownMenuRadioItem
               key={value}
-              className="min-w-[180px] pl-2 *:first:[span]:hidden"
+              className="min-w-45 pl-2 [span]:first:*:hidden"
               value={value}
             >
               <span className="pointer-events-none absolute right-2 flex size-3.5 items-center justify-center">

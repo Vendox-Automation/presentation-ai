@@ -1,12 +1,11 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: This is a valid use case */
+import { DRAG_ITEM_BLOCK } from "@platejs/dnd";
+import { useEditorRef } from "platejs/react";
 import React from "react";
 
-import { useEditorRef } from "platejs/react";
+import { useDndNode, type UseDndNodeOptions } from "./useDndNode";
 
-import { DRAG_ITEM_BLOCK } from "@platejs/dnd";
-import { type UseDndNodeOptions, useDndNode } from "./useDndNode";
-
-export type DraggableState = {
+export type DraggableState<TNode extends HTMLElement = HTMLDivElement> = {
   /**
    * True when the element is ready to be dragged (e.g., on mouse down but
    * before drag starts)
@@ -14,9 +13,9 @@ export type DraggableState = {
   isAboutToDrag: boolean;
   isDragging: boolean;
   /** The ref of the draggable element */
-  nodeRef: React.RefObject<HTMLDivElement | null>;
+  nodeRef: React.RefObject<TNode | null>;
   /** The ref of the multiple preview element */
-  previewRef: React.RefObject<HTMLDivElement | null>;
+  previewRef: React.RefObject<TNode | null>;
   /** The ref of the draggable handle */
   handleRef: (
     elementOrNode:
@@ -27,14 +26,16 @@ export type DraggableState = {
   ) => void;
 };
 
-export const useDraggable = (props: UseDndNodeOptions): DraggableState => {
+export const useDraggable = <TNode extends HTMLElement = HTMLDivElement>(
+  props: UseDndNodeOptions,
+): DraggableState<TNode> => {
   const { type = DRAG_ITEM_BLOCK, canCreateColumns, onDropHandler } = props;
 
   const editor = useEditorRef();
 
-  const nodeRef = React.useRef<HTMLDivElement>(null);
+  const nodeRef = React.useRef<TNode>(null);
 
-  const multiplePreviewRef = React.useRef<HTMLDivElement>(null);
+  const multiplePreviewRef = React.useRef<TNode>(null);
 
   if (!editor.plugins.dnd) return {} as any;
 

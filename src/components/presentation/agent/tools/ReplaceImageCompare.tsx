@@ -1,18 +1,22 @@
 "use client";
 
+import { ImageIcon, Loader2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+
 import {
   type PlateSlide,
   type RootImage,
 } from "@/components/notebook/presentation/utils/parser";
 import { getSlidesToUpdate } from "@/hooks/presentation/agentTools";
+import { getRootImageGenerationTarget } from "@/lib/presentation/image-generation";
 import { usePresentationState } from "@/states/presentation-state";
-import { ImageIcon, Loader2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
 import { PresentationReplaceImageResult } from "./ReplaceImage";
 
 type Scope = "all" | undefined;
 
-function cloneRootImage(rootImage: RootImage | undefined): RootImage | undefined {
+function cloneRootImage(
+  rootImage: RootImage | undefined,
+): RootImage | undefined {
   if (!rootImage) {
     return undefined;
   }
@@ -55,7 +59,7 @@ function buildDirectUrlReplacementSlide(
   });
 }
 
-function syncRootImageGeneration(slidesToApply: PlateSlide[]) {
+function syncRootImageGeneration(slidesToApply: PlateSlide[]): void {
   usePresentationState.setState((state) => {
     const nextGeneration = { ...state.rootImageGeneration };
 
@@ -67,7 +71,14 @@ function syncRootImageGeneration(slidesToApply: PlateSlide[]) {
 
       nextGeneration[slide.id] = {
         query: slide.rootImage.query,
+        source:
+          slide.rootImage.imageSource === "gif"
+            ? "gif"
+            : slide.rootImage.imageSource === "search"
+              ? "stock"
+              : "ai",
         status: "success",
+        target: getRootImageGenerationTarget(slide.id),
         url: slide.rootImage.url,
       };
     }
@@ -101,7 +112,7 @@ function ImagePreviewCard({
 
       <div className="aspect-video bg-muted/30">
         {imageUrl ? (
-          // biome-ignore lint/performance/noImgElement: Dynamic image preview in compare UI
+          // biome-ignore lint/performance/noImgElement: Previewing dynamic slide images in chat.
           <img
             src={imageUrl}
             alt={imageLabel || `Slide ${slideNumber ?? ""} image`}
@@ -115,7 +126,7 @@ function ImagePreviewCard({
         )}
       </div>
 
-      <div className="pointer-events-none absolute inset-0 rounded-md ring-0 ring-primary/60 transition-all group-hover:ring-1" />
+      <div className="pointer-events-none absolute inset-0 rounded-md ring-0 ring-primary/60 transition-all group-hover:ring" />
     </div>
   );
 }
@@ -126,14 +137,18 @@ export function PresentationReplaceImageCompare({
   slideIds,
   imageUrl,
   imagePrompt,
+  imageSource: _imageSource,
   message,
+  stockImageProvider: _stockImageProvider,
 }: {
   originalSlides: PlateSlide[];
   scope?: Scope;
   slideIds?: string[];
   imageUrl?: string;
   imagePrompt?: string;
+  imageSource?: "ai" | "stock" | "gif";
   message?: string;
+  stockImageProvider?: "unsplash" | "pixabay" | "google";
 }) {
   const currentSlides = usePresentationState((state) => state.slides);
   const rootImageGeneration = usePresentationState(
@@ -144,6 +159,7 @@ export function PresentationReplaceImageCompare({
     () => getSlidesToUpdate(scope, slideIds),
     [scope, slideIds],
   );
+
   const targetSlideIdSet = useMemo(
     () => new Set(targetSlideIds ?? []),
     [targetSlideIds],
@@ -179,8 +195,9 @@ export function PresentationReplaceImageCompare({
     const resolvedSlides: PlateSlide[] = [];
 
     for (const originalSlide of originalTargetSlides) {
-      const currentSlide = currentSlides.find((slide) => slide.id === originalSlide.id);
-
+      const currentSlide = currentSlides.find(
+        (slide) => slide.id === originalSlide.id,
+      );
       if (!currentSlide) {
         return [];
       }
@@ -188,10 +205,14 @@ export function PresentationReplaceImageCompare({
       const generationState = rootImageGeneration[originalSlide.id];
       const resolvedUrl =
         currentSlide.rootImage?.url ??
-        (generationState?.query === imagePrompt ? generationState.url : undefined);
+        (generationState?.query === imagePrompt
+          ? generationState.url
+          : undefined);
       const resolvedQuery =
         currentSlide.rootImage?.query ||
-        (generationState?.query === imagePrompt ? generationState.query : undefined);
+        (generationState?.query === imagePrompt
+          ? generationState.query
+          : undefined);
 
       if (!resolvedUrl || resolvedQuery !== imagePrompt) {
         return [];
@@ -232,7 +253,11 @@ export function PresentationReplaceImageCompare({
     if (promptResolvedSlides.length === originalTargetSlides.length) {
       setModifiedSlides(promptResolvedSlides);
     }
-  }, [modifiedSlides.length, originalTargetSlides.length, promptResolvedSlides]);
+  }, [
+    modifiedSlides.length,
+    originalTargetSlides.length,
+    promptResolvedSlides,
+  ]);
 
   const applySlides = (slidesToApply: PlateSlide[]) => {
     const slidesById = new Map(slidesToApply.map((slide) => [slide.id, slide]));
@@ -269,7 +294,7 @@ export function PresentationReplaceImageCompare({
   }
 
   return (
-    <div className="w-full max-w-104">
+    <div className="w-full max-w-95">
       <div className="grid gap-3 md:grid-cols-2">
         <div
           role="button"
@@ -290,7 +315,7 @@ export function PresentationReplaceImageCompare({
               {originalTargetSlides.length === 1 ? "" : "s"}
             </span>
           </div>
-          <div className="space-y-2 rounded-md group-hover:outline-solid group-hover:outline-primary">
+          <div className="space-y-2 rounded-md group-hover:outline group-hover:outline-primary">
             {originalTargetSlides.map((slide) => (
               <ImagePreviewCard
                 key={`original-${slide.id}`}
@@ -320,7 +345,7 @@ export function PresentationReplaceImageCompare({
               {modifiedSlides.length === 1 ? "" : "s"}
             </span>
           </div>
-          <div className="space-y-2 rounded-md group-hover:outline-solid group-hover:outline-primary">
+          <div className="space-y-2 rounded-md group-hover:outline group-hover:outline-primary">
             {modifiedSlides.map((slide) => (
               <ImagePreviewCard
                 key={`modified-${slide.id}`}

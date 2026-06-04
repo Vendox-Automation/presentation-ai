@@ -1,7 +1,8 @@
-import { updateSiblingsForcefully } from "@/components/notebook/presentation/editor/dnd/utils/updateSiblingsForcefully";
 import { type TElement, type TText } from "platejs";
 import { type PlateEditor } from "platejs/react";
 import { useEffect, useRef } from "react";
+
+import { updateSiblingsForcefully } from "@/components/notebook/presentation/editor/dnd/utils/updateSiblingsForcefully";
 
 /**
  * Forces re-render of all children of the given element whenever

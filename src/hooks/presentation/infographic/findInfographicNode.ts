@@ -1,9 +1,10 @@
 "use client";
 
-import { ANTV_INFOGRAPHIC } from "@/components/notebook/presentation/editor/lib";
-import { type TAntvInfographicElement } from "@/components/notebook/presentation/editor/plugins/antv-infographic-plugin";
 import { type NodeEntry } from "platejs";
 import { type PlateEditor } from "platejs/react";
+
+import { ANTV_INFOGRAPHIC } from "@/components/notebook/presentation/editor/lib";
+import { type TAntvInfographicElement } from "@/components/notebook/presentation/editor/plugins/antv-infographic-plugin";
 
 function isAntvInfographicElement(
   node: unknown,
@@ -27,14 +28,14 @@ export function findInfographicEntryById(
     return undefined;
   }
 
-  const entry = editor.api.node({
-    at: [],
-    match: (node) => isAntvInfographicElement(node, elementId),
-  });
+  const [entry] = Array.from(
+    editor.api.nodes({
+      at: [],
+      match: (node) => isAntvInfographicElement(node, elementId),
+    }),
+  ) as Array<NodeEntry<TAntvInfographicElement>>;
 
-  if (!entry) {
-    return undefined;
-  }
+  if (!entry) return undefined;
 
   const [node, path] = entry;
 

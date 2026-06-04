@@ -1,11 +1,23 @@
 "use client";
 
 import {
+  Clapperboard,
+  Globe,
+  ImageIcon,
+  Images,
+  Search,
+  Sparkles,
+  X,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+
+import {
   ErrorDisplay,
   GenerateControls,
 } from "@/components/notebook/presentation/editor/custom-elements/image-editor";
 import { CropModal } from "@/components/notebook/presentation/editor/custom-elements/image-editor/CropModal";
 import { EmbedControls } from "@/components/notebook/presentation/editor/custom-elements/image-editor/EmbedControls";
+import { GeneratedImagesGrid } from "@/components/notebook/presentation/editor/custom-elements/image-editor/GeneratedImagesGrid";
 import { GifSearchControls } from "@/components/notebook/presentation/editor/custom-elements/image-editor/GifSearchControls";
 import { ImageSearchControls } from "@/components/notebook/presentation/editor/custom-elements/image-editor/ImageSearchControls";
 import { useImageDimensions } from "@/components/notebook/presentation/editor/custom-elements/image-editor/useImageDimensions";
@@ -22,19 +34,11 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useDebouncedSave } from "@/hooks/presentation/useDebouncedSave";
+import { getPresentationTitleSearchQuery } from "@/lib/presentation/title-search-query";
 import {
-  type ImageEditorMode,
   usePresentationState,
+  type ImageEditorMode,
 } from "@/states/presentation-state";
-import {
-  Clapperboard,
-  Globe,
-  ImageIcon,
-  Images,
-  Search,
-  X,
-} from "lucide-react";
-import { useEffect, useState } from "react";
 import { ChartEditorControls } from "./ChartEditorControls";
 
 // Define tab options with icons
@@ -46,16 +50,21 @@ const TAB_OPTIONS: {
   {
     value: "generate",
     label: "AI Generate",
-    icon: <ImageIcon className="h-4 w-4" />,
+    icon: <ImageIcon className="size-4" />,
   },
   {
     value: "your-images",
-    label: "Your Images",
-    icon: <Images className="h-4 w-4" />,
+    label: "Uploaded Images",
+    icon: <Images className="size-4" />,
   },
-  { value: "search", label: "Search", icon: <Search className="h-4 w-4" /> },
-  { value: "gif", label: "GIFs", icon: <Clapperboard className="h-4 w-4" /> },
-  { value: "embed", label: "Embed", icon: <Globe className="h-4 w-4" /> },
+  {
+    value: "generated-images",
+    label: "Generated Images",
+    icon: <Sparkles className="size-4" />,
+  },
+  { value: "search", label: "Search", icon: <Search className="size-4" /> },
+  { value: "gif", label: "GIFs", icon: <Clapperboard className="size-4" /> },
+  { value: "embed", label: "Embed", icon: <Globe className="size-4" /> },
 ];
 
 export function ImageEditorPanel() {
@@ -68,6 +77,12 @@ export function ImageEditorPanel() {
   );
   const closeImageEditor = usePresentationState((s) => s.closeImageEditor);
   const currentSlideId = usePresentationState((s) => s.currentSlideId);
+  const currentPresentationTitle = usePresentationState(
+    (s) => s.currentPresentationTitle,
+  );
+  const setPaletteDropTarget = usePresentationState(
+    (s) => s.setPaletteDropTarget,
+  );
 
   // Get current slide data from state
   const currentSlide = slides.find((s) => s.id === currentSlideId);
@@ -76,6 +91,9 @@ export function ImageEditorPanel() {
 
   const rootImage = currentSlide?.rootImage;
   const layoutType = currentSlide?.layoutType ?? "left";
+  const initialSearchQuery = getPresentationTitleSearchQuery(
+    currentPresentationTitle,
+  );
 
   // Create a synthetic element from rootImage for compatibility with existing controls
   const element = {
@@ -111,6 +129,7 @@ export function ImageEditorPanel() {
   });
 
   const handleEmbedChange = (embedType: string, url: string) => {
+    setPaletteDropTarget(null);
     setSlides((slides) =>
       slides.map((slide) =>
         slide.id === slideId
@@ -123,6 +142,7 @@ export function ImageEditorPanel() {
                 url,
                 chartType: undefined,
                 chartData: undefined,
+                paletteDropMutable: false,
               },
             }
           : slide,
@@ -132,6 +152,7 @@ export function ImageEditorPanel() {
   };
 
   const handleClearEmbed = () => {
+    setPaletteDropTarget(null);
     setSlides((slides) =>
       slides.map((slide) =>
         slide.id === slideId
@@ -141,6 +162,7 @@ export function ImageEditorPanel() {
                 ...slide.rootImage!,
                 embedType: undefined,
                 url: undefined,
+                paletteDropMutable: false,
               },
             }
           : slide,
@@ -151,6 +173,7 @@ export function ImageEditorPanel() {
   };
 
   const handleCropSave = (settings: ImageCropSettings) => {
+    setPaletteDropTarget(null);
     setSlides((slides) =>
       slides.map((slide) =>
         slide.id === slideId
@@ -159,6 +182,7 @@ export function ImageEditorPanel() {
               rootImage: {
                 ...slide.rootImage!,
                 cropSettings: settings,
+                paletteDropMutable: false,
               },
             }
           : slide,
@@ -166,6 +190,36 @@ export function ImageEditorPanel() {
     );
     void saveImmediately();
     setIsCropModalOpen(false);
+  };
+
+  const handleGeneratedImageSelect = (url: string, prompt: string) => {
+    const { clearRootImageGeneration } = usePresentationState.getState();
+
+    setPaletteDropTarget(null);
+    if (slideId) {
+      clearRootImageGeneration(slideId);
+    }
+
+    setSlides((slides) =>
+      slides.map((slide) =>
+        slide.id === slideId
+          ? {
+              ...slide,
+              rootImage: {
+                ...slide.rootImage!,
+                url,
+                query: prompt,
+                embedType: undefined,
+                imageSource: "generate",
+                chartType: undefined,
+                chartData: undefined,
+                paletteDropMutable: false,
+              },
+            }
+          : slide,
+      ),
+    );
+    void saveImmediately();
   };
 
   const handleModeChange = (value: string) => {
@@ -206,9 +260,9 @@ export function ImageEditorPanel() {
         return (
           <div className="flex h-full flex-col">
             <div className="flex-none space-y-1 px-6 py-4">
-              <h3 className="leading-none font-medium">Your Images</h3>
+              <h3 className="leading-none font-medium">Uploaded Images</h3>
               <p className="text-sm text-muted-foreground">
-                Select from your generated images.
+                Select from your uploaded images.
               </p>
             </div>
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 pb-6">
@@ -220,13 +274,31 @@ export function ImageEditorPanel() {
             </div>
           </div>
         );
+      case "generated-images":
+        return (
+          <div className="flex h-full flex-col">
+            <div className="flex-none space-y-1 px-6 py-4">
+              <h3 className="leading-none font-medium">Generated Images</h3>
+              <p className="text-sm text-muted-foreground">
+                Select from your AI-generated images.
+              </p>
+            </div>
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 pb-6">
+              <GeneratedImagesGrid
+                onImageSelect={(image) =>
+                  handleGeneratedImageSelect(image.url, image.prompt)
+                }
+              />
+            </div>
+          </div>
+        );
       case "search":
         return (
           <div className="flex h-full flex-col">
             <div className="flex-none space-y-1 px-6 py-4">
               <h3 className="leading-none font-medium">Search Images</h3>
               <p className="text-sm text-muted-foreground">
-                Find images from Unsplash or Pixabay.
+                Find images from Unsplash, Pixabay, or live web results.
               </p>
             </div>
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 pb-6">
@@ -234,6 +306,8 @@ export function ImageEditorPanel() {
                 element={element}
                 slideId={slideId}
                 isRootImage={true}
+                initialQuery={initialSearchQuery}
+                initialQueryKey={currentPresentationTitle ?? undefined}
               />
             </div>
           </div>
@@ -309,7 +383,7 @@ export function ImageEditorPanel() {
   };
 
   return (
-    <div className="flex h-full w-full flex-col border-l bg-background">
+    <div className="flex size-full flex-col border-l bg-background">
       {/* Header */}
       <div className="flex items-center justify-between border-b px-4 py-2">
         <h2 className="text-sm font-semibold">Image Studio</h2>

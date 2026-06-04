@@ -1,7 +1,8 @@
 import { type TElement } from "platejs";
 import { createPlatePlugin } from "platejs/react";
+
 import ButtonElement from "../custom-elements/button";
-import { BUTTON_ELEMENT } from "../lib";
+import { BUTTON_ELEMENT, type PresentationElementAlignment } from "../lib";
 
 export const ButtonPlugin = createPlatePlugin({
   key: BUTTON_ELEMENT,
@@ -16,6 +17,10 @@ export const ButtonPlugin = createPlatePlugin({
 });
 
 export type TButtonElement = TElement & {
+  alignment?: PresentationElementAlignment;
+  backgroundColor?: string;
+  color?: string;
+  textColor?: string;
   type: typeof BUTTON_ELEMENT;
   variant?: "filled" | "outline" | "ghost";
   size?: "sm" | "md" | "lg";

@@ -1,4 +1,4 @@
-import { type ImageModelList } from "@/app/_actions/apps/image-studio/generate";
+import { type ImageModelList } from "@/constants/image-models";
 import { useState } from "react";
 
 const GoogleLogo = () => (

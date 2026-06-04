@@ -1,13 +1,16 @@
 "use client";
+
 import { ColumnItemPlugin, ColumnPlugin } from "@platejs/layout/react";
 import { KEYS, type TElement, type TText } from "platejs";
 
 import {
+  ANTV_INFOGRAPHIC,
   AREA_CHART_ELEMENT,
   ARROW_LIST,
   ARROW_LIST_ITEM,
   BAR_CHART_ELEMENT,
   BEFORE_AFTER_GROUP,
+  BEFORE_AFTER_SIDE,
   BOX_GROUP,
   BOX_ITEM,
   BOX_PLOT_CHART_ELEMENT,
@@ -17,30 +20,38 @@ import {
   BUTTON_ELEMENT,
   CANDLESTICK_CHART_ELEMENT,
   CHORD_CHART_ELEMENT,
+  CIRCULAR_GRID_GROUP,
+  CIRCULAR_GRID_ITEM,
   COMPARE_GROUP,
   COMPARE_SIDE,
   COMPOSED_CHART_ELEMENT,
   CONE_FUNNEL_CHART_ELEMENT,
+  CONNECTED_CIRCLES_GROUP,
+  CONNECTED_CIRCLES_ITEM,
   CONS_ITEM,
+  CONTRIBUTOR_ELEMENT,
   CYCLE_GROUP,
   CYCLE_ITEM,
+  DEFAULT_CHART_DATA,
   DONUT_CHART_ELEMENT,
   FUNNEL_CHART_ELEMENT,
   HEATMAP_CHART_ELEMENT,
   HISTOGRAM_CHART_ELEMENT,
-  ICON_ELEMENT,
   ICON_LIST,
   ICON_LIST_ITEM,
+  LABEL_ELEMENT,
   LINE_CHART_ELEMENT,
   LINEAR_GAUGE_ELEMENT,
   NIGHTINGALE_CHART_ELEMENT,
   OHLC_CHART_ELEMENT,
   PIE_CHART_ELEMENT,
+  PRESENTATION_TITLE_ELEMENT,
   PROS_CONS_GROUP,
   PROS_ITEM,
   PYRAMID_CHART_ELEMENT,
   PYRAMID_GROUP,
   PYRAMID_ITEM,
+  QUOTE_ELEMENT,
   RADAR_CHART_ELEMENT,
   RADIAL_BAR_CHART_ELEMENT,
   RADIAL_COLUMN_CHART_ELEMENT,
@@ -51,28 +62,32 @@ import {
   SCATTER_CHART_ELEMENT,
   SEQUENCE_ARROW_GROUP,
   SEQUENCE_ARROW_ITEM,
+  SLOPE_GROUP,
+  SLOPE_ITEM,
+  SNAKE_GROUP,
+  SNAKE_ITEM,
   STAIR_ITEM,
   STAIRCASE_GROUP,
+  STATS_GROUP,
+  STATS_ITEM,
+  STEPS_GROUP,
+  STEPS_ITEM,
   SUNBURST_CHART_ELEMENT,
   TIMELINE_GROUP,
   TIMELINE_ITEM,
   TREEMAP_CHART_ELEMENT,
   WATERFALL_CHART_ELEMENT,
 } from "@/components/notebook/presentation/editor/lib";
-import { type PlateSlide } from "@/components/notebook/presentation/utils/parser";
+import { CALLOUT_VARIANTS } from "@/components/plate/ui/callout-variants";
 
 export type PaletteItem = {
+  category?: string;
+  description?: string;
   key: string;
   label: string;
   node: TElement;
 };
 
-export const slideWith = (nodes: TElement[]): PlateSlide => ({
-  id: Math.random().toString(36).slice(2),
-  content: nodes,
-  alignment: "start",
-  width: "M",
-});
 const text = (value: string): TText => ({ text: value }) as const;
 
 const paragraph = (children: Array<TElement | TText> = [text("")]): TElement =>
@@ -83,6 +98,11 @@ const h3 = (content: string): TElement =>
 
 const h4 = (content: string): TElement =>
   ({ type: "h4", children: [text(content)] }) as unknown as TElement;
+
+const heading = (
+  type: "h1" | "h2" | "h3" | "h4" | "h5" | "h6",
+  content: string,
+): TElement => ({ type, children: [text(content)] }) as unknown as TElement;
 
 const codeBlock = (code: string, language = "tsx"): TElement => {
   const lines = code
@@ -95,15 +115,22 @@ const codeBlock = (code: string, language = "tsx"): TElement => {
   } as unknown as TElement;
 };
 
-const callout = (icon: string, bg: string, content: string): TElement =>
+const callout = (
+  icon: string,
+  bg: string,
+  content: string,
+  variant: string,
+): TElement =>
   ({
     type: KEYS.callout,
+    alignment: "left",
     icon,
     backgroundColor: bg,
+    variant,
     children: [paragraph([text(content)])],
   }) as unknown as TElement;
 
-const table = (headers: string[], rows: string[][]): TElement =>
+const _table = (headers: string[], rows: string[][]): TElement =>
   ({
     type: KEYS.table,
     children: [
@@ -123,6 +150,18 @@ const table = (headers: string[], rows: string[][]): TElement =>
         })),
       })),
     ],
+  }) as unknown as TElement;
+
+const blankTable = (rows: number, cols: number): TElement =>
+  ({
+    type: KEYS.table,
+    children: Array.from({ length: rows }, () => ({
+      type: KEYS.tr,
+      children: Array.from({ length: cols }, () => ({
+        type: KEYS.td,
+        children: [paragraph()],
+      })),
+    })),
   }) as unknown as TElement;
 
 const columns = (cols: Array<{ title: string; body: string[] }>): TElement =>
@@ -146,6 +185,17 @@ const simple = {
       children: [paragraph([text(content)])],
     }) as unknown as TElement,
 };
+
+const listBlock = (
+  listStyleType: typeof KEYS.ul | typeof KEYS.ol | typeof KEYS.listTodo,
+  content: string,
+): TElement =>
+  ({
+    type: KEYS.p,
+    indent: 1,
+    listStyleType,
+    children: [text(content)],
+  }) as unknown as TElement;
 
 // ============================================================================
 // HELPER FUNCTIONS - List & Group Builders
@@ -178,9 +228,29 @@ const createBoxItem = (title: string, content: string) => ({
   children: [h3(title), paragraph([text(content)])],
 });
 
-const createCompareSide = (title: string, items: string[]) => ({
-  type: COMPARE_SIDE,
+const createCompareSide = (
+  title: string,
+  items: string[],
+  type: typeof COMPARE_SIDE | typeof BEFORE_AFTER_SIDE = COMPARE_SIDE,
+) => ({
+  type,
   children: [h3(title), ...items.map((item) => paragraph([text(item)]))],
+});
+
+const createDiagramItem = (type: string, title: string, content: string) => ({
+  type,
+  children: [h3(title), paragraph([text(content)])],
+});
+
+const createDiagramTitleItem = (type: string, title: string) => ({
+  type,
+  children: [h3(title)],
+});
+
+const createStatsItem = (stat: string, label: string) => ({
+  type: STATS_ITEM,
+  stat,
+  children: [paragraph([text(label)])],
 });
 
 // ============================================================================
@@ -332,6 +402,19 @@ export const chartItems: PaletteItem[] = [
       { label: "Support", value: 81 },
     ]),
   },
+  // Radial Column - circular columns
+  {
+    key: "chart-radial-column",
+    label: "Radial Column",
+    node: createChartNode(RADIAL_COLUMN_CHART_ELEMENT, [
+      { label: "Jan", value: 45 },
+      { label: "Feb", value: 52 },
+      { label: "Mar", value: 48 },
+      { label: "Apr", value: 61 },
+      { label: "May", value: 55 },
+      { label: "Jun", value: 67 },
+    ]),
+  },
   // Composed Chart - multi-series with bar, line, area
   {
     key: "chart-composed",
@@ -363,22 +446,13 @@ export const chartItems: PaletteItem[] = [
     key: "chart-histogram",
     label: "Histogram",
     node: createChartNode(HISTOGRAM_CHART_ELEMENT, [
-      { value: 15 },
-      { value: 22 },
-      { value: 28 },
-      { value: 35 },
-      { value: 42 },
-      { value: 48 },
-      { value: 55 },
-      { value: 62 },
-      { value: 68 },
-      { value: 72 },
-      { value: 78 },
-      { value: 85 },
-      { value: 25 },
-      { value: 32 },
-      { value: 45 },
-      { value: 58 },
+      { label: "15-25", value: 3 },
+      { label: "25-35", value: 7 },
+      { label: "35-45", value: 15 },
+      { label: "45-55", value: 25 },
+      { label: "55-65", value: 20 },
+      { label: "65-75", value: 12 },
+      { label: "75-85", value: 5 },
     ]),
   },
   // Heatmap - matrix data
@@ -484,33 +558,11 @@ export const chartItems: PaletteItem[] = [
       { label: "Northwest", value: 70 },
     ]),
   },
-  // Radial Column - circular columns
-  {
-    key: "chart-radial-column",
-    label: "Radial Column",
-    node: createChartNode(RADIAL_COLUMN_CHART_ELEMENT, [
-      { label: "Jan", value: 45 },
-      { label: "Feb", value: 52 },
-      { label: "Mar", value: 48 },
-      { label: "Apr", value: 61 },
-      { label: "May", value: 55 },
-      { label: "Jun", value: 67 },
-    ]),
-  },
   // Sunburst - hierarchical radial
   {
     key: "chart-sunburst",
     label: "Sunburst",
-    node: createChartNode(SUNBURST_CHART_ELEMENT, [
-      {
-        name: "Company",
-        children: [
-          { name: "Engineering", value: 45 },
-          { name: "Sales", value: 30 },
-          { name: "Marketing", value: 25 },
-        ],
-      },
-    ]),
+    node: createChartNode(SUNBURST_CHART_ELEMENT, DEFAULT_CHART_DATA.hierarchy),
   },
   // Sankey - flow visualization
   {
@@ -585,127 +637,492 @@ export const chartItems: PaletteItem[] = [
   },
 ];
 
-export const tableItem: PaletteItem = {
-  key: "table",
-  label: "Table",
-  node: table(
-    ["Metric", "Q2 2024", "Q3 2024", "Change", "Target"],
-    [
-      ["Revenue", "$1.2M", "$1.37M", "+14%", "$1.5M"],
-      ["Churn Rate", "2.7%", "2.1%", "-0.6pp", "<2.0%"],
-      ["NPS Score", "51", "58", "+7", "60"],
-      ["Active Users", "9.4K", "12.0K", "+28%", "15K"],
-      ["Uptime", "99.92%", "99.96%", "+0.04pp", "99.9%"],
-    ],
-  ),
-};
+export const basicBlockItems: PaletteItem[] = [
+  {
+    category: "Text",
+    key: "title",
+    label: "Title",
+    description: "! Title",
+    node: {
+      type: PRESENTATION_TITLE_ELEMENT,
+      alignment: "left",
+      variant: "title",
+      children: [text("Title")],
+    } as unknown as TElement,
+  },
+  {
+    category: "Text",
+    key: "heading-1",
+    label: "Heading 1",
+    description: "# Heading 1",
+    node: heading("h1", "Heading 1"),
+  },
+  {
+    category: "Text",
+    key: "heading-2",
+    label: "Heading 2",
+    description: "## Heading 2",
+    node: heading("h2", "Heading 2"),
+  },
+  {
+    category: "Text",
+    key: "heading-3",
+    label: "Heading 3",
+    description: "### Heading 3",
+    node: heading("h3", "Heading 3"),
+  },
+  {
+    category: "Text",
+    key: "heading-4",
+    label: "Heading 4",
+    description: "#### Heading 4",
+    node: heading("h4", "Heading 4"),
+  },
+  {
+    category: "Text",
+    key: "paragraph",
+    label: "Text",
+    description: "Paragraph",
+    node: paragraph([text("Add a paragraph here.")]),
+  },
+  {
+    category: "Text",
+    key: "blockquote",
+    label: "Blockquote",
+    description: "> Quote",
+    node: simple.blockquote("Add a quote here."),
+  },
+  {
+    category: "Text",
+    key: "label",
+    label: "Label",
+    description: "Label",
+    node: {
+      type: LABEL_ELEMENT,
+      alignment: "left",
+      children: [text("Label")],
+    } as unknown as TElement,
+  },
+  {
+    category: "Tables",
+    key: "table-2x2",
+    label: "2x2 table",
+    description: "/table",
+    node: blankTable(2, 2),
+  },
+  {
+    category: "Tables",
+    key: "table-3x3",
+    label: "3x3 table",
+    node: blankTable(3, 3),
+  },
+  {
+    category: "Tables",
+    key: "table-4x4",
+    label: "4x4 table",
+    node: blankTable(4, 4),
+  },
+  {
+    category: "Lists",
+    key: "bulleted-list",
+    label: "Bulleted list",
+    description: "- Item",
+    node: listBlock(KEYS.ul, "Item"),
+  },
+  {
+    category: "Lists",
+    key: "numbered-list",
+    label: "Numbered list",
+    description: "1. Item",
+    node: listBlock(KEYS.ol, "Item"),
+  },
+  {
+    category: "Lists",
+    key: "todo-list",
+    label: "Todo list",
+    description: "[] Item",
+    node: listBlock(KEYS.listTodo, "Item"),
+  },
+  {
+    category: "Callout boxes",
+    key: "callout-note",
+    label: "Note box",
+    description: "/note",
+    node: callout(
+      "FiFileText",
+      CALLOUT_VARIANTS.note.backgroundColor,
+      "Add a note here.",
+      "note",
+    ),
+  },
+  {
+    category: "Callout boxes",
+    key: "callout-info",
+    label: "Info box",
+    description: "/info",
+    node: callout(
+      "FiInfo",
+      CALLOUT_VARIANTS.info.backgroundColor,
+      "Add useful information here.",
+      "info",
+    ),
+  },
+  {
+    category: "Callout boxes",
+    key: "callout-warning",
+    label: "Warning box",
+    description: "/warning",
+    node: callout(
+      "FiAlertTriangle",
+      "#FFF7ED",
+      "Add a warning here.",
+      "warning",
+    ),
+  },
+  {
+    category: "Callout boxes",
+    key: "callout-caution",
+    label: "Caution box",
+    description: "/caution",
+    node: callout("FiXCircle", "#FEF2F2", "Add a caution here.", "caution"),
+  },
+  {
+    category: "Callout boxes",
+    key: "callout-success",
+    label: "Success box",
+    description: "/success",
+    node: callout(
+      "FiCheckCircle",
+      "#F0FDF4",
+      "Add a success note here.",
+      "success",
+    ),
+  },
+  {
+    category: "Callout boxes",
+    key: "callout-question",
+    label: "Question box",
+    description: "/question",
+    node: callout(
+      "FiHelpCircle",
+      CALLOUT_VARIANTS.question.backgroundColor,
+      "Add a question here.",
+      "question",
+    ),
+  },
+  {
+    category: "Interactive",
+    key: "button",
+    label: "Button",
+    node: {
+      type: BUTTON_ELEMENT,
+      alignment: "left",
+      variant: "filled",
+      size: "md",
+      children: [paragraph([text("Get Started")])],
+    } as unknown as TElement,
+  },
+  {
+    category: "Interactive",
+    key: "toggle",
+    label: "Toggle",
+    node: {
+      type: KEYS.toggle,
+      children: [text("Toggle content")],
+    } as unknown as TElement,
+  },
+  {
+    category: "Other",
+    key: "code",
+    label: "Code block",
+    description: "```",
+    node: codeBlock(`// Your code here\nconst hello = "world";`, "typescript"),
+  },
+  {
+    category: "Other",
+    key: "math",
+    label: "Math block",
+    node: {
+      type: KEYS.equation,
+      texExpression: "f(x)=x^2",
+      children: [{ text: "" }],
+    } as unknown as TElement,
+  },
+  {
+    category: "Other",
+    key: "contributors",
+    label: "Contributors",
+    node: {
+      type: CONTRIBUTOR_ELEMENT,
+      alignment: "left",
+      children: [text("")],
+    } as unknown as TElement,
+  },
+  {
+    category: "Other",
+    key: "toc",
+    label: "Table of contents",
+    node: simple.toc(),
+  },
+];
+
+export const statsItems: PaletteItem[] = [
+  {
+    key: "stats-plain",
+    label: "Stats",
+    node: {
+      type: STATS_GROUP,
+      statsType: "plain",
+      columnSize: "md",
+      children: [
+        createStatsItem("64", "Completion rate"),
+        createStatsItem("28", "Active teams"),
+        createStatsItem("91", "Satisfaction score"),
+      ],
+    } as unknown as TElement,
+  },
+  {
+    key: "stats-circle",
+    label: "Circle Stats",
+    node: {
+      type: STATS_GROUP,
+      statsType: "circle",
+      columnSize: "md",
+      children: [
+        createStatsItem("72", "Progress"),
+        createStatsItem("48", "Adoption"),
+        createStatsItem("88", "Quality"),
+      ],
+    } as unknown as TElement,
+  },
+  {
+    key: "stats-star",
+    label: "Star Rating",
+    node: {
+      type: STATS_GROUP,
+      statsType: "star",
+      columnSize: "md",
+      children: [
+        createStatsItem("4", "Customer rating"),
+        createStatsItem("5", "Product fit"),
+        createStatsItem("4", "Team confidence"),
+      ],
+    } as unknown as TElement,
+  },
+  {
+    key: "stats-bar",
+    label: "Bar Stats",
+    node: {
+      type: STATS_GROUP,
+      statsType: "bar",
+      columnSize: "md",
+      children: [
+        createStatsItem("74", "Pipeline"),
+        createStatsItem("52", "Usage"),
+        createStatsItem("89", "Retention"),
+      ],
+    } as unknown as TElement,
+  },
+  {
+    key: "stats-dot-grid",
+    label: "Dot Grid Stats",
+    node: {
+      type: STATS_GROUP,
+      statsType: "dot-grid",
+      columnSize: "md",
+      children: [
+        createStatsItem("68", "Coverage"),
+        createStatsItem("41", "Reach"),
+        createStatsItem("96", "Reliability"),
+      ],
+    } as unknown as TElement,
+  },
+  {
+    key: "stats-dot-line",
+    label: "Dot Line Stats",
+    node: {
+      type: STATS_GROUP,
+      statsType: "dot-line",
+      columnSize: "md",
+      children: [
+        createStatsItem("60", "Baseline"),
+        createStatsItem("75", "Target"),
+        createStatsItem("90", "Stretch"),
+      ],
+    } as unknown as TElement,
+  },
+];
+
+export const quoteItems: PaletteItem[] = [
+  {
+    key: "quote-large",
+    label: "Large Quote",
+    node: {
+      type: QUOTE_ELEMENT,
+      variant: "large",
+      author: "Author name",
+      children: [text("Add a memorable quote or testimonial here.")],
+    } as unknown as TElement,
+  },
+  {
+    key: "quote-side-icon",
+    label: "Quote with Icon",
+    node: {
+      type: QUOTE_ELEMENT,
+      variant: "sidequote-icon",
+      author: "Author name",
+      children: [text("Add a short supporting quote here.")],
+    } as unknown as TElement,
+  },
+  {
+    key: "quote-side",
+    label: "Side Quote",
+    node: {
+      type: QUOTE_ELEMENT,
+      variant: "sidequote",
+      author: "Author name",
+      children: [text("Add a concise quote here.")],
+    } as unknown as TElement,
+  },
+];
+
+export const embedItems: PaletteItem[] = [
+  {
+    key: "media-embed",
+    label: "Media Embed",
+    node: {
+      type: KEYS.mediaEmbed,
+      provider: "youtube",
+      url: "",
+      alignment: "center",
+      width: "100%",
+      children: [{ text: "" }],
+    } as unknown as TElement,
+  },
+  {
+    key: "infographic",
+    label: "AI Infographic",
+    node: {
+      type: ANTV_INFOGRAPHIC,
+      syntax: "",
+      isLoading: false,
+      align: "center",
+      children: [{ text: "" }],
+    } as unknown as TElement,
+  },
+];
 
 export const paletteItems: PaletteItem[] = [
   {
     key: "bullets",
     label: "Bullet Points",
     node: createList(BULLET_GROUP, BULLET_ITEM, [
-      {
-        heading: "Revenue Growth",
-        content:
-          "Revenue grew 14% year-over-year to $5.2M, driven by strong enterprise customer expansion and new market penetration",
-      },
-      {
-        heading: "Customer Retention",
-        content:
-          "Customer churn reduced from 3.2% to 2.1%, achieving our lowest rate ever through improved onboarding and proactive support",
-      },
-      {
-        heading: "Customer Satisfaction",
-        content:
-          "Net Promoter Score improved from 51 to 58, indicating strong product-market fit and high customer satisfaction",
-      },
-      {
-        heading: "Performance Optimization",
-        content:
-          "Platform latency decreased 35% through comprehensive infrastructure optimization and edge caching implementation",
-      },
+      { heading: "Point one", content: "Add your first key point here." },
+      { heading: "Point two", content: "Add your second key point here." },
+      { heading: "Point three", content: "Add your third key point here." },
     ]),
   },
 
-  // TIMELINE & PROCESS
   {
     key: "timeline",
     label: "Timeline",
     node: createList(TIMELINE_GROUP, TIMELINE_ITEM, [
+      { heading: "Step one", content: "Describe what happened at this stage." },
+      { heading: "Step two", content: "Describe what happened at this stage." },
       {
-        heading: "January 2024",
-        content:
-          "MVP shipped with core editing features, 20 templates, and basic AI suggestions for 100 beta users",
-      },
-      {
-        heading: "March 2024",
-        content:
-          "Team expansion from 8 to 16 members, adding senior talent in Product Management and Engineering",
-      },
-      {
-        heading: "April 2024",
-        content:
-          "Beta launch with 500 early adopters providing critical feedback on collaboration features",
-      },
-      {
-        heading: "June 2024",
-        content:
-          "Analytics v2 released with real-time collaboration insights, usage tracking, and performance dashboards",
+        heading: "Step three",
+        content: "Describe what happened at this stage.",
       },
     ]),
+  },
+  {
+    key: "steps",
+    label: "Steps",
+    node: {
+      type: STEPS_GROUP,
+      variant: "arrow",
+      columnSize: "md",
+      children: [
+        {
+          type: STEPS_ITEM,
+          children: [
+            h4("Step one"),
+            paragraph([text("Describe the first step here.")]),
+          ],
+        },
+        {
+          type: STEPS_ITEM,
+          children: [
+            h4("Step two"),
+            paragraph([text("Describe the second step here.")]),
+          ],
+        },
+        {
+          type: STEPS_ITEM,
+          children: [
+            h4("Step three"),
+            paragraph([text("Describe the third step here.")]),
+          ],
+        },
+      ],
+    } as unknown as TElement,
   },
   {
     key: "arrows",
     label: "Process (Arrows)",
     node: createList(ARROW_LIST, ARROW_LIST_ITEM, [
-      {
-        heading: "Discover",
-        content:
-          "Conduct user research, market analysis, and competitive intelligence to identify opportunities",
-      },
-      {
-        heading: "Define",
-        content:
-          "Create requirements documentation, technical specifications, and establish clear success metrics",
-      },
-      {
-        heading: "Design",
-        content:
-          "Develop UI/UX prototypes, conduct user testing, and integrate with design system guidelines",
-      },
-      {
-        heading: "Develop",
-        content:
-          "Execute sprint planning, implement code with automated testing, and maintain continuous integration",
-      },
+      { heading: "Step one", content: "Describe this step." },
+      { heading: "Step two", content: "Describe this step." },
+      { heading: "Step three", content: "Describe this step." },
     ]),
   },
   {
     key: "arrow-vertical",
     label: "Vertical Steps",
     node: createList(SEQUENCE_ARROW_GROUP, SEQUENCE_ARROW_ITEM, [
-      {
-        heading: "Plan",
-        content:
-          "Stakeholder alignment sessions, resource allocation planning, timeline definition, and comprehensive risk assessment",
-      },
-      {
-        heading: "Build",
-        content:
-          "Feature development sprints, API integration work, technical documentation creation, and internal dogfooding cycles",
-      },
-      {
-        heading: "Test",
-        content:
-          "Automated QA testing, performance benchmarking across regions, security audit completion, and beta user validation",
-      },
-      {
-        heading: "Launch",
-        content:
-          "Phased rollout to user segments, real-time monitoring dashboards, customer communication campaigns, and support team readiness",
-      },
+      { heading: "Step one", content: "Describe this step." },
+      { heading: "Step two", content: "Describe this step." },
+      { heading: "Step three", content: "Describe this step." },
     ]),
+  },
+  {
+    key: "slope",
+    label: "Slope",
+    node: {
+      type: SLOPE_GROUP,
+      children: [
+        {
+          ...createDiagramTitleItem(SLOPE_ITEM, "Ideate"),
+          icon: "FaLightbulb",
+        },
+        {
+          ...createDiagramTitleItem(SLOPE_ITEM, "Prototype"),
+          icon: "FaFlask",
+        },
+        {
+          ...createDiagramTitleItem(SLOPE_ITEM, "Validate"),
+          icon: "FaCheck",
+        },
+        {
+          ...createDiagramTitleItem(SLOPE_ITEM, "Scale"),
+          icon: "FaChartLine",
+        },
+      ],
+    } as unknown as TElement,
+  },
+  {
+    key: "snake",
+    label: "Snake Flow",
+    node: {
+      type: SNAKE_GROUP,
+      children: [
+        createDiagramItem(SNAKE_ITEM, "Assess", "Evaluate the current state."),
+        createDiagramItem(SNAKE_ITEM, "Plan", "Define the roadmap."),
+        createDiagramItem(SNAKE_ITEM, "Build", "Develop the solution."),
+        createDiagramItem(SNAKE_ITEM, "Validate", "Test and refine."),
+        createDiagramItem(SNAKE_ITEM, "Scale", "Deploy and optimize."),
+      ],
+    } as unknown as TElement,
   },
 
   // HIERARCHIES
@@ -713,78 +1130,75 @@ export const paletteItems: PaletteItem[] = [
     key: "pyramid",
     label: "Pyramid",
     node: createList(PYRAMID_GROUP, PYRAMID_ITEM, [
-      {
-        content:
-          "Empower every team to create compelling, data-driven presentations 10x faster using AI technology",
-      },
-      {
-        content:
-          "Build the world's most intuitive AI-powered presentation platform with best-in-class collaboration",
-      },
-      {
-        content:
-          "Focus on enterprise feature expansion, integration ecosystem growth, and strategic global market expansion",
-      },
-      {
-        content:
-          "Ship weekly product releases, maintain 99.9% uptime SLA, and achieve sub-100ms response times globally",
-      },
+      { content: "Top level." },
+      { content: "Middle level." },
+      { content: "Base level." },
     ]),
   },
   {
     key: "staircase",
     label: "Staircase",
     node: createList(STAIRCASE_GROUP, STAIR_ITEM, [
-      {
-        content:
-          "Core editor with 20 templates, 100 beta users, basic AI suggestions, and foundational collaboration features",
-      },
-      {
-        content:
-          "100+ professional templates, 1,000 active users, real-time collaboration, and advanced AI content generation",
-      },
-      {
-        content:
-          "Enterprise features including SSO and RBAC, 10,000 users, comprehensive API access, custom branding options",
-      },
-      {
-        content:
-          "100,000+ users across industries, multi-region deployment, 99.99% SLA, and white-label solutions for partners",
-      },
+      { content: "Level one." },
+      { content: "Level two." },
+      { content: "Level three." },
     ]),
   },
   {
     key: "cycle",
     label: "Cycle",
     node: createList(CYCLE_GROUP, CYCLE_ITEM, [
-      {
-        heading: "Ideate",
-        content:
-          "Brainstorm innovative solutions, review comprehensive user feedback, and analyze competitor feature landscape",
-      },
-      {
-        heading: "Prototype",
-        content:
-          "Create high-fidelity mockups, build working proof-of-concepts, and validate technical feasibility with engineering",
-      },
-      {
-        heading: "Build",
-        content:
-          "Implement features with best practices, write comprehensive tests, conduct thorough code reviews, deploy to staging",
-      },
-      {
-        heading: "Measure",
-        content:
-          "Track detailed usage metrics, monitor system performance, collect user feedback through surveys, analyze business impact",
-      },
-      {
-        heading: "Learn",
-        content:
-          "Review results with stakeholders, identify areas for improvement, document key insights, and plan next iteration cycle",
-      },
+      { heading: "Discover", content: "Identify the opportunity." },
+      { heading: "Plan", content: "Define the next move." },
+      { heading: "Build", content: "Create the first version." },
+      { heading: "Improve", content: "Refine from feedback." },
     ]),
   },
-
+  {
+    key: "connected-circles",
+    label: "Connected Circles",
+    node: {
+      type: CONNECTED_CIRCLES_GROUP,
+      children: [
+        createDiagramItem(
+          CONNECTED_CIRCLES_ITEM,
+          "Shared Moments",
+          "Center the message on emotional occasions.",
+        ),
+        createDiagramItem(
+          CONNECTED_CIRCLES_ITEM,
+          "Consistent Voice",
+          "Keep the message stable and recognizable.",
+        ),
+        createDiagramItem(
+          CONNECTED_CIRCLES_ITEM,
+          "Emotion First",
+          "Connect the brand to feelings.",
+        ),
+        createDiagramItem(
+          CONNECTED_CIRCLES_ITEM,
+          "Long Memory",
+          "Make the brand easy to recognize later.",
+        ),
+      ],
+    } as unknown as TElement,
+  },
+  {
+    key: "circular-grid",
+    label: "Circular Grid",
+    node: {
+      type: CIRCULAR_GRID_GROUP,
+      centerText: "Smart Diagram",
+      children: [
+        createDiagramItem(CIRCULAR_GRID_ITEM, "Objective", "Define the goal."),
+        createDiagramItem(CIRCULAR_GRID_ITEM, "Signals", "Capture inputs."),
+        createDiagramItem(CIRCULAR_GRID_ITEM, "Actions", "Move into work."),
+        createDiagramItem(CIRCULAR_GRID_ITEM, "Metrics", "Track progress."),
+        createDiagramItem(CIRCULAR_GRID_ITEM, "Risks", "Surface assumptions."),
+        createDiagramItem(CIRCULAR_GRID_ITEM, "Learning", "Feed results back."),
+      ],
+    } as unknown as TElement,
+  },
   // COMPARISON & EVALUATION
   {
     key: "boxes",
@@ -792,30 +1206,9 @@ export const paletteItems: PaletteItem[] = [
     node: {
       type: BOX_GROUP,
       children: [
-        createBoxItem(
-          "Performance",
-          "Sub-50ms p95 response times achieved through edge caching, CDN optimization, and deployment across 25+ global regions",
-        ),
-        createBoxItem(
-          "Security",
-          "SOC2 Type II compliance in final audit stage, end-to-end encryption, regular penetration testing, and full GDPR compliance",
-        ),
-        createBoxItem(
-          "Reliability",
-          "Multi-AZ failover architecture with automated backups every 6 hours, 99.96% historical uptime, and zero data loss guarantee",
-        ),
-        createBoxItem(
-          "User Experience",
-          "Intuitive interface with less than 5-minute learning curve, extensive keyboard shortcuts, and seamless real-time collaboration",
-        ),
-        createBoxItem(
-          "Scalability",
-          "Horizontally scalable infrastructure supporting 50,000+ concurrent users with automatic load balancing and resource optimization",
-        ),
-        createBoxItem(
-          "Integration",
-          "200+ integrations with popular tools including Slack, Microsoft Teams, Google Workspace, Salesforce, and Jira",
-        ),
+        createBoxItem("Feature one", "Describe this feature."),
+        createBoxItem("Feature two", "Describe this feature."),
+        createBoxItem("Feature three", "Describe this feature."),
       ],
     } as unknown as TElement,
   },
@@ -825,19 +1218,15 @@ export const paletteItems: PaletteItem[] = [
     node: {
       type: COMPARE_GROUP,
       children: [
-        createCompareSide("Build In-House Solution", [
-          "Complete architectural control and customization to meet exact business requirements",
-          "No vendor lock-in concerns, full data ownership, and independence from third-party roadmaps",
-          "Long-term cost efficiency after initial investment, with predictable operating expenses",
-          "6-month development timeline requiring 3 additional senior engineers at $500K initial investment",
-          "Higher initial risk but enables unique competitive differentiation and strategic advantages",
+        createCompareSide("Option A", [
+          "Point one",
+          "Point two",
+          "Point three",
         ]),
-        createCompareSide("Buy Third-Party Platform", [
-          "Rapid 2-week deployment timeline enables quick market testing and faster time-to-value",
-          "Proven reliability with established track record, dedicated 24/7 support team, and regular updates",
-          "Predictable costs of $50K annually with transparent pricing and no hidden fees",
-          "Limited customization options may not fit all use cases, potential vendor dependency risks",
-          "Scaling limitations at high volume (10,000+ users) may require expensive enterprise tier upgrade",
+        createCompareSide("Option B", [
+          "Point one",
+          "Point two",
+          "Point three",
         ]),
       ],
     } as unknown as TElement,
@@ -848,20 +1237,16 @@ export const paletteItems: PaletteItem[] = [
     node: {
       type: BEFORE_AFTER_GROUP,
       children: [
-        createCompareSide("Legacy System", [
-          "Monolithic architecture requiring complete system redeployments for any code change or bug fix",
-          "Manual deployment process taking 4+ hours with frequent rollback needs due to integration issues",
-          "Average response time of 450ms with frequent timeout issues affecting user experience and productivity",
-          "Weekly scheduled maintenance windows causing 2-3 hours of disruptive downtime for all users",
-          "Limited scalability to only 500 concurrent users before significant performance degradation occurred",
-        ]),
-        createCompareSide("Modern Platform", [
-          "Microservices architecture enabling independent service deployment without affecting other system components",
-          "Automated CI/CD pipelines with 15-minute deploy-to-production cycle and automated rollback capabilities",
-          "Average response time of 45ms with 99.9th percentile under 200ms across all geographic regions",
-          "Zero-downtime deployments using blue-green strategy with automated health checks and traffic shifting",
-          "Horizontally scalable infrastructure supporting 50,000+ concurrent users with intelligent auto-scaling policies",
-        ]),
+        createCompareSide(
+          "Before",
+          ["Point one", "Point two", "Point three"],
+          BEFORE_AFTER_SIDE,
+        ),
+        createCompareSide(
+          "After",
+          ["Point one", "Point two", "Point three"],
+          BEFORE_AFTER_SIDE,
+        ),
       ],
     } as unknown as TElement,
   },
@@ -873,73 +1258,19 @@ export const paletteItems: PaletteItem[] = [
       children: [
         {
           type: PROS_ITEM,
-          children: [
-            paragraph([
-              text(
-                "Setup completed in just 2 days with excellent onboarding documentation, guided setup wizard, and responsive support team",
-              ),
-            ]),
-          ],
+          children: [paragraph([text("Strength or advantage.")])],
         },
         {
           type: PROS_ITEM,
-          children: [
-            paragraph([
-              text(
-                "Comprehensive API documentation with 50+ code examples, interactive tutorials, and sub-2-hour support response times",
-              ),
-            ]),
-          ],
-        },
-        {
-          type: PROS_ITEM,
-          children: [
-            paragraph([
-              text(
-                "Vibrant community forum with 10,000+ active members, 200+ pre-built integrations, and monthly educational webinars",
-              ),
-            ]),
-          ],
-        },
-        {
-          type: PROS_ITEM,
-          children: [
-            paragraph([
-              text(
-                "Strong performance metrics including 99.95% uptime SLA, sub-100ms global latency, and automatic scaling capabilities",
-              ),
-            ]),
-          ],
+          children: [paragraph([text("Strength or advantage.")])],
         },
         {
           type: CONS_ITEM,
-          children: [
-            paragraph([
-              text(
-                "Limited UI customization options with white-labeling only available on expensive enterprise tier at $50K annually",
-              ),
-            ]),
-          ],
+          children: [paragraph([text("Weakness or limitation.")])],
         },
         {
           type: CONS_ITEM,
-          children: [
-            paragraph([
-              text(
-                "Missing advanced RBAC features, no SCIM provisioning for automated user management, and basic audit logging only",
-              ),
-            ]),
-          ],
-        },
-        {
-          type: CONS_ITEM,
-          children: [
-            paragraph([
-              text(
-                "Vendor lock-in concerns due to proprietary data format, limited export options, and migration complexity to alternatives",
-              ),
-            ]),
-          ],
+          children: [paragraph([text("Weakness or limitation.")])],
         },
       ],
     } as unknown as TElement,
@@ -947,60 +1278,21 @@ export const paletteItems: PaletteItem[] = [
 
   // ICONS
   {
-    key: "icon",
-    label: "Icon",
-    node: {
-      type: ICON_ELEMENT,
-      query: "activity",
-      children: [{ text: "" }],
-    } as unknown as TElement,
-  },
-  {
     key: "icon-list",
     label: "Icon List",
     node: {
       type: ICON_LIST,
+      orientation: "side",
+      variant: "icon",
       children: [
-        createIconListItem(
-          "activity",
-          "User engagement increased 38% quarter-over-quarter with average session duration growing from 12 to 18 minutes",
-        ),
-        createIconListItem(
-          "shield",
-          "SOC2 Type II audit completed successfully with zero findings, certification expected in Q1 2025",
-        ),
-        createIconListItem(
-          "bolt",
-          "Platform performance optimized to sub-100ms for 95% of user actions through intelligent caching improvements",
-        ),
-        createIconListItem(
-          "users",
-          "Team expanded from 24 to 35 talented members across Engineering, Product Management, and Customer Success",
-        ),
-        createIconListItem(
-          "trending-up",
-          "Revenue growth accelerated to 14% quarter-over-quarter, reaching $5.2M with robust enterprise pipeline",
-        ),
-        createIconListItem(
-          "globe",
-          "Global expansion to 15 new markets with localized content in 8 languages and regional data centers",
-        ),
+        createIconListItem("activity", "Describe this point."),
+        createIconListItem("shield", "Describe this point."),
+        createIconListItem("bolt", "Describe this point."),
       ],
     } as unknown as TElement,
   },
 
   // INTERACTIVE & MEDIA
-  {
-    key: "button",
-    label: "CTA Button",
-    node: {
-      type: BUTTON_ELEMENT,
-      variant: "filled",
-      size: "md",
-      children: [paragraph([text("Apply for Beta Access")])],
-    } as unknown as TElement,
-  }, // LAYOUT
-
   {
     key: "image",
     label: "Image",
@@ -1016,83 +1308,27 @@ export const paletteItems: PaletteItem[] = [
     label: "Columns",
     node: columns([
       {
-        title: "Why Now",
-        body: [
-          "AI democratization is accelerating across industries, making advanced tools accessible to all teams",
-          "Remote collaboration has become the default, requiring better async presentation tools",
-          "Content velocity demands are increasing as organizations need to produce more high-quality materials faster",
-        ],
+        title: "Column one",
+        body: ["Add your content here.", "Add more points."],
       },
       {
-        title: "Why Us",
-        body: [
-          "Design excellence with award-winning UI/UX that delights users and reduces learning curves",
-          "Infrastructure maturity with proven 99.96% uptime and sub-100ms performance globally",
-          "Data platform provides unique insights and analytics that competitors cannot match",
-        ],
+        title: "Column two",
+        body: ["Add your content here.", "Add more points."],
       },
       {
-        title: "What's Next",
-        body: [
-          "Ship advanced insights dashboard with predictive analytics and automated recommendations",
-          "Launch 100+ industry-specific templates based on customer research and feedback",
-          "Release public SDK enabling developers to build custom integrations and extensions",
-        ],
+        title: "Column three",
+        body: ["Add your content here.", "Add more points."],
       },
     ]),
   },
 
-  // CONTENT BLOCKS
-  {
-    key: "callout",
-    label: "Callout",
-    node: callout(
-      "💡",
-      "#FFF8DB",
-      "Pro Tip: Use data visualization to tell compelling stories, not just to present numbers. Focus on insights and actionable takeaways that drive decision-making.",
-    ),
-  },
-
-  {
-    key: "toc",
-    label: "Table of Contents",
-    node: simple.toc(),
-  },
-  {
-    key: "blockquote",
-    label: "Blockquote",
-    node: simple.blockquote(
-      "Make it work, make it right, make it fast. This principle guides our engineering culture and ensures we ship quality features that scale sustainably.",
-    ),
-  },
-  {
-    key: "code",
-    label: "Code Block",
-    node: codeBlock(
-      `// TypeScript utility for safe data fetching
-export async function fetchWithRetry<T>(
-  url: string,
-  options: RequestInit = {},
-  maxRetries = 3
-): Promise<T> {
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      const response = await fetch(url, options);
-      if (!response.ok) throw new Error(\`HTTP \${response.status}\`);
-      return await response.json();
-    } catch (error) {
-      if (i === maxRetries - 1) throw error;
-      await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i)));
-    }
-  }
-  throw new Error("Max retries exceeded");
-}`,
-      "typescript",
-    ),
-  },
-  {
-    key: "hr",
-    label: "Divider",
-    node: simple.hr(),
-  },
+  ...statsItems,
+  ...quoteItems,
+  ...embedItems,
 ];
+
+const HIDDEN_PALETTE_ITEM_KEYS = new Set<string>();
+
+export const visiblePaletteItems = paletteItems.filter(
+  (item) => !HIDDEN_PALETTE_ITEM_KEYS.has(item.key),
+);

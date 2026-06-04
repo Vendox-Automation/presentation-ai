@@ -1,11 +1,12 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
-import { cn } from "@/lib/utils";
 import { Download, Image as ImageIcon, Minus, Plus, Scan } from "lucide-react";
 import { type TElement } from "platejs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
+import { cn } from "@/lib/utils";
 import { type RootImage as RootImageType } from "../../../utils/parser";
 import { type ImageCropSettings } from "../../../utils/types";
 import { type ImageDimensions } from "./useImageDimensions";
@@ -172,7 +173,7 @@ export function ImagePreview({
 
   if (!element.url) {
     return (
-      <div className="flex h-full min-h-[300px] w-full animate-in flex-col items-center justify-center gap-4 rounded-lg border border-dashed bg-muted/30 p-8 text-center duration-500 fade-in">
+      <div className="flex h-full min-h-75 w-full animate-in flex-col items-center justify-center gap-4 rounded-lg border border-dashed bg-muted/30 p-8 text-center duration-500 fade-in">
         <div className="rounded-full bg-muted p-4">
           <ImageIcon className="h-8 w-8 text-muted-foreground/50" />
         </div>
@@ -191,7 +192,7 @@ export function ImagePreview({
       {/* Image Preview Area */}
       <div
         className={cn(
-          "relative overflow-hidden rounded-md shadow-xs transition-all duration-300",
+          "relative overflow-hidden rounded-md shadow transition-all duration-300",
           currentMode === "crop" && "ring-2 ring-primary ring-offset-2",
         )}
         style={{
@@ -243,7 +244,7 @@ export function ImagePreview({
 
       {/* Floating Controls Toolbar */}
       {!hideControls && (
-        <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 translate-y-2 items-center gap-2 rounded-full border bg-background/80 p-1.5 px-3 opacity-0 shadow-lg backdrop-blur-xs transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100">
+        <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 translate-y-2 items-center gap-2 rounded-full border bg-background/80 p-1.5 px-3 opacity-0 shadow-lg backdrop-blur-sm transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100">
           <Button
             variant="ghost"
             size="icon"

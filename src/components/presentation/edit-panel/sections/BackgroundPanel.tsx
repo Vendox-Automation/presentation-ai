@@ -1,20 +1,18 @@
 "use client";
 
+import { Plus, RotateCcw } from "lucide-react";
+import React, { useCallback, useMemo, useState } from "react";
+
 import { Button } from "@/components/ui/button";
-import { DEFAULT_COLORS } from "@/components/ui/color-picker";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDebouncedSave } from "@/hooks/presentation/useDebouncedSave";
-import {
-  themes,
-  type ThemeProperties,
-  type Themes,
-} from "@/lib/presentation/themes";
+import { resolvePresentationThemeData } from "@/lib/presentation/theme-resolution";
+import { themes, type ThemeProperties } from "@/lib/presentation/themes";
 import { cn } from "@/lib/utils";
 import { usePresentationState } from "@/states/presentation-state";
-import { Plus, RotateCcw } from "lucide-react";
-import React, { useCallback, useMemo, useState } from "react";
+import { DEFAULT_COLORS } from "@/components/ui/color-picker";
 import { BackgroundImageEditor } from "./BackgroundImageEditor";
 import { GradientMaker } from "./GradientMaker";
 
@@ -35,7 +33,8 @@ function isGradientString(input: string | undefined | null) {
 }
 
 function buildStopsCss(stops: GradientStop[]) {
-  return [...stops]
+  return stops
+    .slice()
     .sort((a, b) => a.position - b.position)
     .map(
       (s) =>
@@ -61,9 +60,10 @@ export function BackgroundPanel() {
   const { save } = useDebouncedSave({ delay: 800 });
 
   const baseTheme: ThemeProperties = useMemo(() => {
-    if (customThemeData) return customThemeData;
-    const key = (theme in themes ? (theme as Themes) : "mystique") as Themes;
-    return themes[key];
+    return (
+      resolvePresentationThemeData({ customThemeData, theme }) ??
+      themes.mystique
+    );
   }, [customThemeData, theme]);
 
   const modeColors = baseTheme.colors;
@@ -88,7 +88,7 @@ export function BackgroundPanel() {
   const onSolidChange = useCallback(
     (value: string) => {
       updateConfig({ backgroundType: "solid", backgroundOverride: value });
-      save();
+      save({ includeMetadata: true });
     },
     [updateConfig, save],
   );
@@ -96,16 +96,13 @@ export function BackgroundPanel() {
   const onReset = useCallback(() => {
     const prev = (pageBackground ?? {}) as Record<string, unknown>;
     const {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       backgroundOverride: _o,
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       backgroundType: _t,
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       backgroundGradient: _g,
       ...rest
     } = prev;
     setPageBackground(rest);
-    save();
+    save({ includeMetadata: true });
   }, [pageBackground, setPageBackground, save]);
 
   return (

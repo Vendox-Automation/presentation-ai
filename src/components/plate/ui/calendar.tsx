@@ -7,9 +7,9 @@ import {
 } from "lucide-react";
 import * as React from "react";
 import {
-  type DayButton,
   DayPicker,
   getDefaultClassNames,
+  type DayButton,
 } from "react-day-picker";
 
 import { Button, buttonVariants } from "@/components/plate/ui/button";
@@ -34,8 +34,8 @@ function Calendar({
       showOutsideDays={showOutsideDays}
       className={cn(
         "group/calendar bg-background p-3 [--cell-size:var(--spacing-8)] in-data-[slot=card-content]:bg-transparent in-data-[slot=popover-content]:bg-transparent",
-        "rtl:**:[.rdp-button_next>svg]:rotate-180",
-        "rtl:**:[.rdp-button_previous>svg]:rotate-180",
+        "[.rdp-button_next>svg]:**:rtl:rotate-180",
+        "[.rdp-button_previous>svg]:**:rtl:rotate-180",
         className,
       )}
       captionLayout={captionLayout}
@@ -211,4 +211,4 @@ function CalendarDayButton({
   );
 }
 
-export { Calendar, CalendarDayButton };
+export { Calendar };

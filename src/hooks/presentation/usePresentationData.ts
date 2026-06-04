@@ -77,6 +77,7 @@ export function usePresentationData(id: string, forcedReadOnly = false) {
           customThemeData: state.customThemeData,
           pageStyle: state.pageStyle,
           presentationStyle: state.presentationStyle,
+          generationAspectRatio: state.generationAspectRatio,
           textContent: state.textContent,
           tone: state.tone,
           audience: state.audience,
@@ -189,7 +190,7 @@ export function usePresentationData(id: string, forcedReadOnly = false) {
         void (async () => {
           await updatePresentationThumbnailUrl({
             id: presentationData.id,
-            slides: fixedSlides,
+            thumbnailUrl: derivedThumbnailUrl,
             onlyIfMissing: true,
           });
         })();

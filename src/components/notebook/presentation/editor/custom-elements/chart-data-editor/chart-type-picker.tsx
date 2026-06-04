@@ -8,6 +8,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+
 import { type SeriesChartType } from "./types";
 
 interface ChartTypePickerProps {
@@ -23,22 +24,22 @@ const CHART_TYPE_OPTIONS: {
   {
     value: "bar",
     label: "Bar",
-    icon: <BarChart3 className="h-3.5 w-3.5" />,
+    icon: <BarChart3 className="size-3.5" />,
   },
   {
     value: "line",
     label: "Line",
-    icon: <TrendingUp className="h-3.5 w-3.5" />,
+    icon: <TrendingUp className="size-3.5" />,
   },
   {
     value: "area",
     label: "Area",
-    icon: <AreaChart className="h-3.5 w-3.5" />,
+    icon: <AreaChart className="size-3.5" />,
   },
   {
     value: "scatter",
     label: "Scatter",
-    icon: <ChartScatter className="h-3.5 w-3.5" />,
+    icon: <ChartScatter className="size-3.5" />,
   },
 ];
 
@@ -97,12 +98,12 @@ export function ChartTypePicker({ value, onChange }: ChartTypePickerProps) {
         onClick={handleTriggerClick}
       >
         {selectedOption?.icon}
-        <ChevronDown className="h-2.5 w-2.5" />
+        <ChevronDown className="size-2.5" />
       </button>
 
       {isOpen && (
         <div
-          className="absolute top-full left-0 z-100 mt-1 min-w-[100px] animate-in rounded-md border bg-popover p-1 text-popover-foreground shadow-md fade-in-0 zoom-in-95"
+          className="absolute top-full left-0 z-100 mt-1 min-w-25 animate-in rounded-md border bg-popover p-1 text-popover-foreground shadow-md fade-in-0 zoom-in-95"
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >

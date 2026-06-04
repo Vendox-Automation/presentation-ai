@@ -1,30 +1,19 @@
 "use client";
 
-import { MediaEmbedPlaceholder } from "@/components/plate/ui/media-embed-placeholder";
-import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Resizable } from "@/components/ui/resizable";
-import { Spinner } from "@/components/ui/spinner";
-import {
-  BASE_HEIGHT,
-  BASE_WIDTH_PERCENTAGE,
-  useRootImageActions,
-} from "@/hooks/presentation/useRootImageActions";
-import { cn } from "@/lib/utils";
-import {
-  type ImageEditorMode,
-  usePresentationState,
-} from "@/states/presentation-state";
 import { DRAG_ITEM_BLOCK } from "@platejs/dnd";
 import {
   BarChart3,
+  Copy,
+  Download,
   Edit,
+  ExternalLink,
+  ImageIcon,
   ImageOff,
+  Layout,
+  LayoutPanelLeft,
   Link,
+  Link2,
+  Maximize2,
   Scissors,
   Trash2,
 } from "lucide-react";
@@ -33,16 +22,10 @@ import { KEYS, type TElement } from "platejs";
 import { useEditorReadOnly } from "platejs/react";
 import { useMemo, useState } from "react";
 import { useDrop } from "react-dnd";
-import { type RootImage as RootImageType } from "../../utils/parser";
-import { type ImageCropSettings } from "../../utils/types";
-import { isChartType } from "../lib";
-import { ChartRenderer } from "./charts/ChartRenderer";
-import { EmbedRenderer } from "./embeds/EmbedRenderer";
-import { CropModal } from "./image-editor/CropModal";
-import ImagePlaceholder from "./image-placeholder";
+import { toast } from "sonner";
 
-import { useSlideOperations } from "@/hooks/presentation/useSlideOperations";
-
+import { MediaEmbedPlaceholder } from "@/components/plate/ui/media-embed-placeholder";
+import { Button } from "@/components/ui/button";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -54,16 +37,41 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import {
-  Copy,
-  Download,
-  ExternalLink,
-  ImageIcon,
-  Layout,
-  LayoutPanelLeft,
-  Link2,
-  Maximize2,
-} from "lucide-react";
-import { toast } from "sonner";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Resizable } from "@/components/ui/resizable";
+import { Spinner } from "@/components/ui/spinner";
+import {
+  BASE_HEIGHT,
+  BASE_WIDTH_PERCENTAGE,
+  MAX_HEIGHT,
+  MAX_WIDTH_PERCENTAGE,
+  MIN_HEIGHT,
+  MIN_WIDTH_PERCENTAGE,
+  useRootImageActions,
+} from "@/hooks/presentation/useRootImageActions";
+import { useSlideOperations } from "@/hooks/presentation/useSlideOperations";
+import { cn } from "@/lib/utils";
+import {
+  usePresentationState,
+  type ImageEditorMode,
+} from "@/states/presentation-state";
+import { type RootImage as RootImageType } from "../../utils/parser";
+import { type ImageCropSettings } from "../../utils/types";
+import { isChartType } from "../lib";
+import {
+  getPaletteDragItemKey,
+  getPaletteDragSource,
+  getPaletteMutableSignature,
+} from "../utils/paletteDrop";
+import { ChartRenderer } from "./charts/ChartRenderer";
+import { EmbedRenderer } from "./embeds/EmbedRenderer";
+import { CropModal } from "./image-editor/CropModal";
+import { useImageDimensions } from "./image-editor/useImageDimensions";
+import ImagePlaceholder from "./image-placeholder";
+import { InfographicEmbedPlaceholder } from "./infographic-embed-placeholder";
 
 export interface RootImageProps {
   image: RootImageType;
@@ -83,13 +91,24 @@ export default function RootImage({
   heightPx,
 }: RootImageProps) {
   const isSideLayout = layoutType === "left" || layoutType === "right";
+  const resolvedLayoutType = layoutType ?? image.layoutType ?? "vertical";
   // State for showing delete popover
   const [showDeletePopover, setShowDeletePopover] = useState(false);
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
   const slides = usePresentationState((s) => s.slides);
   const updateSlide = usePresentationState((s) => s.updateSlide);
+  const setPaletteDropTarget = usePresentationState(
+    (s) => s.setPaletteDropTarget,
+  );
   const setCurrentSlide = usePresentationState((s) => s.setCurrentSlideId);
   const openImageEditor = usePresentationState((s) => s.openImageEditor);
+  const openInfographicGenerationEditor = usePresentationState(
+    (s) => s.openInfographicGenerationEditor,
+  );
+  const stockImageProvider = usePresentationState((s) => s.stockImageProvider);
+  const setImageSearchState = usePresentationState(
+    (s) => s.setImageSearchState,
+  );
   // Check if editor is in read-only mode
   const readOnly = useEditorReadOnly();
 
@@ -101,10 +120,25 @@ export default function RootImage({
     isDragging,
     handleRef,
     removeRootImageFromSlide,
+    onResize,
     onResizeStop,
     updateCropSettings,
     dragId,
-  } = useRootImageActions(slideId, { image, layoutType });
+  } = useRootImageActions(slideId, { image, layoutType, maxHeightPx });
+  const imageDimensions = useImageDimensions({
+    element: image,
+    slideId,
+    layoutType: resolvedLayoutType,
+  });
+  const isRootImageGenerating =
+    image.isQueryStreaming ||
+    computedGen?.status === "queued" ||
+    computedGen?.status === "generating";
+  const shouldShowGenerationPlaceholder =
+    isRootImageGenerating &&
+    !computedImageUrl &&
+    !image.embedType &&
+    !image.chartType;
 
   const appliedSizeStyle: React.CSSProperties = useMemo(() => {
     if (typeof heightPx === "number" && heightPx > 0) {
@@ -127,6 +161,14 @@ export default function RootImage({
     typeof maxHeightPx === "number" && maxHeightPx > 0
       ? `${maxHeightPx}px`
       : undefined;
+  const resolvedMaxHeightNumber =
+    typeof maxHeightPx === "number" && maxHeightPx > 0
+      ? maxHeightPx
+      : undefined;
+  const verticalMinHeight =
+    resolvedMaxHeightNumber === undefined
+      ? MIN_HEIGHT
+      : Math.min(MIN_HEIGHT, resolvedMaxHeightNumber);
 
   // Ensure popover closes when delete action is invoked
   const handleDeleteClick = (e: React.MouseEvent) => {
@@ -143,16 +185,23 @@ export default function RootImage({
       const openChartEditor = usePresentationState.getState().openChartEditor;
       if (image.chartType) {
         openChartEditor();
+      } else if (image.embedType === "infographic") {
+        openInfographicGenerationEditor();
       } else if (image.embedType) {
         openImageEditor("embed");
       } else {
-        openImageEditor(
+        const mode: ImageEditorMode =
           image.imageSource === "search"
             ? "search"
             : image.imageSource === "gif"
               ? "gif"
-              : "generate",
-        );
+              : "generate";
+        if (mode === "search") {
+          setImageSearchState({
+            mode: image.stockImageProvider ?? stockImageProvider,
+          });
+        }
+        openImageEditor(mode);
       }
     }
   };
@@ -217,13 +266,18 @@ export default function RootImage({
         break;
       case "replace":
         setCurrentSlide(slideId);
-        openImageEditor(
+        const mode: ImageEditorMode =
           image.imageSource === "search"
             ? "search"
             : image.imageSource === "gif"
               ? "gif"
-              : "generate",
-        );
+              : "generate";
+        if (mode === "search") {
+          setImageSearchState({
+            mode: image.stockImageProvider ?? stockImageProvider,
+          });
+        }
+        openImageEditor(mode);
         break;
       case "fit":
         updateCropSettings({
@@ -322,7 +376,11 @@ export default function RootImage({
     { isOver: isChartOver, canDrop: canDropChart, isImageDrop, isEmbedDrop },
     dropRef,
   ] = useDrop<
-    { element?: TElement },
+    {
+      element?: TElement;
+      itemKey?: string;
+      sourcePanel?: "elements" | "charts";
+    },
     { droppedInLayoutZone: boolean },
     {
       isOver: boolean;
@@ -336,17 +394,21 @@ export default function RootImage({
       canDrop: (item: { element?: TElement }) => {
         // Accept chart, image, or media embed elements when not in read-only mode
         if (!item.element || readOnly) return false;
-        // Don't accept drop if it's the same element (self-drop)
-        if (item.element.id === dragId) return false;
 
         const isChart = isChartType(item.element.type);
         const isImage = item.element.type === "img";
         const isEmbed = item.element.type === KEYS.mediaEmbed;
         return isChart || isImage || isEmbed;
       },
-      drop: (item: { element?: TElement }) => {
+      drop: (item: {
+        element?: TElement;
+        itemKey?: string;
+        sourcePanel?: "elements" | "charts";
+      }) => {
         if (!item.element || readOnly) return;
-        // Verify again that we are not dropping the same element (redundant safe-guard)
+
+        // Self-drops are valid no-ops so releasing over the original slot
+        // does not fall through to the editor-level drag-end behavior.
         if (item.element.id === dragId) return { droppedInLayoutZone: true };
 
         const isChart = isChartType(item.element.type);
@@ -365,18 +427,32 @@ export default function RootImage({
 
           // Update the slide's rootImage with the chart data
           // Update the slide's rootImage with the chart data
+          const nextRootImage = {
+            ...image,
+            chartType,
+            chartData,
+            chartOptions,
+            paletteDropMutable: true,
+            // Clear any existing image/embed data
+            url: undefined,
+            embedType: undefined,
+            imageSource: undefined,
+          } as RootImageType;
+
           updateSlide(slideId, {
-            rootImage: {
-              ...image,
-              chartType,
-              chartData,
-              chartOptions,
-              // Clear any existing image/embed data
-              url: undefined,
-              embedType: undefined,
-              imageSource: undefined,
-            } as RootImageType,
+            rootImage: nextRootImage,
           });
+
+          if (getPaletteDragSource(item) === "charts") {
+            setPaletteDropTarget({
+              editorId: slideId,
+              elementId: slideId,
+              itemKey: getPaletteDragItemKey(item),
+              source: "charts",
+              targetKind: "rootImage",
+              mutableSignature: getPaletteMutableSignature(nextRootImage),
+            });
+          }
 
           toast.success("Chart added to slide");
         } else if (isImage) {
@@ -420,7 +496,13 @@ export default function RootImage({
               imageSource: undefined,
             } as RootImageType,
           });
-          toast.success("Embed type set - enter a URL to display");
+          if (embedType === "infographic") {
+            setCurrentSlide(slideId);
+            openInfographicGenerationEditor();
+            toast.success("Infographic embed ready");
+          } else {
+            toast.success("Embed type set - enter a URL to display");
+          }
         }
 
         return { droppedInLayoutZone: true };
@@ -432,7 +514,7 @@ export default function RootImage({
         isEmbedDrop: monitor.getItem()?.element?.type === KEYS.mediaEmbed,
       }),
     }),
-    [readOnly, slideId, image, updateSlide, dragId],
+    [readOnly, slideId, image, updateSlide, setPaletteDropTarget, dragId],
   );
 
   return (
@@ -451,17 +533,25 @@ export default function RootImage({
               topLeft: false,
             }}
             size={appliedSizeStyle}
-            minWidth={layoutType === "vertical" ? "100%" : "25%"}
-            maxWidth={layoutType === "vertical" ? "100%" : "60%"}
+            minWidth={
+              layoutType === "vertical" ? "100%" : `${MIN_WIDTH_PERCENTAGE}%`
+            }
+            maxWidth={
+              layoutType === "vertical" ? "100%" : `${MAX_WIDTH_PERCENTAGE}%`
+            }
             minHeight={
               layoutType !== "vertical"
                 ? (resolvedMaxHeight ?? "100%")
                 : heightValue !== undefined
                   ? "0px"
-                  : "200px"
+                  : `${verticalMinHeight}px`
             }
             maxHeight={
-              layoutType !== "vertical" ? resolvedMaxHeight : resolvedMaxHeight
+              layoutType !== "vertical"
+                ? resolvedMaxHeight
+                : resolvedMaxHeight
+                  ? `${Math.min(MAX_HEIGHT, parseInt(resolvedMaxHeight, 10))}px`
+                  : `${MAX_HEIGHT}px`
             }
             className={cn(
               "group/resizable relative shrink-0",
@@ -490,6 +580,7 @@ export default function RootImage({
                   />
                 ) : undefined,
             }}
+            onResize={onResize}
             onResizeStop={onResizeStop}
             data-root-image={slideId}
           >
@@ -511,7 +602,7 @@ export default function RootImage({
             >
               {/* Chart/Image/Embed drop overlay */}
               {isChartOver && canDropChart && (
-                <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-primary/20 backdrop-blur-xs">
+                <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-primary/20 backdrop-blur-sm">
                   {isImageDrop ? (
                     <>
                       <ImageIcon className="h-12 w-12 text-primary" />
@@ -540,12 +631,17 @@ export default function RootImage({
                 ref={handleRef}
                 className="h-full cursor-grab active:cursor-grabbing"
               >
-                {computedGen?.status === "generating" ? (
-                  <div className="flex h-full flex-col items-center justify-center bg-muted/30 p-4">
-                    <Spinner className="mb-2 h-8 w-8" />
-                    <p className="text-sm text-muted-foreground">
-                      Generating image for &quot;{image.query}&quot;...
-                    </p>
+                {shouldShowGenerationPlaceholder ? (
+                  <div className="flex h-full flex-col items-center justify-center gap-3 bg-muted/30 p-4 text-center">
+                    <Spinner className="size-8" />
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-foreground">
+                        Generating root image
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        This can take a moment.
+                      </p>
+                    </div>
                   </div>
                 ) : !computedImageUrl &&
                   !image.embedType &&
@@ -554,6 +650,7 @@ export default function RootImage({
                     isStatic={false}
                     className="h-full"
                     slideId={slideId}
+                    imageNotFound={computedGen?.status === "error"}
                     onOpenEditor={(mode: ImageEditorMode) => {
                       openImageEditor(mode);
                     }}
@@ -569,6 +666,8 @@ export default function RootImage({
                         data-root-image={slideId}
                         tabIndex={0}
                         onDoubleClick={handleImageDoubleClick}
+                        role="button"
+                        aria-label="Chart area, double-click to edit chart"
                       >
                         <ChartRenderer
                           chartType={image.chartType}
@@ -605,21 +704,29 @@ export default function RootImage({
                     </PopoverContent>
                   </Popover>
                 ) : image.embedType && !image.url ? (
-                  // Embed type set but no URL - show placeholder for user to enter URL
-                  <MediaEmbedPlaceholder
-                    embedType={image.embedType}
-                    className="h-full"
-                    onUrlSubmit={(url: string) => {
-                      // Update the slide's rootImage with the URL
-                      // Update the slide's rootImage with the URL
-                      updateSlide(slideId, {
-                        rootImage: {
-                          ...image,
-                          url: url,
-                        } as RootImageType,
-                      });
-                    }}
-                  />
+                  image.embedType === "infographic" ? (
+                    <InfographicEmbedPlaceholder
+                      className="h-full"
+                      onEdit={() => {
+                        setCurrentSlide(slideId);
+                        openInfographicGenerationEditor();
+                      }}
+                    />
+                  ) : (
+                    // Embed type set but no URL - show placeholder for user to enter URL
+                    <MediaEmbedPlaceholder
+                      embedType={image.embedType}
+                      className="h-full"
+                      onUrlSubmit={(url: string) => {
+                        updateSlide(slideId, {
+                          rootImage: {
+                            ...image,
+                            url: url,
+                          } as RootImageType,
+                        });
+                      }}
+                    />
+                  )
                 ) : image.embedType && image.url ? (
                   <Popover
                     open={!readOnly && showDeletePopover}
@@ -631,6 +738,8 @@ export default function RootImage({
                         data-root-image={slideId}
                         tabIndex={0}
                         onDoubleClick={handleImageDoubleClick}
+                        role="button"
+                        aria-label="Media embed area, double-click to edit embed"
                       >
                         <EmbedRenderer
                           embedType={image.embedType}
@@ -677,6 +786,8 @@ export default function RootImage({
                         data-root-image={slideId}
                         tabIndex={0}
                         onDoubleClick={handleImageDoubleClick}
+                        role="button"
+                        aria-label="Image area, double-click to edit image"
                       >
                         {/** biome-ignore lint/performance/noImgElement: This is a valid use case */}
                         <img
@@ -788,19 +899,19 @@ export default function RootImage({
               <ContextMenuSubContent className="w-48">
                 <ContextMenuItem onClick={() => updateSlideLayout("vertical")}>
                   <div className="mr-2 flex h-4 w-4 flex-col gap-px rounded-sm border border-foreground/50 bg-background p-px">
-                    <div className="h-[6px] w-full rounded-[1px] bg-foreground/50" />
+                    <div className="h-1.5 w-full rounded-[1px] bg-foreground/50" />
                   </div>
                   Top layout
                 </ContextMenuItem>
                 <ContextMenuItem onClick={() => updateSlideLayout("left")}>
                   <div className="mr-2 flex h-4 w-4 gap-px rounded-sm border border-foreground/50 bg-background p-px">
-                    <div className="h-full w-[6px] rounded-[1px] bg-foreground/50" />
+                    <div className="h-full w-1.5 rounded-[1px] bg-foreground/50" />
                   </div>
                   Left layout
                 </ContextMenuItem>
                 <ContextMenuItem onClick={() => updateSlideLayout("right")}>
                   <div className="mr-2 flex h-4 w-4 justify-end gap-px rounded-sm border border-foreground/50 bg-background p-px">
-                    <div className="h-full w-[6px] rounded-[1px] bg-foreground/50" />
+                    <div className="h-full w-1.5 rounded-[1px] bg-foreground/50" />
                   </div>
                   Right layout
                 </ContextMenuItem>
@@ -844,7 +955,7 @@ export default function RootImage({
             updateCropSettings(settings);
             setIsCropModalOpen(false);
           }}
-          imageDimensions={{ width: 800, height: 450, scale: 1 }}
+          imageDimensions={imageDimensions}
         />
       )}
     </>

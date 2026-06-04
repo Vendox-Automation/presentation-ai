@@ -1,13 +1,13 @@
-import type * as React from "react";
-
-import { type TElement, NodeApi, PathApi } from "platejs";
+import { NodeApi, PathApi, type TElement } from "platejs";
 import { type SlateElementProps } from "platejs/static";
+import type * as React from "react";
 
 import { ARROW_LIST_ITEM, PYRAMID_ITEM, TIMELINE_ITEM } from "../../lib";
 import { type TArrowListItemElement } from "../../plugins/arrow-plugin";
 import { ArrowItemStatic } from "../static/arrow-item-static";
 import { PyramidItemStatic } from "../static/pyramid-item-static";
 import { TimelineItemStatic } from "../static/timeline-item-static";
+
 export default function VisualizationItemElementStatic({
   element,
   ...props
@@ -65,5 +65,3 @@ export default function VisualizationItemElementStatic({
     }
   }
 }
-
-

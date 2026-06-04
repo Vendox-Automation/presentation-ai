@@ -1,20 +1,22 @@
 import type React from "react";
 import { useCallback, useEffect, useRef } from "react";
+
 import { GridHeader } from "./grid-header";
 import { GridRow } from "./grid-row";
 import {
-  type ChartDataMode,
-  type ChartDataType,
-  type MultiSeriesData,
-  type SeriesChartType,
-  type XYData,
-} from "./types";
+  type ChartDataField,
+  type ChartDataRow,
+  type ChartEditorSchema,
+} from "./schemas";
+import { type ChartDataType, type SeriesChartType } from "./types";
+
+const EMPTY_SERIES_CHART_TYPES: Record<string, SeriesChartType> = {};
 
 interface GridProps {
   data: ChartDataType;
-  chartType: ChartDataMode;
+  fields: ChartDataField[];
+  schema: ChartEditorSchema;
   seriesNames: string[];
-  hasZColumn: boolean;
   focusedCell: { row: number; col: number } | null;
   onUpdateCell: (rowIndex: number, field: string, value: string) => void;
   onRemoveRow: (rowIndex: number) => void;
@@ -32,11 +34,15 @@ interface GridProps {
   labelKey?: string;
 }
 
+function toRows(data: ChartDataType): ChartDataRow[] {
+  return Array.isArray(data) ? (data as ChartDataRow[]) : [];
+}
+
 export function Grid({
   data,
-  chartType,
+  fields,
+  schema,
   seriesNames,
-  hasZColumn,
   focusedCell,
   onUpdateCell,
   onRemoveRow,
@@ -45,30 +51,24 @@ export function Grid({
   onAddRow,
   onFocusCell,
   setFocusedCell,
-  seriesChartTypes = {},
+  seriesChartTypes = EMPTY_SERIES_CHART_TYPES,
   onSeriesChartTypeChange,
   isComposedChart = false,
-  labelKey = "label",
 }: GridProps) {
-  const cellRefs = useRef<Map<string, HTMLInputElement>>(new Map());
-  const rows = Array.isArray(data)
-    ? (data as (XYData | MultiSeriesData)[])
-    : [];
-
-  const getTotalColumns = useCallback(() => {
-    if (chartType === "xy") {
-      return hasZColumn ? 3 : 2;
-    }
-    return seriesNames.length + 1; // label + series columns
-  }, [chartType, seriesNames.length, hasZColumn]);
+  const cellRefs = useRef<Map<string, HTMLInputElement> | null>(null);
+  if (!cellRefs.current) {
+    cellRefs.current = new Map();
+  }
+  const cellRefsCurrent = cellRefs.current;
+  const rows = toRows(data);
 
   const registerCell = useCallback(
     (row: number, col: number, el: HTMLInputElement | null) => {
       const key = `${row}-${col}`;
       if (el) {
-        cellRefs.current.set(key, el);
+        cellRefsCurrent.set(key, el);
       } else {
-        cellRefs.current.delete(key);
+        cellRefsCurrent.delete(key);
       }
     },
     [],
@@ -76,7 +76,7 @@ export function Grid({
 
   const focusCellElement = useCallback((row: number, col: number) => {
     const key = `${row}-${col}`;
-    const cell = cellRefs.current.get(key);
+    const cell = cellRefsCurrent.get(key);
     if (cell) {
       cell.focus();
       cell.select();
@@ -90,8 +90,8 @@ export function Grid({
   }, [focusedCell, focusCellElement]);
 
   const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent, row: number, col: number) => {
-      const totalCols = getTotalColumns();
+    (e: React.KeyboardEvent<HTMLInputElement>, row: number, col: number) => {
+      const totalCols = fields.length;
       const totalRows = rows.length;
 
       switch (e.key) {
@@ -103,15 +103,13 @@ export function Grid({
             } else if (row > 0) {
               onFocusCell(row - 1, totalCols - 1);
             }
+          } else if (col < totalCols - 1) {
+            onFocusCell(row, col + 1);
+          } else if (row < totalRows - 1) {
+            onFocusCell(row + 1, 0);
           } else {
-            if (col < totalCols - 1) {
-              onFocusCell(row, col + 1);
-            } else if (row < totalRows - 1) {
-              onFocusCell(row + 1, 0);
-            } else {
-              onAddRow();
-              setTimeout(() => onFocusCell(totalRows, 0), 50);
-            }
+            onAddRow();
+            setTimeout(() => onFocusCell(totalRows, 0), 50);
           }
           break;
 
@@ -136,27 +134,21 @@ export function Grid({
           break;
 
         case "ArrowLeft":
-          if (
-            e.currentTarget instanceof HTMLInputElement &&
-            e.currentTarget.selectionStart === 0
-          ) {
+          if (e.currentTarget.selectionStart === 0) {
             e.preventDefault();
             if (col > 0) onFocusCell(row, col - 1);
           }
           break;
 
         case "ArrowRight":
-          if (
-            e.currentTarget instanceof HTMLInputElement &&
-            e.currentTarget.selectionStart === e.currentTarget.value.length
-          ) {
+          if (e.currentTarget.selectionStart === e.currentTarget.value.length) {
             e.preventDefault();
             if (col < totalCols - 1) onFocusCell(row, col + 1);
           }
           break;
       }
     },
-    [getTotalColumns, rows.length, onFocusCell, onAddRow],
+    [fields.length, rows.length, onFocusCell, onAddRow],
   );
 
   return (
@@ -164,25 +156,22 @@ export function Grid({
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
           <GridHeader
-            chartType={chartType}
+            fields={fields}
+            schema={schema}
             seriesNames={seriesNames}
-            hasZColumn={hasZColumn}
             onRenameSeries={onRenameSeries}
             onRemoveSeries={onRemoveSeries}
             seriesChartTypes={seriesChartTypes}
             onSeriesChartTypeChange={onSeriesChartTypeChange}
             isComposedChart={isComposedChart}
-            labelKey={labelKey}
           />
           <tbody>
             {rows.map((row, rowIndex) => (
               <GridRow
                 key={rowIndex}
                 row={row}
+                fields={fields}
                 rowIndex={rowIndex}
-                chartType={chartType}
-                seriesNames={seriesNames}
-                hasZColumn={hasZColumn}
                 focusedCol={
                   focusedCell?.row === rowIndex ? focusedCell.col : null
                 }
@@ -194,7 +183,6 @@ export function Grid({
                 onKeyDown={(e, col) => handleKeyDown(e, rowIndex, col)}
                 onFocus={(col) => setFocusedCell({ row: rowIndex, col })}
                 registerCell={(col, el) => registerCell(rowIndex, col, el)}
-                labelKey={labelKey}
               />
             ))}
           </tbody>

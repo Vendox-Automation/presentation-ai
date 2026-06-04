@@ -1,8 +1,9 @@
 import { Plus, X } from "lucide-react";
-import { type ChartDataMode } from "./types";
+
+import { type ChartEditorSchema } from "./schemas";
 
 interface ToolbarProps {
-  chartType: ChartDataMode;
+  schema: ChartEditorSchema;
   rowCount: number;
   seriesCount: number;
   hasZColumn: boolean;
@@ -13,7 +14,7 @@ interface ToolbarProps {
 }
 
 export function Toolbar({
-  chartType,
+  schema,
   rowCount,
   seriesCount,
   hasZColumn,
@@ -23,45 +24,48 @@ export function Toolbar({
   onRemoveZColumn,
 }: ToolbarProps) {
   return (
-    <div className="flex items-center justify-between rounded-md border border-border bg-muted/40 px-3 py-2">
-      {/* Stats */}
-      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-        <span className="tabular-nums">{rowCount} rows</span>
-        {chartType === "multi-series" && (
+    <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/40 px-3 py-2">
+      <div className="flex min-w-0 items-center gap-3 text-xs text-muted-foreground">
+        <span className="shrink-0 tabular-nums">{rowCount} rows</span>
+        {schema.supportsSeries && (
           <>
-            <span className="text-border">•</span>
-            <span className="tabular-nums">{seriesCount} series</span>
+            <span className="shrink-0 text-border">/</span>
+            <span className="shrink-0 tabular-nums">{seriesCount} series</span>
           </>
         )}
+        <span className="hidden min-w-0 truncate text-muted-foreground/80 md:inline">
+          {schema.description}
+        </span>
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-1">
-        {chartType === "xy" && (
+      <div className="flex shrink-0 items-center gap-1">
+        {schema.mode === "xy" && (
           <button
             onClick={hasZColumn ? onRemoveZColumn : onAddZColumn}
             className="flex h-7 items-center gap-1.5 rounded px-2.5 text-xs font-medium transition-colors hover:bg-accent"
+            type="button"
           >
             {hasZColumn ? (
               <>
-                <X className="h-3.5 w-3.5" />
+                <X className="size-3.5" />
                 <span>Remove Z</span>
               </>
             ) : (
               <>
-                <Plus className="h-3.5 w-3.5" />
-                <span>Add Z (Size)</span>
+                <Plus className="size-3.5" />
+                <span>Add Z</span>
               </>
             )}
           </button>
         )}
 
-        {chartType === "multi-series" && (
+        {schema.supportsSeries && (
           <button
             onClick={onAddSeries}
             className="flex h-7 items-center gap-1.5 rounded px-2.5 text-xs font-medium transition-colors hover:bg-accent"
+            type="button"
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Plus className="size-3.5" />
             <span>Add Series</span>
           </button>
         )}
@@ -71,8 +75,9 @@ export function Toolbar({
         <button
           onClick={onAddRow}
           className="flex h-7 items-center gap-1.5 rounded bg-primary/10 px-2.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
+          type="button"
         >
-          <Plus className="h-3.5 w-3.5" />
+          <Plus className="size-3.5" />
           <span>Add Row</span>
         </button>
       </div>

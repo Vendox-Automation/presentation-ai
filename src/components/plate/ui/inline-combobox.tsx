@@ -1,11 +1,6 @@
 "use client";
 
-import * as React from "react";
-
-import { type Point, type TElement } from "platejs";
-
 import {
-  type ComboboxItemProps,
   Combobox,
   ComboboxGroup,
   ComboboxGroupLabel,
@@ -16,15 +11,18 @@ import {
   Portal,
   useComboboxContext,
   useComboboxStore,
+  type ComboboxItemProps,
 } from "@ariakit/react";
 import { filterWords } from "@platejs/combobox";
 import {
-  type UseComboboxInputResult,
   useComboboxInput,
   useHTMLInputCursorState,
+  type UseComboboxInputResult,
 } from "@platejs/combobox/react";
 import { cva } from "class-variance-authority";
+import { type Point, type TElement } from "platejs";
 import { useComposedRef, useEditorRef } from "platejs/react";
+import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -261,7 +259,7 @@ const InlineComboboxContent: typeof ComboboxPopover = ({
     <Portal>
       <ComboboxPopover
         className={cn(
-          "z-500 max-h-[288px] w-[300px] overflow-y-auto rounded-md bg-popover shadow-md",
+          "z-500 max-h-72 w-75 overflow-y-auto rounded-md bg-popover shadow-md",
           className,
         )}
         {...props}
@@ -271,7 +269,7 @@ const InlineComboboxContent: typeof ComboboxPopover = ({
 };
 
 const comboboxItemVariants = cva(
-  "relative mx-1 flex h-[28px] items-center rounded-sm px-2 text-sm text-foreground outline-hidden select-none [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "relative mx-1 flex h-7 items-center rounded-sm px-2 text-sm text-foreground outline-hidden select-none [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     defaultVariants: {
       interactive: true,

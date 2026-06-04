@@ -1,11 +1,8 @@
-/* eslint-disable react/display-name */
-import type * as React from "react";
-
-import { type TListElement } from "platejs";
-import { type SlateRenderElementProps } from "platejs/static";
-
 import { isOrderedList } from "@platejs/list";
 import { CheckIcon } from "lucide-react";
+import { type TListElement } from "platejs";
+import { type SlateRenderElementProps } from "platejs/static";
+import type * as React from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -85,5 +82,3 @@ function TodoLiStatic(props: SlateRenderElementProps) {
     </li>
   );
 }
-
-

@@ -2,6 +2,7 @@
 
 import { type TElement } from "platejs";
 import { createTPlatePlugin } from "platejs/react";
+
 import { QuoteElement } from "../custom-elements/quote";
 import { QUOTE_ELEMENT } from "../lib";
 

@@ -1,13 +1,21 @@
-import { type LayoutType } from "@/components/notebook/presentation/utils/parser";
-import { cn } from "@/lib/utils";
-import { usePresentationState } from "@/states/presentation-state";
 import { DRAG_ITEM_BLOCK } from "@platejs/dnd";
 import { ImagePlugin } from "@platejs/media/react";
 import { type TElement } from "platejs";
 import { useEditorRef, type PlateEditor } from "platejs/react";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useDrop } from "react-dnd";
+
+import { type LayoutType } from "@/components/notebook/presentation/utils/parser";
+import { cn } from "@/lib/utils";
+import { usePresentationState } from "@/states/presentation-state";
 import { isChartType } from "../../lib";
+
+const canDropElement = (item: { element: TElement }) => {
+  if (!item?.element) return false;
+  return (
+    item.element.type === ImagePlugin.key || isChartType(item.element.type)
+  );
+};
 
 function removeNodeById(editor: PlateEditor, element: TElement) {
   const path = editor.api.findPath(element);
@@ -26,12 +34,6 @@ export default function LayoutImageDrop({ slideId }: { slideId: string }) {
   const isReorderingSlides = usePresentationState((s) => s.isReorderingSlides);
 
   // Check if element is image or chart
-  const canDropElement = (item: { element: TElement }) => {
-    if (!item?.element) return false;
-    return (
-      item.element.type === ImagePlugin.key || isChartType(item.element.type)
-    );
-  };
 
   const handleDrop = (item: { element: TElement }, layoutType: LayoutType) => {
     if (!item?.element) return;
@@ -164,10 +166,11 @@ export default function LayoutImageDrop({ slideId }: { slideId: string }) {
       isRightOver: monitor.isOver() && monitor.canDrop(),
     }),
   });
-  // Connect the drop refs
-  dropTop(topRef);
-  dropLeft(leftRef);
-  dropRight(rightRef);
+  useEffect(() => {
+    dropTop(topRef);
+    dropLeft(leftRef);
+    dropRight(rightRef);
+  }, [dropLeft, dropRight, dropTop]);
 
   return (
     <>

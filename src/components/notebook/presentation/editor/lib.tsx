@@ -1,6 +1,5 @@
 "use client";
 
-import { type MyEditor } from "@/components/plate/editor-kit";
 import { BlockSelectionPlugin } from "@platejs/selection/react";
 import { type TElement } from "@platejs/slate";
 import {
@@ -11,11 +10,15 @@ import {
   BarChart3,
   ChartScatter,
   Circle,
+  CircleDashed,
   Clock,
   Diamond,
+  Flower,
   Funnel,
   GitCompare,
+  Grid2x2,
   Grid3x3,
+  ImageIcon,
   Layers,
   Leaf,
   List,
@@ -34,10 +37,27 @@ import {
   Star,
   TrendingUp,
   Triangle,
+  Workflow,
 } from "lucide-react";
-import { KEYS } from "platejs";
+import { KEYS, NodeApi, PathApi, type NodeEntry, type Path } from "platejs";
 import { type PlateEditor } from "platejs/react";
+import { type CSSProperties, type ReactNode } from "react";
 import { FaStairs } from "react-icons/fa6";
+
+import { type MyEditor } from "@/components/plate/editor-kit";
+import {
+  getConnectedCircleItemPosition,
+  getConnectedCircleItemTransform,
+} from "./custom-elements/connected-circles-layout";
+import {
+  getSnakeGridColumn,
+  getSnakeGridRow,
+} from "./custom-elements/snake-shared";
+import {
+  updateSiblingsAfterDrop,
+  updateSiblingsForcefully,
+} from "./dnd/utils/updateSiblingsForcefully";
+import { PALETTE_DROP_MUTABLE_KEY } from "./utils/paletteDrop";
 
 export const BULLET_ITEM = "bullet";
 export const BULLET_GROUP = "bullets";
@@ -78,6 +98,18 @@ export const STATS_GROUP = "stats";
 export const STATS_ITEM = "stats-item";
 
 export const FLEX_BOX = "flex_box";
+
+export const SLOPE_GROUP = "slope";
+export const SLOPE_ITEM = "slope-item";
+export const CONNECTED_CIRCLES_GROUP = "connected-circles";
+export const CONNECTED_CIRCLES_ITEM = "connected-circle-item";
+export const CIRCULAR_GRID_GROUP = "circular-grid";
+export const CIRCULAR_GRID_ITEM = "circular-grid-item";
+export const CIRCULAR_GRID_MAX_ITEMS = 6;
+export const SNAKE_GROUP = "snake";
+export const SNAKE_ITEM = "snake-item";
+export const STEPS_GROUP = "steps";
+export const STEPS_ITEM = "steps-item";
 
 // Quote element
 export const QUOTE_ELEMENT = "quote" as const;
@@ -129,27 +161,42 @@ export const LINEAR_GAUGE_ELEMENT = "chart-linear-gauge" as const;
 
 // Button element key
 export const BUTTON_ELEMENT = "button" as const;
+export const CONTRIBUTOR_ELEMENT = "contributor" as const;
+export const LABEL_ELEMENT = "label" as const;
+export const PRESENTATION_TITLE_ELEMENT = "presentation-title" as const;
+
+export type PresentationTitleVariant = "display" | "humongous" | "title";
+export type PresentationElementAlignment = "center" | "left" | "right";
+
+export type TPresentationTitleElement = TElement & {
+  alignment?: PresentationElementAlignment;
+  backgroundColor?: string;
+  color?: string;
+  textColor?: string;
+  type: typeof PRESENTATION_TITLE_ELEMENT;
+  variant?: PresentationTitleVariant;
+};
+
+export type TLabelElement = TElement & {
+  alignment?: PresentationElementAlignment;
+  backgroundColor?: string;
+  color?: string;
+  textColor?: string;
+  type: typeof LABEL_ELEMENT;
+};
+
+export type TContributorElement = TElement & {
+  alignment?: PresentationElementAlignment;
+  backgroundColor?: string;
+  color?: string;
+  editedLabel?: string;
+  textColor?: string;
+  type: typeof CONTRIBUTOR_ELEMENT;
+  updatedAt?: string | null;
+};
 
 // AntV Infographic element key
 export const ANTV_INFOGRAPHIC = "antv-infographic" as const;
-
-// Chart compatibility groups based on data structure
-export const CHART_TYPES = {
-  // Charts using label/value data structure (compatible with each other)
-  LABEL_VALUE_CHARTS: [
-    PIE_CHART_ELEMENT,
-    BAR_CHART_ELEMENT,
-    AREA_CHART_ELEMENT,
-    RADAR_CHART_ELEMENT,
-    LINE_CHART_ELEMENT,
-    RADIAL_BAR_CHART_ELEMENT,
-    COMPOSED_CHART_ELEMENT,
-    TREEMAP_CHART_ELEMENT,
-    DONUT_CHART_ELEMENT,
-  ],
-  // Charts using coordinate data structure (x/y)
-  COORDINATE_CHARTS: [SCATTER_CHART_ELEMENT, BUBBLE_CHART_ELEMENT],
-} as const;
 
 // Chart-specific capabilities for customization options
 export const CHART_CAPABILITIES = {
@@ -222,6 +269,16 @@ export const DEFAULT_CHART_DATA = {
     { x: 75, y: 50, z: 20 },
     { x: 85, y: 85, z: 30 },
   ],
+  // Pre-binned histogram values shaped like a normal distribution
+  histogram: [
+    { label: "15-25", value: 3 },
+    { label: "25-35", value: 7 },
+    { label: "35-45", value: 15 },
+    { label: "45-55", value: 25 },
+    { label: "55-65", value: 20 },
+    { label: "65-75", value: 12 },
+    { label: "75-85", value: 5 },
+  ],
   // OHLC data for candlestick and OHLC charts (date, open, high, low, close)
   ohlc: [
     { date: "2024-01-02", open: 100, high: 105, low: 98, close: 103 },
@@ -237,6 +294,50 @@ export const DEFAULT_CHART_DATA = {
     { category: "Q3 Sales", min: 20, q1: 35, median: 60, q3: 85, max: 105 },
     { category: "Q4 Sales", min: 12, q1: 28, median: 52, q3: 78, max: 98 },
   ],
+  range: [
+    { category: "Planning", low: 12, high: 28 },
+    { category: "Design", low: 18, high: 36 },
+    { category: "Build", low: 30, high: 62 },
+    { category: "Launch", low: 48, high: 72 },
+  ],
+  waterfall: [
+    { category: "Starting", amount: 42000 },
+    { category: "New Sales", amount: 18000 },
+    { category: "Churn", amount: -7000 },
+    { category: "Expansion", amount: 11000 },
+  ],
+  hierarchy: [
+    { name: "Digital Experience", parent: "", value: 186 },
+    { name: "Acquisition", parent: "Digital Experience", value: 78 },
+    { name: "Organic Search", parent: "Acquisition", value: 34 },
+    { name: "Paid Campaigns", parent: "Acquisition", value: 27 },
+    { name: "Referral", parent: "Acquisition", value: 17 },
+    { name: "Engagement", parent: "Digital Experience", value: 64 },
+    { name: "Product Tours", parent: "Engagement", value: 26 },
+    { name: "Templates", parent: "Engagement", value: 22 },
+    { name: "Workspace Sharing", parent: "Engagement", value: 16 },
+    { name: "Retention", parent: "Digital Experience", value: 44 },
+    { name: "Weekly Active Teams", parent: "Retention", value: 25 },
+    { name: "Automations", parent: "Retention", value: 19 },
+  ],
+  flow: [
+    { from: "Visitors", to: "Leads", size: 80 },
+    { from: "Leads", to: "Trials", size: 42 },
+    { from: "Trials", to: "Customers", size: 18 },
+  ],
+  funnel: [
+    { label: "Visitors", value: 12000 },
+    { label: "Signups", value: 4200 },
+    { label: "Trials", value: 1800 },
+    { label: "Customers", value: 640 },
+  ],
+  heatmap: [
+    { x: "Mon", y: "Morning", value: 12 },
+    { x: "Mon", y: "Afternoon", value: 18 },
+    { x: "Tue", y: "Morning", value: 15 },
+    { x: "Tue", y: "Afternoon", value: 24 },
+  ],
+  gauge: [{ value: 64 }],
 } as const;
 
 // Element categories for organized dropdown
@@ -245,7 +346,8 @@ export const ELEMENT_CATEGORIES = {
   BOXES: "Boxes",
   STEPS: "Steps",
   SEQUENCES: "Sequences",
-  LAYOUTS: "Layouts",
+  LAYOUTS: "Circles",
+  MEDIA_LISTS: "Media Lists",
   COMPARISONS: "Comparisons",
   CHARTS: "Charts",
   STATS: "Stats",
@@ -258,7 +360,8 @@ export const CATEGORY_ICONS = {
   [ELEMENT_CATEGORIES.BOXES]: <Square className="h-4 w-4" />,
   [ELEMENT_CATEGORIES.STEPS]: <FaStairs className="h-4 w-4" />,
   [ELEMENT_CATEGORIES.SEQUENCES]: <ArrowRight className="h-4 w-4" />,
-  [ELEMENT_CATEGORIES.LAYOUTS]: <SquareStack className="h-4 w-4" />,
+  [ELEMENT_CATEGORIES.LAYOUTS]: <CircleDashed className="h-4 w-4" />,
+  [ELEMENT_CATEGORIES.MEDIA_LISTS]: <ImageIcon className="h-4 w-4" />,
   [ELEMENT_CATEGORIES.COMPARISONS]: <GitCompare className="h-4 w-4" />,
   [ELEMENT_CATEGORIES.CHARTS]: <PieChart className="h-4 w-4" />,
   [ELEMENT_CATEGORIES.STATS]: <BarChart3 className="h-4 w-4" />,
@@ -350,6 +453,43 @@ export function getChartDataCategory(
   return CHART_DATA_CATEGORY_MAP[chartType] ?? null;
 }
 
+export function getDefaultChartDataForType(chartType: string): unknown {
+  if (chartType === COMPOSED_CHART_ELEMENT) {
+    return DEFAULT_CHART_DATA.multiSeries;
+  }
+
+  const targetDataCategory = getChartDataCategory(chartType);
+
+  switch (targetDataCategory) {
+    case "xy":
+      return DEFAULT_CHART_DATA.scatter;
+    case "xyz":
+      return DEFAULT_CHART_DATA.bubble;
+    case "ohlc":
+      return DEFAULT_CHART_DATA.ohlc;
+    case "box-plot":
+      return DEFAULT_CHART_DATA.boxPlot;
+    case "histogram":
+      return DEFAULT_CHART_DATA.histogram;
+    case "range":
+      return DEFAULT_CHART_DATA.range;
+    case "waterfall":
+      return DEFAULT_CHART_DATA.waterfall;
+    case "hierarchical":
+      return DEFAULT_CHART_DATA.hierarchy;
+    case "flow":
+      return DEFAULT_CHART_DATA.flow;
+    case "funnel":
+      return DEFAULT_CHART_DATA.funnel;
+    case "heatmap":
+      return DEFAULT_CHART_DATA.heatmap;
+    case "gauge":
+      return DEFAULT_CHART_DATA.gauge;
+    default:
+      return DEFAULT_CHART_DATA.labelValue;
+  }
+}
+
 /**
  * Helper function to check if two chart types are compatible (can convert between them)
  * Charts are compatible if they use the same data structure/category
@@ -374,13 +514,14 @@ export function areChartTypesCompatible(
 export const ELEMENT_CAPABILITIES: Record<
   string,
   {
-    orientation?: readonly ["vertical", "horizontal"];
+    orientation?: readonly string[];
     sidedness?: readonly ["single", "double"];
     numbered?: boolean;
     showLine?: boolean;
     showIcon?: boolean;
     columnSize?: readonly ["sm", "md", "lg", "xl"];
     alignment?: readonly ("left" | "center" | "right")[];
+    variant?: readonly string[];
   }
 > = {
   [TIMELINE_GROUP]: {
@@ -389,6 +530,7 @@ export const ELEMENT_CAPABILITIES: Record<
     numbered: true,
     showLine: true,
     alignment: ["left", "right"] as readonly ("left" | "right")[],
+    variant: ["default", "boxes"] as const,
   },
   [ARROW_LIST]: {
     orientation: ["vertical", "horizontal"] as const,
@@ -397,10 +539,15 @@ export const ELEMENT_CAPABILITIES: Record<
   [SEQUENCE_ARROW_GROUP]: {
     orientation: ["vertical", "horizontal"] as const,
   },
+  [STEPS_GROUP]: {
+    variant: ["default", "arrow", "box"] as const,
+    columnSize: ["sm", "md", "lg", "xl"] as const,
+  },
   [FLEX_BOX]: {
     columnSize: ["sm", "md", "lg", "xl"] as const,
   },
   [BOX_GROUP]: {
+    orientation: ["vertical", "horizontal"] as const,
     columnSize: ["sm", "md", "lg", "xl"] as const,
   },
   [BULLET_GROUP]: {
@@ -409,14 +556,60 @@ export const ELEMENT_CAPABILITIES: Record<
   [STATS_GROUP]: {
     columnSize: ["sm", "md", "lg", "xl"] as const,
   },
+  [SLOPE_GROUP]: {
+    alignment: ["left", "center", "right"] as const,
+  },
+  [CONNECTED_CIRCLES_GROUP]: {
+    alignment: ["left", "center", "right"] as const,
+  },
+  [CIRCULAR_GRID_GROUP]: {
+    alignment: ["left", "center", "right"] as const,
+  },
+  [SNAKE_GROUP]: {
+    alignment: ["left", "center", "right"] as const,
+  },
   [ICON_LIST]: {
+    orientation: ["side", "top"] as const,
+    columnSize: ["sm", "md", "lg", "xl"] as const,
+    variant: ["icon", "image"] as const,
+  },
+  [COMPARE_GROUP]: {
+    columnSize: ["sm", "md", "lg", "xl"] as const,
+  },
+  [BEFORE_AFTER_GROUP]: {
     columnSize: ["sm", "md", "lg", "xl"] as const,
   },
   [STAIRCASE_GROUP]: {
     alignment: ["left", "right"] as readonly ("left" | "right")[],
+    variant: ["default", "inside"] as const,
   },
   [PYRAMID_GROUP]: {
     alignment: ["left", "right"] as readonly ("left" | "right")[],
+    variant: ["default", "inside"] as const,
+  },
+  [KEYS.callout]: {
+    alignment: ["left", "center", "right"] as const,
+    variant: [
+      "note",
+      "info",
+      "warning",
+      "caution",
+      "success",
+      "question",
+    ] as const,
+  },
+  [BUTTON_ELEMENT]: {
+    alignment: ["left", "center", "right"] as const,
+  },
+  [CONTRIBUTOR_ELEMENT]: {
+    alignment: ["left", "center", "right"] as const,
+  },
+  [LABEL_ELEMENT]: {
+    alignment: ["left", "center", "right"] as const,
+  },
+  [PRESENTATION_TITLE_ELEMENT]: {
+    alignment: ["left", "center", "right"] as const,
+    variant: ["title", "display", "humongous"] as const,
   },
 };
 
@@ -457,15 +650,6 @@ export function supportsShowLine(elementType: string): boolean {
   );
 }
 
-export function supportsColumnCount(elementType: string): boolean {
-  return (
-    elementType in ELEMENT_CAPABILITIES &&
-    "columnCount" in
-      (ELEMENT_CAPABILITIES[elementType as keyof typeof ELEMENT_CAPABILITIES] ??
-        [])
-  );
-}
-
 export function supportsAlignment(elementType: string): boolean {
   return (
     elementType in ELEMENT_CAPABILITIES &&
@@ -484,6 +668,21 @@ export function supportsColumnSize(elementType: string): boolean {
   );
 }
 
+export function supportsVariant(elementType: string): boolean {
+  return (
+    elementType in ELEMENT_CAPABILITIES &&
+    "variant" in
+      (ELEMENT_CAPABILITIES[elementType as keyof typeof ELEMENT_CAPABILITIES] ??
+        {})
+  );
+}
+
+export function getVariantOptions(elementType: string): readonly string[] {
+  const capabilities =
+    ELEMENT_CAPABILITIES[elementType as keyof typeof ELEMENT_CAPABILITIES];
+  return capabilities?.variant ?? [];
+}
+
 export function getAlignmentOptions(elementType: string) {
   const capabilities =
     ELEMENT_CAPABILITIES[elementType as keyof typeof ELEMENT_CAPABILITIES];
@@ -500,18 +699,6 @@ export function getSidednessOptions(elementType: string): readonly string[] {
   const capabilities =
     ELEMENT_CAPABILITIES[elementType as keyof typeof ELEMENT_CAPABILITIES];
   return capabilities?.sidedness ?? [];
-}
-
-export function getNumberedOptions(elementType: string): boolean {
-  const capabilities =
-    ELEMENT_CAPABILITIES[elementType as keyof typeof ELEMENT_CAPABILITIES];
-  return capabilities?.numbered ?? false;
-}
-
-export function getShowLineOptions(elementType: string): boolean {
-  const capabilities =
-    ELEMENT_CAPABILITIES[elementType as keyof typeof ELEMENT_CAPABILITIES];
-  return capabilities?.showLine ?? false;
 }
 
 export function getColumnSizeOptions(elementType: string): readonly string[] {
@@ -535,6 +722,15 @@ export const getColumnSizeLabel = (columnSize: "sm" | "md" | "lg" | "xl") => {
 };
 
 // Grouped blocks structure for hierarchical dropdown - all variants stored directly
+type GroupedBlockBase = {
+  type: string;
+  name: string;
+  icon: ReactNode;
+  variant?: string;
+  key?: string;
+  supportsOrientation?: boolean;
+};
+
 export const GROUPED_BLOCKS = {
   [ELEMENT_CATEGORIES.BULLETS]: [
     // Bullets variants
@@ -592,10 +788,38 @@ export const GROUPED_BLOCKS = {
     },
     {
       type: BOX_GROUP,
+      name: "Side Line Text",
+      variant: "side-label",
+      key: "boxType",
+      icon: <SquareSplitVertical className="h-4 w-4" />,
+    },
+    {
+      type: BOX_GROUP,
+      name: "Top Line Text",
+      variant: "top-label",
+      key: "boxType",
+      icon: <SquareDashedBottomCode className="h-4 w-4" />,
+    },
+    {
+      type: BOX_GROUP,
+      name: "Top Circle",
+      variant: "top-circle",
+      key: "boxType",
+      icon: <Circle className="h-4 w-4" />,
+    },
+    {
+      type: BOX_GROUP,
       name: "Joined",
       variant: "joined",
       key: "boxType",
       icon: <SquareStack className="h-4 w-4" />,
+    },
+    {
+      type: BOX_GROUP,
+      name: "Joined Icons",
+      variant: "joined-icon",
+      key: "boxType",
+      icon: <SquareAsterisk className="h-4 w-4" />,
     },
     {
       type: BOX_GROUP,
@@ -604,8 +828,44 @@ export const GROUPED_BLOCKS = {
       key: "boxType",
       icon: <Leaf className="h-4 w-4" />,
     },
+    {
+      type: BOX_GROUP,
+      name: "Labeled",
+      variant: "labeled",
+      key: "boxType",
+      icon: <Layers className="h-4 w-4" />,
+    },
+    {
+      type: BOX_GROUP,
+      name: "Alternating",
+      variant: "alternating",
+      key: "boxType",
+      icon: <ArrowDownUp className="h-4 w-4" />,
+      supportsOrientation: true,
+    },
   ],
   [ELEMENT_CATEGORIES.STEPS]: [
+    {
+      type: STEPS_GROUP,
+      name: "Steps",
+      variant: "default",
+      key: "variant",
+      icon: <ListOrdered className="h-4 w-4" />,
+    },
+    {
+      type: STEPS_GROUP,
+      name: "Arrow Steps",
+      variant: "arrow",
+      key: "variant",
+      icon: <ArrowRight className="h-4 w-4" />,
+    },
+    {
+      type: STEPS_GROUP,
+      name: "Box Steps",
+      variant: "box",
+      key: "variant",
+      icon: <Square className="h-4 w-4" />,
+    },
     {
       type: STAIRCASE_GROUP,
       name: "Staircase",
@@ -632,6 +892,11 @@ export const GROUPED_BLOCKS = {
       name: "Arrow Sequence",
       icon: <ArrowDownUp className="h-4 w-4" />,
       supportsOrientation: true,
+    },
+    {
+      type: SLOPE_GROUP,
+      name: "Slope",
+      icon: <TrendingUp className="h-4 w-4" />,
     },
   ],
   [ELEMENT_CATEGORIES.SEQUENCES]: [
@@ -661,25 +926,79 @@ export const GROUPED_BLOCKS = {
     {
       type: TIMELINE_GROUP,
       name: "Timeline",
+      variant: "default",
+      key: "variant",
       icon: <Clock className="h-4 w-4" />,
       supportsOrientation: true,
+    },
+    {
+      type: TIMELINE_GROUP,
+      name: "Timeline Boxes",
+      variant: "boxes",
+      key: "variant",
+      icon: <Square className="h-4 w-4" />,
+      supportsOrientation: true,
+    },
+    {
+      type: SNAKE_GROUP,
+      name: "Snake",
+      icon: <Workflow className="h-4 w-4" />,
     },
   ],
   [ELEMENT_CATEGORIES.LAYOUTS]: [
     {
       type: CYCLE_GROUP,
       name: "Cycle",
+      variant: "cycle",
+      key: "variant",
       icon: <RefreshCw className="h-4 w-4" />,
     },
     {
+      type: CYCLE_GROUP,
+      name: "Flower",
+      variant: "flower",
+      key: "variant",
+      icon: <Flower className="h-4 w-4" />,
+    },
+    {
+      type: CYCLE_GROUP,
+      name: "Ring",
+      variant: "ring",
+      key: "variant",
+      icon: <CircleDashed className="h-4 w-4" />,
+    },
+    {
+      type: CYCLE_GROUP,
+      name: "Circle",
+      variant: "circle",
+      key: "variant",
+      icon: <Circle className="h-4 w-4" />,
+    },
+    {
+      type: CONNECTED_CIRCLES_GROUP,
+      name: "Connected Circles",
+      icon: <Workflow className="h-4 w-4" />,
+    },
+    {
+      type: CIRCULAR_GRID_GROUP,
+      name: "Circular Grid",
+      icon: <Grid2x2 className="h-4 w-4" />,
+    },
+  ],
+  [ELEMENT_CATEGORIES.MEDIA_LISTS]: [
+    {
       type: ICON_LIST,
-      name: "Icons",
+      name: "Icon List",
+      variant: "icon",
+      key: "variant",
       icon: <Star className="h-4 w-4" />,
     },
     {
-      type: COLUMN_GROUP,
-      name: "Columns",
-      icon: <SquareStack className="h-4 w-4" />,
+      type: ICON_LIST,
+      name: "Image List",
+      variant: "image",
+      key: "variant",
+      icon: <ImageIcon className="h-4 w-4" />,
     },
   ],
   [ELEMENT_CATEGORIES.COMPARISONS]: [
@@ -697,6 +1016,11 @@ export const GROUPED_BLOCKS = {
       type: PROS_CONS_GROUP,
       name: "Pros & Cons",
       icon: <Scale className="h-4 w-4" />,
+    },
+    {
+      type: COLUMN_GROUP,
+      name: "Columns",
+      icon: <SquareStack className="h-4 w-4" />,
     },
   ],
   [ELEMENT_CATEGORIES.CHARTS]: [
@@ -743,6 +1067,11 @@ export const GROUPED_BLOCKS = {
     {
       type: RADIAL_BAR_CHART_ELEMENT,
       name: "Radial Bar",
+      icon: <Circle className="h-4 w-4" />,
+    },
+    {
+      type: RADIAL_COLUMN_CHART_ELEMENT,
+      name: "Radial Column",
       icon: <Circle className="h-4 w-4" />,
     },
     {
@@ -800,11 +1129,6 @@ export const GROUPED_BLOCKS = {
       type: NIGHTINGALE_CHART_ELEMENT,
       name: "Nightingale",
       icon: <PieChart className="h-4 w-4" />,
-    },
-    {
-      type: RADIAL_COLUMN_CHART_ELEMENT,
-      name: "Radial Column",
-      icon: <Circle className="h-4 w-4" />,
     },
     {
       type: SUNBURST_CHART_ELEMENT,
@@ -921,10 +1245,14 @@ export const GROUPED_BLOCKS = {
       icon: <Quote className="h-4 w-4" />,
     },
   ],
-} as const;
+} as const satisfies Record<string, readonly GroupedBlockBase[]>;
+
+type GroupedBlockList = readonly GroupedBlockBase[];
 
 // Keep BLOCKS for backward compatibility but mark as deprecated
 export const BLOCKS = Object.values(GROUPED_BLOCKS).flat();
+
+const HIDDEN_LAYOUT_TOOLBAR_TYPES = new Set<string>([QUOTE_ELEMENT]);
 
 // Helper function to check if an element type is a chart
 export function isChartType(elementType: string): boolean {
@@ -933,21 +1261,58 @@ export function isChartType(elementType: string): boolean {
   );
 }
 
-// Helper function to get the category of an element type
-export function getElementCategory(elementType: string): string | null {
-  for (const [category, elements] of Object.entries(GROUPED_BLOCKS)) {
-    if (elements.some((el) => el.type === elementType)) {
-      return category;
+export function getElementDisplayName(
+  elementType: string,
+  element?: Record<string, unknown>,
+): string {
+  if (element) {
+    for (const elements of Object.values(GROUPED_BLOCKS)) {
+      const foundVariant = elements.find((el) => {
+        if (el.type !== elementType) return false;
+
+        const block = el as GroupedBlockBase;
+        if (block.variant && block.key) {
+          if (block.key === "isFunnel") {
+            const isFunnelValue = element.isFunnel;
+            const currentFunnelVariant =
+              isFunnelValue === "funnel" || isFunnelValue === true
+                ? "funnel"
+                : "pyramid";
+            return currentFunnelVariant === block.variant;
+          }
+
+          const elementValue = element[block.key];
+          return (
+            elementValue === block.variant ||
+            (!elementValue &&
+              block.type === ICON_LIST &&
+              block.variant === "icon") ||
+            (!elementValue && block.variant === "default")
+          );
+        }
+
+        return false;
+      });
+
+      if (foundVariant) return foundVariant.name;
     }
   }
-  return null;
+
+  for (const elements of Object.values(GROUPED_BLOCKS)) {
+    const found = elements.find((el) => el.type === elementType);
+    if (found) return found.name;
+  }
+
+  return "Unknown";
 }
 
 /**
  * Gets available conversion options based on the current element type
  * Returns grouped structure for hierarchical dropdown
  */
-export function getAvailableConversionOptions(currentElementType: string) {
+export function getAvailableConversionOptions(
+  currentElementType: string,
+): Record<string, GroupedBlockList> {
   const isCurrentElementChart = isChartType(currentElementType);
 
   // If current element is a chart, only show chart category
@@ -962,19 +1327,29 @@ export function getAvailableConversionOptions(currentElementType: string) {
   }
 
   // For non-chart elements, show all categories except charts
-  const availableGroups: Record<
-    string,
-    (typeof GROUPED_BLOCKS)[keyof typeof GROUPED_BLOCKS]
-  > = {};
+  const availableGroups: Record<string, GroupedBlockList> = {};
 
   for (const [category, elements] of Object.entries(GROUPED_BLOCKS)) {
     if (category !== ELEMENT_CATEGORIES.CHARTS) {
-      availableGroups[category] = elements;
+      const filteredElements = elements.filter((element) => {
+        if (HIDDEN_LAYOUT_TOOLBAR_TYPES.has(element.type)) {
+          return currentElementType === element.type;
+        }
+        return true;
+      });
+
+      if (filteredElements.length > 0) {
+        availableGroups[category] = filteredElements;
+      }
     }
   }
 
   return availableGroups;
 }
+
+type ParentChildRelationship = {
+  child: string | readonly string[];
+};
 
 export const PARENT_CHILD_RELATIONSHIP = {
   [BULLET_GROUP]: {
@@ -1019,7 +1394,178 @@ export const PARENT_CHILD_RELATIONSHIP = {
   [SEQUENCE_ARROW_GROUP]: {
     child: SEQUENCE_ARROW_ITEM,
   },
-};
+  [SLOPE_GROUP]: {
+    child: SLOPE_ITEM,
+  },
+  [CONNECTED_CIRCLES_GROUP]: {
+    child: CONNECTED_CIRCLES_ITEM,
+  },
+  [CIRCULAR_GRID_GROUP]: {
+    child: CIRCULAR_GRID_ITEM,
+  },
+  [SNAKE_GROUP]: {
+    child: SNAKE_ITEM,
+  },
+  [STEPS_GROUP]: {
+    child: STEPS_ITEM,
+  },
+} as const satisfies Record<string, ParentChildRelationship>;
+
+export const LAYOUT_CHILD_TYPES = new Set<string>(
+  Object.values(PARENT_CHILD_RELATIONSHIP).flatMap(({ child }) =>
+    Array.isArray(child) ? child : [child],
+  ),
+);
+
+export function isLayoutChildType(type: unknown): type is string {
+  return typeof type === "string" && LAYOUT_CHILD_TYPES.has(type);
+}
+
+function isLayoutToolbarBlockType(type: unknown): type is string {
+  return (
+    type === "img" ||
+    type === KEYS.table ||
+    type === KEYS.mediaEmbed ||
+    type === KEYS.callout ||
+    type === ANTV_INFOGRAPHIC ||
+    type === BUTTON_ELEMENT ||
+    type === CONTRIBUTOR_ELEMENT ||
+    type === LABEL_ELEMENT ||
+    isChartType(typeof type === "string" ? type : "") ||
+    isLayoutChildType(type) ||
+    isLayoutParentType(type)
+  );
+}
+
+function isElementNode(node: unknown): node is TElement {
+  return (
+    typeof node === "object" &&
+    node !== null &&
+    "type" in node &&
+    "children" in node
+  );
+}
+
+export function isLayoutParentType(type: unknown): type is string {
+  return typeof type === "string" && type in PARENT_CHILD_RELATIONSHIP;
+}
+
+function getLayoutChildTypes(parentType: string): readonly string[] {
+  const childType =
+    PARENT_CHILD_RELATIONSHIP[
+      parentType as keyof typeof PARENT_CHILD_RELATIONSHIP
+    ]?.child;
+
+  if (!childType) return [];
+
+  if (typeof childType === "string") {
+    return [childType];
+  }
+
+  return childType;
+}
+
+export function getLayoutParentTypes(childType: string): readonly string[] {
+  const parentTypes: string[] = [];
+
+  for (const [parentType, relationship] of Object.entries(
+    PARENT_CHILD_RELATIONSHIP,
+  )) {
+    const children =
+      typeof relationship.child === "string"
+        ? [relationship.child]
+        : relationship.child;
+
+    if (children.some((child) => child === childType)) {
+      parentTypes.push(parentType);
+    }
+  }
+
+  return parentTypes;
+}
+
+export function canLayoutChildTypeBePlacedInParent(
+  childType: string,
+  parentType: string,
+): boolean {
+  return getLayoutChildTypes(parentType).includes(childType);
+}
+
+function getRelationshipChildType(parentType: string, index: number) {
+  const childType = PARENT_CHILD_RELATIONSHIP[parentType]?.child;
+
+  if (Array.isArray(childType)) {
+    return childType[index % childType.length];
+  }
+
+  return childType;
+}
+
+function getProcessedLayoutVariant(variant?: Record<string, unknown>) {
+  const processedVariant = variant ? { ...variant } : {};
+
+  if (processedVariant.isFunnel !== undefined) {
+    processedVariant.isFunnel =
+      processedVariant.isFunnel === "funnel" ||
+      processedVariant.isFunnel === true;
+  }
+
+  return processedVariant;
+}
+
+function getNodeById(
+  editor: MyEditor,
+  elementId: string | undefined,
+): NodeEntry<TElement> | undefined {
+  if (!elementId) return undefined;
+
+  return editor.api.node({
+    id: elementId,
+    at: [],
+  }) as NodeEntry<TElement> | undefined;
+}
+
+export function getDirectLayoutToolbarTargetEntry(
+  editor: MyEditor,
+  elementId: string | undefined,
+): NodeEntry<TElement> | undefined {
+  const entry = getNodeById(editor, elementId);
+  if (!entry) return undefined;
+
+  const [element] = entry;
+  return isLayoutToolbarBlockType(element.type) ? entry : undefined;
+}
+
+export function getLayoutChangeTargetEntry(
+  editor: MyEditor,
+  targetElementId?: string,
+): NodeEntry<TElement> | undefined {
+  const selectionIds = editor.getOption(BlockSelectionPlugin, "selectedIds");
+  const selectedElementId = Array.from(selectionIds ?? [])[0];
+  const elementId =
+    targetElementId ??
+    (typeof selectedElementId === "string" ? selectedElementId : undefined);
+  const directEntry = getNodeById(editor, elementId);
+
+  if (!directEntry) return undefined;
+
+  const [element, path] = directEntry;
+
+  if (isLayoutParentType(element.type) || isChartType(element.type)) {
+    return directEntry;
+  }
+
+  if (path.length === 0) return directEntry;
+
+  const parentPath = PathApi.parent(path) as Path;
+  const parentElement = NodeApi.get(editor, parentPath);
+
+  if (isElementNode(parentElement) && isLayoutParentType(parentElement.type)) {
+    return [parentElement, parentPath];
+  }
+
+  return directEntry;
+}
 
 // Single helper per latest instruction: given only editor and element, derive class.
 // Note: CYCLE_ITEM grid positioning is now handled by CycleElement parent component
@@ -1032,8 +1578,88 @@ export function getGridClassForElement(
 
   if (element.type === PROS_ITEM || element.type === CONS_ITEM) return "h-full";
 
+  if (element.type === SNAKE_ITEM) return "z-10 min-w-0 text-center";
+
   if (element.type === KEYS.column) return "flex-1";
   return "";
+}
+
+export function getGridStyleForElement(
+  editor: PlateEditor,
+  element: TElement,
+): CSSProperties | undefined {
+  if (
+    element.type !== CIRCULAR_GRID_ITEM &&
+    element.type !== CONNECTED_CIRCLES_ITEM &&
+    element.type !== SNAKE_ITEM
+  ) {
+    return undefined;
+  }
+
+  const path = editor.api.findPath(element);
+  if (!path) return undefined;
+
+  const index = path.at(-1);
+  if (typeof index !== "number") return undefined;
+
+  if (element.type === SNAKE_ITEM) {
+    const isTopBandItem = index % 2 === 1;
+
+    return {
+      alignSelf: isTopBandItem ? "end" : "stretch",
+      gridColumn: getSnakeGridColumn(index),
+      gridRow: getSnakeGridRow(index),
+      justifySelf: "stretch",
+    };
+  }
+
+  if (element.type === CONNECTED_CIRCLES_ITEM) {
+    const parentPath = PathApi.parent(path);
+    const parentElement = NodeApi.get(editor, parentPath);
+    const total = isElementNode(parentElement)
+      ? parentElement.children.length
+      : 1;
+    const position = getConnectedCircleItemPosition(index, total);
+    const transform = getConnectedCircleItemTransform(index, total);
+
+    return {
+      gridColumn: position.gridColumn,
+      gridRow: position.gridRow,
+      justifySelf: "center",
+      transform,
+    };
+  }
+
+  const visibleIndex = Math.max(
+    0,
+    Math.min(index, CIRCULAR_GRID_MAX_ITEMS - 1),
+  );
+  const parentPath = PathApi.parent(path);
+  const parentElement = NodeApi.get(editor, parentPath);
+  const total = isElementNode(parentElement)
+    ? Math.min(parentElement.children.length || 1, CIRCULAR_GRID_MAX_ITEMS)
+    : 1;
+  const isPromotedOddItem = total % 2 === 1 && visibleIndex === total - 1;
+  const row = isPromotedOddItem
+    ? 1
+    : total === 4
+      ? visibleIndex < 2
+        ? 1
+        : 3
+      : Math.floor(visibleIndex / 2) + (total % 2 === 1 ? 2 : 1);
+  const isLeftColumn = visibleIndex % 2 === 0;
+
+  return {
+    alignSelf: row === 1 ? "end" : row === 3 ? "start" : "center",
+    display: index < CIRCULAR_GRID_MAX_ITEMS ? undefined : "none",
+    gridColumn: isPromotedOddItem ? "1 / 3" : isLeftColumn ? "1" : "2",
+    gridRow: `${row}`,
+    justifySelf: isPromotedOddItem ? "center" : isLeftColumn ? "end" : "start",
+    transform:
+      row === 2 || isPromotedOddItem
+        ? undefined
+        : `translateX(${isLeftColumn ? 72 : -72}px)`,
+  };
 }
 
 /**
@@ -1046,87 +1672,80 @@ export function handleLayoutChange(
   editor: MyEditor,
   type: string,
   variant?: Record<string, unknown>,
-): void {
-  const selectionIds = editor.getOption(BlockSelectionPlugin, "selectedIds");
-  const node = editor.api.nodes({ id: Array.from(selectionIds ?? [])[0] });
-  const [element] = node?.[0] ?? [];
+  targetElementId?: string,
+): TElement | null {
+  const targetEntry = getLayoutChangeTargetEntry(editor, targetElementId);
+  const [element, elementPath] = targetEntry ?? [];
 
-  if (!element) return;
+  if (!element || !elementPath) return null;
 
-  // Handle parent-child relationship elements (lists, groups, etc.)
-  if (PARENT_CHILD_RELATIONSHIP[element.type]?.child) {
+  const getUpdatedElement = () => {
+    const updatedElementId =
+      typeof element.id === "string" ? element.id : undefined;
+    const updatedEntry =
+      getNodeById(editor, updatedElementId) ??
+      (editor.api.node({ at: elementPath }) as NodeEntry<TElement> | undefined);
+    const [updatedElement] = updatedEntry ?? [];
+
+    return updatedElement ?? null;
+  };
+
+  // Handle non-chart layout/content element conversions.
+  if (!isChartType(element.type)) {
     editor.tf.withoutNormalizing(() => {
-      // Process variant values (e.g., convert "funnel" string to boolean for isFunnel)
-      const processedVariant = variant ? { ...variant } : {};
-
-      // Special handling for pyramid/funnel variant
-      if (processedVariant.isFunnel !== undefined) {
-        processedVariant.isFunnel =
-          processedVariant.isFunnel === "funnel" ||
-          processedVariant.isFunnel === true;
-      }
+      const processedVariant = getProcessedLayoutVariant(variant);
 
       // If we're changing variants within the same type, just update the variant
       if (type === element.type && Object.keys(processedVariant).length > 0) {
-        editor.tf.setNodes(processedVariant, {
-          at: editor.api.findPath(element),
-        });
+        editor.tf.setNodes(
+          { ...processedVariant, [PALETTE_DROP_MUTABLE_KEY]: false },
+          {
+            at: elementPath,
+          },
+        );
       } else {
         // If we're changing the element type, update type and variant
         editor.tf.setNodes(
-          { type, ...processedVariant },
-          { at: editor.api.findPath(element) },
+          { type, ...processedVariant, [PALETTE_DROP_MUTABLE_KEY]: false },
+          { at: elementPath },
         );
         // Update child element types
-        element.children.forEach((child) => {
+        element.children.forEach((_, index) => {
+          const childType = getRelationshipChildType(type, index);
+          if (!childType) return;
+
           editor.tf.setNodes(
-            { type: PARENT_CHILD_RELATIONSHIP[type]?.child },
-            { at: editor.api.findPath(child) },
+            { type: childType },
+            { at: [...elementPath, index] },
           );
         });
       }
-      // Force update all the children so that the UI is updated when variants change
-      element.children.forEach((child) => {
-        editor.tf.setNodes(
-          { lastUpdate: Date.now() },
-          { at: editor.api.findPath(child) },
-        );
-      });
+      updateSiblingsForcefully(editor, element, elementPath);
     });
-    return;
+    return getUpdatedElement();
   }
 
   // Handle chart elements (direct conversion)
   if (isChartType(element.type)) {
     const currentData = (element as { data?: unknown }).data;
-    const isTargetScatter = type === SCATTER_CHART_ELEMENT;
-    const isTargetBubble = type === BUBBLE_CHART_ELEMENT;
-    const isTargetComposed = type === COMPOSED_CHART_ELEMENT;
-    const isTargetOHLC =
-      type === CANDLESTICK_CHART_ELEMENT || type === OHLC_CHART_ELEMENT;
-    const isTargetBoxPlot = type === BOX_PLOT_CHART_ELEMENT;
 
     // Add default data if converting to a chart and there's no existing data
     const chartData =
       currentData && Array.isArray(currentData) && currentData.length > 0
         ? undefined // Keep existing data
-        : isTargetScatter
-          ? DEFAULT_CHART_DATA.scatter
-          : isTargetBubble
-            ? DEFAULT_CHART_DATA.bubble
-            : isTargetOHLC
-              ? DEFAULT_CHART_DATA.ohlc
-              : isTargetBoxPlot
-                ? DEFAULT_CHART_DATA.boxPlot
-                : isTargetComposed
-                  ? DEFAULT_CHART_DATA.multiSeries
-                  : DEFAULT_CHART_DATA.labelValue;
+        : getDefaultChartDataForType(type);
 
     editor.tf.setNodes(
-      { type, ...(chartData ? { data: chartData } : {}) },
-      { at: editor.api.findPath(element) },
+      {
+        type,
+        ...(chartData ? { data: chartData } : {}),
+        [PALETTE_DROP_MUTABLE_KEY]: false,
+      },
+      { at: elementPath },
     );
   }
+
+  return getUpdatedElement();
 }
 
 /**
@@ -1148,12 +1767,21 @@ export function handleNodePropertyUpdate(
   targetElementId?: string,
 ): void {
   const selectionIds = editor.getOption(BlockSelectionPlugin, "selectedIds");
-  const node = editor.api.nodes({
-    id: targetElementId ?? Array.from(selectionIds ?? [])[0],
-  });
-  const [element] = node?.[0] ?? [];
+  const targetId = targetElementId ?? Array.from(selectionIds ?? [])[0];
 
-  if (!element) return;
+  if (!targetId) return;
+
+  const node = Array.from(
+    editor.api.nodes({
+      at: [],
+      match: (n) => "id" in n && n.id === targetId,
+    }),
+  );
+  const [rawElement] = node?.[0] ?? [];
+
+  if (!rawElement) return;
+
+  const element = rawElement as TElement;
 
   const elementPath = editor.api.findPath(element);
   if (!elementPath) return;
@@ -1161,24 +1789,28 @@ export function handleNodePropertyUpdate(
   editor.tf.withoutNormalizing(() => {
     if (value === undefined) {
       // Remove the property by setting it to undefined
-      editor.tf.setNodes({ [key]: undefined }, { at: elementPath });
+      editor.tf.setNodes(
+        { [key]: undefined, [PALETTE_DROP_MUTABLE_KEY]: false },
+        { at: elementPath },
+      );
     } else {
       if (element.type === ANTV_INFOGRAPHIC && key === "syntax") {
         editor.tf.setNodes(
-          { [key]: value, data: undefined },
+          { [key]: value, data: undefined, [PALETTE_DROP_MUTABLE_KEY]: false },
           { at: elementPath },
         );
       } else {
         // Update the node property - convert boolean to string for numbered property
-        editor.tf.setNodes({ [key]: value }, { at: elementPath });
+        editor.tf.setNodes(
+          { [key]: value, [PALETTE_DROP_MUTABLE_KEY]: false },
+          { at: elementPath },
+        );
       }
     }
-    // Force update all the siblings so that the UI is updated
-    element.children.forEach((child) => {
-      editor.tf.setNodes(
-        { lastUpdate: Date.now() },
-        { at: editor.api.findPath(child) },
-      );
-    });
+    if (isLayoutParentType(element.type)) {
+      updateSiblingsForcefully(editor, element, elementPath);
+    } else {
+      updateSiblingsAfterDrop(editor, element, elementPath);
+    }
   });
 }

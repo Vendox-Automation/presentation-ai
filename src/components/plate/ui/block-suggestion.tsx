@@ -1,33 +1,30 @@
 "use client";
 
-import * as React from "react";
-
-import { type TResolvedSuggestion } from "@platejs/suggestion";
-
 import {
   acceptSuggestion,
+  rejectSuggestion,
   getSuggestionKey,
   keyId2SuggestionId,
-  rejectSuggestion,
+  type TResolvedSuggestion,
 } from "@platejs/suggestion";
 import { SuggestionPlugin } from "@platejs/suggestion/react";
 import { CheckIcon, XIcon } from "lucide-react";
 import {
-  type NodeEntry,
-  type Path,
-  type TElement,
-  type TSuggestionElement,
-  type TSuggestionText,
   ElementApi,
   KEYS,
   PathApi,
   TextApi,
+  type NodeEntry,
+  type Path,
+  type TElement,
+  type TSuggestionText,
 } from "platejs";
 import { useEditorPlugin, usePluginOption } from "platejs/react";
+import * as React from "react";
 
 import {
-  type TDiscussion,
   discussionPlugin,
+  type TDiscussion,
 } from "@/components/plate/plugins/discussion-kit";
 import { suggestionPlugin } from "@/components/plate/plugins/suggestion-kit";
 import {
@@ -36,13 +33,11 @@ import {
   AvatarImage,
 } from "@/components/plate/ui/avatar";
 import { Button } from "@/components/plate/ui/button";
-import { cn } from "@/lib/utils";
-
 import {
-  type TComment,
   Comment,
   CommentCreateForm,
   formatCommentDate,
+  type TComment,
 } from "./comment";
 
 export interface ResolvedSuggestion extends TResolvedSuggestion {
@@ -50,54 +45,6 @@ export interface ResolvedSuggestion extends TResolvedSuggestion {
 }
 
 const BLOCK_SUGGESTION = "__block__";
-
-const TYPE_TEXT_MAP: Record<string, (node?: TElement) => string> = {
-  [KEYS.audio]: () => "Audio",
-  [KEYS.blockquote]: () => "Blockquote",
-  [KEYS.callout]: () => "Callout",
-  [KEYS.codeBlock]: () => "Code Block",
-  [KEYS.column]: () => "Column",
-  [KEYS.equation]: () => "Equation",
-  [KEYS.file]: () => "File",
-  [KEYS.h1]: () => `Heading 1`,
-  [KEYS.h2]: () => `Heading 2`,
-  [KEYS.h3]: () => `Heading 3`,
-  [KEYS.h4]: () => `Heading 4`,
-  [KEYS.h5]: () => `Heading 5`,
-  [KEYS.h6]: () => `Heading 6`,
-  [KEYS.hr]: () => "Horizontal Rule",
-  [KEYS.img]: () => "Image",
-  [KEYS.mediaEmbed]: () => "Media",
-  [KEYS.p]: (node) => {
-    if (node?.[KEYS.listType] === KEYS.listTodo) return "Todo List";
-    if (node?.[KEYS.listType] === KEYS.ol) return "Ordered List";
-    if (node?.[KEYS.listType] === KEYS.ul) return "List";
-
-    return "Paragraph";
-  },
-  [KEYS.table]: () => "Table",
-  [KEYS.toc]: () => "Table of Contents",
-  [KEYS.toggle]: () => "Toggle",
-  [KEYS.video]: () => "Video",
-};
-
-export function BlockSuggestion({ element }: { element: TSuggestionElement }) {
-  const suggestionData = element.suggestion;
-
-  if (suggestionData?.isLineBreak) return null;
-
-  const isRemove = suggestionData?.type === "remove";
-
-  return (
-    <div
-      className={cn(
-        "pointer-events-none absolute inset-0 z-1 border-2 border-brand/80 transition-opacity",
-        isRemove && "border-gray-300",
-      )}
-      contentEditable={false}
-    />
-  );
-}
 
 export function BlockSuggestionCard({
   idx,
@@ -161,7 +108,7 @@ export function BlockSuggestionCard({
           </div>
         </div>
 
-        <div className="relative mt-1 mb-4 pl-[32px]">
+        <div className="relative mt-1 mb-4 pl-8">
           <div className="flex flex-col gap-2">
             {suggestion.type === "remove" &&
               suggestionText2Array(suggestion.text!).map((text, index) => (
@@ -273,6 +220,36 @@ export function BlockSuggestionCard({
   );
 }
 
+const TYPE_TEXT_MAP: Record<string, (node?: TElement) => string> = {
+  [KEYS.audio]: () => "Audio",
+  [KEYS.blockquote]: () => "Blockquote",
+  [KEYS.callout]: () => "Callout",
+  [KEYS.codeBlock]: () => "Code Block",
+  [KEYS.column]: () => "Column",
+  [KEYS.equation]: () => "Equation",
+  [KEYS.file]: () => "File",
+  [KEYS.h1]: () => "Heading 1",
+  [KEYS.h2]: () => "Heading 2",
+  [KEYS.h3]: () => "Heading 3",
+  [KEYS.h4]: () => "Heading 4",
+  [KEYS.h5]: () => "Heading 5",
+  [KEYS.h6]: () => "Heading 6",
+  [KEYS.hr]: () => "Horizontal Rule",
+  [KEYS.img]: () => "Image",
+  [KEYS.mediaEmbed]: () => "Media",
+  [KEYS.p]: (node) => {
+    if (node?.[KEYS.listType] === KEYS.listTodo) return "Todo List";
+    if (node?.[KEYS.listType] === KEYS.ol) return "Ordered List";
+    if (node?.[KEYS.listType] === KEYS.ul) return "List";
+
+    return "Paragraph";
+  },
+  [KEYS.table]: () => "Table",
+  [KEYS.toc]: () => "Table of Contents",
+  [KEYS.toggle]: () => "Toggle",
+  [KEYS.video]: () => "Video",
+};
+
 export const useResolveSuggestion = (
   suggestionNodes: NodeEntry<TElement | TSuggestionText>[],
   blockPath: Path,
@@ -282,11 +259,11 @@ export const useResolveSuggestion = (
   const { api, editor, getOption, setOption } =
     useEditorPlugin(suggestionPlugin);
 
-  suggestionNodes.forEach(([node]) => {
+  for (const [node] of suggestionNodes) {
     const id = api.suggestion.nodeId(node);
     const map = getOption("uniquePathMap");
 
-    if (!id) return;
+    if (!id) continue;
 
     const previousPath = map.get(id);
 
@@ -301,15 +278,16 @@ export const useResolveSuggestion = (
       }
 
       if (!nodes && lineBreakId !== id) {
-        return setOption("uniquePathMap", new Map(map).set(id, blockPath));
+        setOption("uniquePathMap", new Map(map).set(id, blockPath));
+        continue;
       }
 
-      return;
+      continue;
     }
     setOption("uniquePathMap", new Map(map).set(id, blockPath));
-  });
+  }
 
-  const resolvedSuggestion: ResolvedSuggestion[] = React.useMemo(() => {
+  const resolvedSuggestion: ResolvedSuggestion[] = (() => {
     const map = getOption("uniquePathMap");
 
     if (suggestionNodes.length === 0) return [];
@@ -351,7 +329,7 @@ export const useResolveSuggestion = (
           at: [],
           mode: "all",
           match: (n) =>
-            (n[KEYS.suggestion] && n[getSuggestionKey(id)]) ||
+            Boolean(n[KEYS.suggestion] && (n as Record<string, unknown>)[getSuggestionKey(id)]) ||
             api.suggestion.nodeId(n as TElement) === id,
         }),
       ] as NodeEntry<TElement | TSuggestionText>[];
@@ -406,7 +384,7 @@ export const useResolveSuggestion = (
           });
         } else {
           const lineBreakData = api.suggestion.isBlockSuggestion(node)
-            ? node.suggestion
+            ? (node as unknown as { suggestion?: { id?: string; type?: string; isLineBreak?: boolean } }).suggestion
             : undefined;
 
           if (lineBreakData?.id !== keyId2SuggestionId(id)) return;
@@ -430,7 +408,7 @@ export const useResolveSuggestion = (
 
       // const comments = data?.discussions.find((d) => d.id === id)?.comments;
       const comments =
-        (discussions as TDiscussion[]).find((s) => s.id === id)?.comments || [];
+        discussions.find((s: TDiscussion) => s.id === id)?.comments || [];
       const createdAt = new Date(nodeData.createdAt);
 
       const keyId = getSuggestionKey(id);
@@ -485,14 +463,7 @@ export const useResolveSuggestion = (
     });
 
     return res;
-  }, [
-    api.suggestion,
-    blockPath,
-    discussions,
-    editor.api,
-    getOption,
-    suggestionNodes,
-  ]);
+  })();
 
   return resolvedSuggestion;
 };
@@ -502,3 +473,4 @@ export const isResolvedSuggestion = (
 ): suggestion is ResolvedSuggestion => {
   return "suggestionId" in suggestion;
 };
+

@@ -1,7 +1,9 @@
 // custom-elements/pyramid.tsx
-import { cn } from "@/lib/utils";
 import { PlateElement, type PlateElementProps } from "platejs/react";
+
+import { cn } from "@/lib/utils";
 import { type TPyramidGroupElement } from "../plugins/pyramid-plugin";
+import { PyramidHeightProvider } from "./pyramid-height-context";
 
 export default function Pyramid(
   props: PlateElementProps<TPyramidGroupElement>,
@@ -9,7 +11,7 @@ export default function Pyramid(
   const { alignment = "center" } = props.element;
 
   return (
-    <PlateElement {...props}>
+    <PlateElement {...props} className="relative">
       {/* Container for alignment control */}
       <div
         className={cn(
@@ -21,9 +23,11 @@ export default function Pyramid(
         )}
       >
         {/* Pyramid grid - always full width */}
-        <div className="grid w-full grid-flow-row auto-rows-fr overflow-visible">
-          {props.children}
-        </div>
+        <PyramidHeightProvider>
+          <div className="grid w-full grid-flow-row auto-rows-fr overflow-visible">
+            {props.children}
+          </div>
+        </PyramidHeightProvider>
       </div>
     </PlateElement>
   );

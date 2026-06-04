@@ -2,11 +2,13 @@
  * Infographic syntax utilities for template conversion
  */
 
+import { type Data, type InfographicOptions } from "@antv/infographic";
+
 import {
   INFOGRAPHIC_CATEGORIES,
   type InfographicDataField,
 } from "@/constants/antv-templates";
-import { type Data, type InfographicOptions } from "@antv/infographic";
+import { type ThemeColors } from "@/lib/presentation/themes";
 
 /**
  * Parse the current template name from infographic syntax
@@ -63,9 +65,9 @@ export function changeInfographicTemplate(
 
 /**
  * Get main category from template ID
- * e.g., "chart-pie-donut-compact-card" -> "chart"
+ * e.g., "sequence-steps-simple" -> "sequence"
  */
-export function getTemplateMainCategory(templateId: string): string {
+function getTemplateMainCategory(templateId: string): string {
   return templateId.split("-")[0] ?? "other";
 }
 
@@ -78,6 +80,7 @@ type ThemeUpdateOptions = {
   stylize?: string | null;
   palette?: string | string[] | null;
   colorBg?: string;
+  colorPrimary?: string | null;
   baseTextFill?: string;
   itemLabelFill?: string;
 };
@@ -87,6 +90,80 @@ const TOP_LEVEL_KEYWORDS = ["data", "design", "relations"];
 function getIndentSize(line: string): number {
   const match = line.match(/^\s*/);
   return match ? match[0].length : 0;
+}
+
+function parseScalarValue(value: string): unknown {
+  const trimmed = value.trim();
+  if (/^true$/i.test(trimmed)) return true;
+  if (/^false$/i.test(trimmed)) return false;
+  if (/^-?\d+(\.\d+)?$/.test(trimmed)) return Number(trimmed);
+  return trimmed;
+}
+
+function parseUnknownObjectBlock(
+  lines: string[],
+  startIndex: number,
+  baseIndent: number,
+): { endIndex: number; value: Record<string, unknown> } {
+  const value: Record<string, unknown> = {};
+  let i = startIndex;
+
+  while (i < lines.length) {
+    const line = lines[i];
+    if (!line || !line.trim()) {
+      i++;
+      continue;
+    }
+
+    const indent = getIndentSize(line);
+    if (indent <= baseIndent) break;
+
+    const trimmed = line.trim();
+    const [key, ...rest] = trimmed.split(/\s+/);
+    if (!key) {
+      i++;
+      continue;
+    }
+
+    if (rest.length === 0) {
+      const parsed = parseUnknownObjectBlock(lines, i + 1, indent);
+      value[key] = parsed.value;
+      i = parsed.endIndex;
+      continue;
+    }
+
+    value[key] = parseScalarValue(rest.join(" "));
+    i++;
+  }
+
+  return { endIndex: i, value };
+}
+
+function serializeUnknownObject(
+  value: Record<string, unknown>,
+  indent: number,
+): string[] {
+  const lines: string[] = [];
+  const pad = " ".repeat(indent);
+
+  for (const [key, entry] of Object.entries(value)) {
+    if (entry === undefined || entry === null) continue;
+    if (
+      typeof entry === "object" &&
+      !Array.isArray(entry) &&
+      Object.keys(entry as Record<string, unknown>).length > 0
+    ) {
+      lines.push(`${pad}${key}`);
+      lines.push(
+        ...serializeUnknownObject(entry as Record<string, unknown>, indent + 2),
+      );
+      continue;
+    }
+
+    lines.push(`${pad}${key} ${String(entry)}`);
+  }
+
+  return lines;
 }
 
 function isTopLevelBlock(line: string): boolean {
@@ -175,6 +252,21 @@ function upsertTopLevelThemeLine(
 
   const insertIndex = themeRange.start + 1;
   lines.splice(insertIndex, 0, `  ${key} ${value}`);
+}
+
+function removeTopLevelThemeLine(
+  lines: string[],
+  themeRange: ThemeBlockRange,
+  key: string,
+): void {
+  const keyPattern = new RegExp(`^\\s{2}${key}\\b`);
+  const existingIndex = lines
+    .slice(themeRange.start + 1, themeRange.end)
+    .findIndex((line) => keyPattern.test(line));
+
+  if (existingIndex >= 0) {
+    lines.splice(themeRange.start + 1 + existingIndex, 1);
+  }
 }
 
 function removeIndentedBlock(
@@ -342,6 +434,21 @@ export function updateInfographicTheme(
     themeRange = findThemeBlockRange(lines) ?? themeRange;
   }
 
+  if (options.colorPrimary !== undefined) {
+    if (options.colorPrimary === null) {
+      removeTopLevelThemeLine(lines, themeRange, "colorPrimary");
+      themeRange = findThemeBlockRange(lines) ?? themeRange;
+    } else {
+      upsertTopLevelThemeLine(
+        lines,
+        themeRange,
+        "colorPrimary",
+        options.colorPrimary,
+      );
+      themeRange = findThemeBlockRange(lines) ?? themeRange;
+    }
+  }
+
   upsertPaletteBlock(lines, themeRange, options.palette);
   themeRange = findThemeBlockRange(lines) ?? themeRange;
 
@@ -446,10 +553,127 @@ export function parseInfographicPalette(
  * data
  *   ...
  */
-export function applyThemeToSyntax(syntax: string, isDark: boolean): string {
+export type InfographicPaletteThemeColors = Pick<
+  ThemeColors,
+  "primary" | "accent" | "smartLayout" | "text" | "heading" | "cardBackground"
+>;
+
+type RgbColor = {
+  r: number;
+  g: number;
+  b: number;
+};
+
+function normalizeHexColor(color: string | undefined): string | null {
+  if (!color) return null;
+
+  const trimmed = color.trim();
+  const shorthand = trimmed.match(/^#([0-9a-fA-F]{3})$/);
+  if (shorthand) {
+    const [r, g, b] = shorthand[1]!.split("");
+    return `#${r}${r}${g}${g}${b}${b}`.toUpperCase();
+  }
+
+  if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) {
+    return trimmed.toUpperCase();
+  }
+
+  return null;
+}
+
+function hexToRgb(color: string): RgbColor {
+  return {
+    r: Number.parseInt(color.slice(1, 3), 16),
+    g: Number.parseInt(color.slice(3, 5), 16),
+    b: Number.parseInt(color.slice(5, 7), 16),
+  };
+}
+
+function rgbToHex({ r, g, b }: RgbColor): string {
+  const toHex = (value: number) =>
+    Math.round(Math.min(255, Math.max(0, value)))
+      .toString(16)
+      .padStart(2, "0");
+
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+}
+
+function mixHexColors(from: string, to: string, ratio: number): string {
+  const start = hexToRgb(from);
+  const end = hexToRgb(to);
+
+  return rgbToHex({
+    r: start.r + (end.r - start.r) * ratio,
+    g: start.g + (end.g - start.g) * ratio,
+    b: start.b + (end.b - start.b) * ratio,
+  });
+}
+
+function uniqueColors(colors: string[]): string[] {
+  return Array.from(new Set(colors));
+}
+
+function buildGradientPalette(
+  themeColors: InfographicPaletteThemeColors | null | undefined,
+  isDark: boolean,
+): string[] {
+  const primary =
+    normalizeHexColor(themeColors?.primary) ?? (isDark ? "#60A5FA" : "#2563EB");
+  const secondary = normalizeHexColor(themeColors?.accent) ?? primary;
+  const smartLayout = normalizeHexColor(themeColors?.smartLayout) ?? secondary;
+
+  return uniqueColors([
+    primary,
+    mixHexColors(primary, secondary, 0.5),
+    secondary,
+    mixHexColors(secondary, smartLayout, 0.5),
+    smartLayout,
+  ]);
+}
+
+function getExplicitPalettePrimary(palette: unknown): string | null {
+  if (Array.isArray(palette)) {
+    const firstColor = palette.find(
+      (color): color is string => typeof color === "string",
+    );
+    return normalizeHexColor(firstColor);
+  }
+
+  if (typeof palette === "string") {
+    return normalizeHexColor(palette);
+  }
+
+  return null;
+}
+
+export function applyThemeToSyntax(
+  syntax: string,
+  isDark: boolean,
+  themeColors?: InfographicPaletteThemeColors | null,
+): string {
   if (!syntax?.trim()) return syntax;
 
-  const colors = getInfographicThemeColors(isDark);
+  const colors = getInfographicThemeColors(isDark, themeColors);
+  const explicitPalette = parseInfographicPalette(syntax);
+  const explicitPalettePrimary = getExplicitPalettePrimary(explicitPalette);
+
+  return updateInfographicTheme(syntax, {
+    colorBg: colors.colorBg,
+    colorPrimary:
+      explicitPalette === null ? colors.colorPrimary : explicitPalettePrimary,
+    palette: explicitPalette === null ? colors.palette : undefined,
+    baseTextFill: colors.baseTextFill,
+    itemLabelFill: colors.itemLabelFill,
+  });
+}
+
+export function applyColorModeToSyntax(
+  syntax: string,
+  isDark: boolean,
+): string {
+  if (!syntax?.trim()) return syntax;
+
+  const colors = getInfographicThemeColors(isDark, null);
 
   return updateInfographicTheme(syntax, {
     colorBg: colors.colorBg,
@@ -458,38 +682,38 @@ export function applyThemeToSyntax(syntax: string, isDark: boolean): string {
   });
 }
 
-export function getInfographicThemeColors(isDark: boolean) {
+export function getInfographicThemeColors(
+  isDark: boolean,
+  themeColors?: InfographicPaletteThemeColors | null,
+) {
+  const colorPrimary =
+    normalizeHexColor(themeColors?.primary) ?? (isDark ? "#60A5FA" : "#2563EB");
+  const baseTextFill =
+    normalizeHexColor(themeColors?.text) ??
+    normalizeHexColor(themeColors?.heading) ??
+    (isDark ? "#FFFFFF" : "#000000");
+  const itemLabelFill =
+    normalizeHexColor(themeColors?.heading) ??
+    normalizeHexColor(themeColors?.text) ??
+    (isDark ? "#E5E5E5" : "#404040");
+
   return {
     colorBg: "transparent",
-    baseTextFill: isDark ? "#FFFFFF" : "#000000",
-    itemLabelFill: isDark ? "#E5E5E5" : "#404040",
+    colorPrimary,
+    palette: buildGradientPalette(themeColors, isDark),
+    baseTextFill,
+    itemLabelFill,
   };
 }
-
-export interface InfographicThemeConfig {
-  colorBg?: string;
-  base?: {
-    text?: {
-      fill?: string;
-    };
-  };
-  item?: {
-    label?: {
-      fill?: string;
-    };
-  };
-  [key: string]: unknown;
-}
-
 export function applyThemeToData(
   data: Partial<InfographicOptions>,
   isDark: boolean,
+  themeColors?: InfographicPaletteThemeColors | null,
 ): Partial<InfographicOptions> {
   if (!data || typeof data !== "object") return data;
 
-  const colors = getInfographicThemeColors(isDark);
+  const colors = getInfographicThemeColors(isDark, themeColors);
 
-  // Create a deep clone to avoid mutating the original object
   // Create a deep clone to avoid mutating the original object
   const newData = JSON.parse(JSON.stringify(data)) as InfographicOptions;
 
@@ -514,6 +738,49 @@ export function applyThemeToData(
   }
 
   // Apply colors
+  const existingPalette = themeConfig.palette;
+  const explicitPalettePrimary = getExplicitPalettePrimary(existingPalette);
+  themeConfig.colorBg = colors.colorBg;
+  if (!existingPalette) {
+    themeConfig.colorPrimary = colors.colorPrimary;
+    themeConfig.palette = colors.palette;
+  } else if (!themeConfig.colorPrimary && explicitPalettePrimary) {
+    themeConfig.colorPrimary = explicitPalettePrimary;
+  }
+  themeConfig.base!.text!.fill = colors.baseTextFill;
+  themeConfig.item!.label!.fill = colors.itemLabelFill;
+
+  return newData as unknown as Partial<InfographicOptions>;
+}
+
+export function applyColorModeToData(
+  data: Partial<InfographicOptions>,
+  isDark: boolean,
+): Partial<InfographicOptions> {
+  if (!data || typeof data !== "object") return data;
+
+  const colors = getInfographicThemeColors(isDark, null);
+  const newData = JSON.parse(JSON.stringify(data)) as InfographicOptions;
+
+  if (!newData.themeConfig) {
+    newData.themeConfig = {};
+  }
+
+  const themeConfig = newData.themeConfig;
+
+  if (!themeConfig.base) {
+    themeConfig.base = {};
+  }
+  if (!themeConfig.base.text) {
+    themeConfig.base.text = {};
+  }
+  if (!themeConfig.item) {
+    themeConfig.item = {};
+  }
+  if (!themeConfig.item.label) {
+    themeConfig.item.label = {};
+  }
+
   themeConfig.colorBg = colors.colorBg;
   themeConfig.base!.text!.fill = colors.baseTextFill;
   themeConfig.item!.label!.fill = colors.itemLabelFill;
@@ -542,6 +809,7 @@ export interface DataItem {
   group?: string;
   category?: string;
   children?: DataItem[];
+  attributes?: Record<string, unknown>;
 }
 
 /**
@@ -554,12 +822,13 @@ export interface ParsedDataBlock {
   items: DataItem[];
   relations?: string[];
   sourceField: DataFieldType;
+  attributes?: Record<string, unknown>;
 }
 
 /**
  * Map template category to expected data field
  */
-export function getExpectedDataField(categoryKey: string): DataFieldType {
+function getExpectedDataField(categoryKey: string): DataFieldType {
   return (
     INFOGRAPHIC_CATEGORIES.find((category) => category.key === categoryKey)
       ?.dataField ?? "items"
@@ -653,6 +922,11 @@ function parseDataItem(
       item.group = trimmed.slice(6).trim();
     } else if (trimmed.startsWith("category ")) {
       item.category = trimmed.slice(9).trim();
+    } else if (trimmed === "attributes") {
+      const parsed = parseUnknownObjectBlock(lines, i + 1, currentIndent);
+      item.attributes = parsed.value;
+      i = parsed.endIndex;
+      continue;
     } else if (trimmed === "children") {
       // Parse children recursively
       i++;
@@ -718,6 +992,11 @@ function parseRootNode(
       item.label = trimmed.slice(6).trim();
     } else if (trimmed.startsWith("desc ")) {
       item.desc = trimmed.slice(5).trim();
+    } else if (trimmed === "attributes") {
+      const parsed = parseUnknownObjectBlock(lines, i + 1, currentIndent);
+      item.attributes = parsed.value;
+      i = parsed.endIndex;
+      continue;
     } else if (trimmed === "children") {
       i++;
       const children: DataItem[] = [];
@@ -792,6 +1071,11 @@ export function parseDataBlock(syntax: string): ParsedDataBlock | null {
       result.desc = trimmed.slice(5).trim();
     } else if (trimmed.startsWith("order ")) {
       result.order = trimmed.slice(6).trim();
+    } else if (trimmed === "attributes") {
+      const parsed = parseUnknownObjectBlock(lines, i + 1, getIndentSize(line));
+      result.attributes = parsed.value;
+      i = parsed.endIndex;
+      continue;
     } else if (
       trimmed === "lists" ||
       trimmed === "sequences" ||
@@ -1021,6 +1305,10 @@ function serializeDataItem(item: DataItem, indent: number = 4): string[] {
   if (item.category) {
     lines.push(`${pad}  category ${item.category}`);
   }
+  if (item.attributes && Object.keys(item.attributes).length > 0) {
+    lines.push(`${pad}  attributes`);
+    lines.push(...serializeUnknownObject(item.attributes, indent + 4));
+  }
   if (item.children && item.children.length > 0) {
     lines.push(`${pad}  children`);
     for (const child of item.children) {
@@ -1043,6 +1331,10 @@ function serializeRootNode(item: DataItem): string[] {
   }
   if (item.desc) {
     lines.push(`    desc ${item.desc}`);
+  }
+  if (item.attributes && Object.keys(item.attributes).length > 0) {
+    lines.push("    attributes");
+    lines.push(...serializeUnknownObject(item.attributes, 6));
   }
   if (item.children && item.children.length > 0) {
     lines.push("    children");
@@ -1068,6 +1360,10 @@ function buildDataBlock(
   }
   if (parsed.desc) {
     lines.push(`  desc ${parsed.desc}`);
+  }
+  if (parsed.attributes && Object.keys(parsed.attributes).length > 0) {
+    lines.push("  attributes");
+    lines.push(...serializeUnknownObject(parsed.attributes, 4));
   }
 
   let items = parsed.items;
@@ -1162,6 +1458,10 @@ function buildRelationDataBlock(
 
   if (parsed.title) lines.push(`  title ${parsed.title}`);
   if (parsed.desc) lines.push(`  desc ${parsed.desc}`);
+  if (parsed.attributes && Object.keys(parsed.attributes).length > 0) {
+    lines.push("  attributes");
+    lines.push(...serializeUnknownObject(parsed.attributes, 4));
+  }
 
   // get source items
   let items = parsed.items;
@@ -1189,6 +1489,10 @@ function buildRelationDataBlock(
     if (node.icon) lines.push(`${pad}  icon ${node.icon}`);
     if (node.group) lines.push(`${pad}  group ${node.group}`);
     if (node.category) lines.push(`${pad}  category ${node.category}`);
+    if (node.attributes && Object.keys(node.attributes).length > 0) {
+      lines.push(`${pad}  attributes`);
+      lines.push(...serializeUnknownObject(node.attributes, 6));
+    }
   }
 
   if (relations.length > 0) {
@@ -1210,6 +1514,10 @@ function buildHierarchyItemsDataBlock(parsed: ParsedDataBlock): string {
   }
   if (parsed.desc) {
     lines.push(`  desc ${parsed.desc}`);
+  }
+  if (parsed.attributes && Object.keys(parsed.attributes).length > 0) {
+    lines.push("  attributes");
+    lines.push(...serializeUnknownObject(parsed.attributes, 4));
   }
 
   let items = parsed.items;
@@ -1377,6 +1685,8 @@ type RelationEdge = {
   direction?: "forward" | "both" | "none";
 };
 
+export type InfographicRelationEdge = RelationEdge;
+
 function resolveDataFieldFromOptions(data: Data): DataFieldType {
   if ("root" in data && data.root) return "root";
   if ("nodes" in data && Array.isArray(data.nodes) && data.nodes.length > 0)
@@ -1423,6 +1733,10 @@ function toDataItem(item: unknown): DataItem {
     group: candidate.group,
     category: candidate.category,
   };
+
+  if (candidate.attributes && typeof candidate.attributes === "object") {
+    normalized.attributes = JSON.parse(JSON.stringify(candidate.attributes));
+  }
 
   if (Array.isArray(candidate.children) && candidate.children.length > 0) {
     normalized.children = candidate.children.map(toDataItem);
@@ -1510,6 +1824,99 @@ function relationEdgeToSyntax(edge: RelationEdge): string | null {
   return `${from} ${connector} ${to}`;
 }
 
+function parseInfographicRelation(
+  relation: string,
+): InfographicRelationEdge | null {
+  const trimmed = relation.trim();
+  if (!trimmed) return null;
+
+  let direction: InfographicRelationEdge["direction"] = "forward";
+  let connector = "->";
+
+  if (trimmed.includes("<->")) {
+    direction = "both";
+    connector = "<->";
+  } else if (trimmed.includes("--")) {
+    direction = "none";
+    connector = "--";
+  }
+
+  const [left, right] = trimmed.split(connector);
+  const to = right?.trim();
+  if (!left || !to) return null;
+
+  const labeledMatch = left.match(/^(.*?)\s+-\s+(.*?)\s*$/);
+  const from = labeledMatch?.[1]?.trim() ?? left.trim();
+  const label = labeledMatch?.[2]?.trim();
+  if (!from) return null;
+
+  return {
+    from,
+    to,
+    ...(label ? { label } : {}),
+    direction,
+  };
+}
+
+export function buildInfographicDataFromParsed(parsed: ParsedDataBlock): Data {
+  const data: Record<string, unknown> = {};
+
+  if (parsed.title) data.title = parsed.title;
+  if (parsed.desc) data.desc = parsed.desc;
+  if (parsed.order) data.order = parsed.order;
+  if (parsed.attributes) data.attributes = parsed.attributes;
+
+  if (parsed.sourceField === "root") {
+    const root = parsed.items[0];
+    if (root) {
+      data.root = root;
+      data.items = [root];
+    }
+    return data as Data;
+  }
+
+  data.items = parsed.items;
+  data[parsed.sourceField] = parsed.items;
+
+  if (parsed.sourceField === "nodes" && parsed.relations) {
+    data.relations = parsed.relations
+      .map(parseInfographicRelation)
+      .filter((edge): edge is InfographicRelationEdge => Boolean(edge));
+  }
+
+  return data as Data;
+}
+
+export function updateInfographicSyntaxWithParsedData(
+  syntax: string,
+  parsed: ParsedDataBlock,
+): string {
+  const template = parseInfographicTemplate(syntax);
+  if (!template) return syntax;
+
+  const themeMatch = syntax.match(
+    /^theme(\s+\w+)?[\s\S]*?(?=^(?:data|design|relations)\s|$)/m,
+  );
+  const themeBlock = themeMatch ? themeMatch[0].trim() : "";
+
+  const designMatch = syntax.match(
+    /^design[\s\S]*?(?=^(?:data|theme|relations)\s|$)/m,
+  );
+  const designBlock = designMatch ? designMatch[0].trim() : "";
+
+  const dataBlock =
+    parsed.sourceField === "nodes"
+      ? buildRelationDataBlock(parsed, parsed.relations ?? [])
+      : buildDataBlock(parsed, parsed.sourceField);
+
+  const parts = [`infographic ${template}`];
+  if (themeBlock) parts.push(themeBlock);
+  if (designBlock) parts.push(designBlock);
+  parts.push(dataBlock);
+
+  return parts.join("\n");
+}
+
 function buildDataBlockFromOptions(data: Data): string {
   const field = resolveDataFieldFromOptions(data);
   const items = getItemsFromOptions(data, field);
@@ -1519,6 +1926,12 @@ function buildDataBlockFromOptions(data: Data): string {
           .map(relationEdgeToSyntax)
           .filter((line): line is string => Boolean(line))
       : [];
+  const attributes =
+    "attributes" in data &&
+    data.attributes &&
+    typeof data.attributes === "object"
+      ? JSON.parse(JSON.stringify(data.attributes))
+      : undefined;
 
   const parsed: ParsedDataBlock = {
     title: "title" in data ? (data.title as string | undefined) : undefined,
@@ -1527,6 +1940,7 @@ function buildDataBlockFromOptions(data: Data): string {
     items,
     relations,
     sourceField: field,
+    attributes,
   };
 
   if (field === "nodes") {

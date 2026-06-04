@@ -5,6 +5,97 @@
 
 type AnyRecord = Record<string, unknown>;
 
+export type RemovedSankeyCycleLink = {
+  index: number;
+  source: string;
+  target: string;
+};
+
+export type SankeyCycleSanitizationResult = {
+  data: unknown;
+  removedLinks: RemovedSankeyCycleLink[];
+};
+
+function flowEndpointToText(value: unknown, fallback: string): string {
+  if (typeof value === "string" && value.trim().length > 0) {
+    return value.trim();
+  }
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+
+  return fallback;
+}
+
+function hasPathToSource(
+  adjacency: Map<string, Set<string>>,
+  current: string,
+  target: string,
+): boolean {
+  const visited = new Set<string>();
+  const queue = [current];
+
+  while (queue.length > 0) {
+    const node = queue.shift();
+    if (!node || visited.has(node)) continue;
+    if (node === target) return true;
+
+    visited.add(node);
+    const neighbors = adjacency.get(node);
+    if (!neighbors) continue;
+
+    for (const neighbor of neighbors) {
+      if (!visited.has(neighbor)) {
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Sankey charts must be directed acyclic graphs. Keep valid links in their
+ * original order and drop only links that would introduce a cycle.
+ */
+export function sanitizeSankeyCycleData(
+  chartData: unknown,
+): SankeyCycleSanitizationResult {
+  if (!Array.isArray(chartData)) {
+    return { data: chartData, removedLinks: [] };
+  }
+
+  const adjacency = new Map<string, Set<string>>();
+  const validRows: unknown[] = [];
+  const removedLinks: RemovedSankeyCycleLink[] = [];
+
+  chartData.forEach((row, index) => {
+    if (typeof row !== "object" || row === null || Array.isArray(row)) {
+      validRows.push(row);
+      return;
+    }
+
+    const record = row as AnyRecord;
+    const source = flowEndpointToText(record.from ?? record.source, "Source");
+    const target = flowEndpointToText(record.to ?? record.target, "Target");
+    const createsCycle =
+      source === target || hasPathToSource(adjacency, target, source);
+
+    if (createsCycle) {
+      removedLinks.push({ index, source, target });
+      return;
+    }
+
+    const neighbors = adjacency.get(source) ?? new Set<string>();
+    neighbors.add(target);
+    adjacency.set(source, neighbors);
+    validRows.push(row);
+  });
+
+  return { data: validRows, removedLinks };
+}
+
 /**
  * Find the label/name key in chart data
  * Supports: "label", "name", or first string field
@@ -240,34 +331,4 @@ export function buildChartConfigOptions(element: ChartConfigElement) {
     showGrid,
     showLegend,
   };
-}
-
-/**
- * Interpolation config type for AG Charts
- */
-export type InterpolationConfig =
-  | { type: "linear" | "smooth" }
-  | { type: "step"; position: "start" | "middle" | "end" };
-
-/**
- * Convert interpolation value to AG Charts format
- * Handles step interpolation with position property
- *
- * @param value - Interpolation value from element (linear, smooth, step, step-start, step-end)
- * @returns AG Charts interpolation config object
- */
-export function getInterpolationConfig(value: string): InterpolationConfig {
-  switch (value) {
-    case "step-start":
-      return { type: "step", position: "start" };
-    case "step-end":
-      return { type: "step", position: "end" };
-    case "step":
-      return { type: "step", position: "middle" };
-    case "linear":
-      return { type: "linear" };
-    case "smooth":
-    default:
-      return { type: "smooth" };
-  }
 }

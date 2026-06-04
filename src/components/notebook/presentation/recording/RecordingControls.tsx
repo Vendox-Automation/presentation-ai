@@ -1,18 +1,5 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { ButtonGroup } from "@/components/ui/button-group";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { useMediaDevices } from "@/hooks/presentation/useMediaDevices";
-import { useRecording } from "@/hooks/presentation/useRecording";
-import { cn } from "@/lib/utils";
-import { usePresentationRecordingState } from "@/states/presentation-recording-state";
-import { motion } from "motion/react";
 import {
   Check,
   ChevronDown,
@@ -23,8 +10,38 @@ import {
   Video,
   VideoOff,
 } from "lucide-react";
+import { m as motion } from "motion/react";
 
-export function RecordingControls() {
+import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import {
+  useMediaDevices,
+  type MediaDevice,
+} from "@/hooks/presentation/useMediaDevices";
+import { useRecording } from "@/hooks/presentation/useRecording";
+import { cn } from "@/lib/utils";
+import { usePresentationRecordingState } from "@/states/presentation-recording-state";
+
+const isDeviceSelected = (
+  deviceId: string,
+  selectedId: string | null,
+  devices: MediaDevice[],
+) => {
+  // If a device is explicitly selected, check if it matches
+  if (selectedId) {
+    return selectedId === deviceId;
+  }
+  // If no device is selected, mark the first device as default
+  return devices.length > 0 && devices[0]?.deviceId === deviceId;
+};
+
+function RecordingControls() {
   const {
     isRecording,
     isStarting,
@@ -41,19 +58,6 @@ export function RecordingControls() {
 
   const { start, stop } = useRecording();
   const { videoDevices, audioDevices, isLoading } = useMediaDevices();
-
-  const isDeviceSelected = (
-    deviceId: string,
-    selectedId: string | null,
-    devices: typeof videoDevices | typeof audioDevices,
-  ) => {
-    // If a device is explicitly selected, check if it matches
-    if (selectedId) {
-      return selectedId === deviceId;
-    }
-    // If no device is selected, mark the first device as default
-    return devices.length > 0 && devices[0]?.deviceId === deviceId;
-  };
 
   return (
     <TooltipProvider>
@@ -77,12 +81,12 @@ export function RecordingControls() {
             <Button
               size="sm"
               onClick={() => setWebcamEnabled(!webcamEnabled)}
-              className={cn("h-9 w-9 p-0")}
+              className={cn("size-9 p-0")}
             >
               {webcamEnabled ? (
-                <Video className="h-4 w-4" />
+                <Video className="size-4" />
               ) : (
-                <VideoOff className="h-4 w-4 text-red-500" />
+                <VideoOff className="size-4 text-red-500" />
               )}
             </Button>
             <Popover>
@@ -92,7 +96,7 @@ export function RecordingControls() {
                   className="h-9 w-8 p-0"
                   aria-label="Select camera"
                 >
-                  <ChevronDown className="h-3.5 w-3.5" />
+                  <ChevronDown className="size-3.5" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent
@@ -109,7 +113,7 @@ export function RecordingControls() {
                 <div className="max-h-60 overflow-y-auto py-1">
                   {isLoading ? (
                     <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-                      Loading devices...
+                      Loading devices…
                     </div>
                   ) : videoDevices.length === 0 ? (
                     <div className="px-3 py-6 text-center text-sm text-muted-foreground">
@@ -118,11 +122,12 @@ export function RecordingControls() {
                   ) : (
                     videoDevices.map((device) => (
                       <button
+                        type="button"
                         key={device.deviceId}
                         className={cn(
                           "flex w-full items-center gap-2 px-3 py-2 text-left text-sm",
                           "transition-colors hover:bg-accent",
-                          "focus-visible:bg-accent focus-visible:outline-hidden",
+                          "focus-visible:bg-accent focus-visible:outline-none",
                         )}
                         onClick={() => {
                           setSelectedVideoDevice(device.deviceId);
@@ -135,9 +140,7 @@ export function RecordingControls() {
                           device.deviceId,
                           selectedVideoDeviceId,
                           videoDevices,
-                        ) && (
-                          <Check className="h-4 w-4 shrink-0 text-primary" />
-                        )}
+                        ) && <Check className="size-4 shrink-0 text-primary" />}
                       </button>
                     ))
                   )}
@@ -151,12 +154,12 @@ export function RecordingControls() {
             <Button
               size="sm"
               onClick={() => setMicEnabled(!micEnabled)}
-              className={cn("h-9 w-9 p-0")}
+              className={cn("size-9 p-0")}
             >
               {micEnabled ? (
-                <Mic className="h-4 w-4" />
+                <Mic className="size-4" />
               ) : (
-                <MicOff className="h-4 w-4 text-red-500" />
+                <MicOff className="size-4 text-red-500" />
               )}
             </Button>
             <Popover>
@@ -166,7 +169,7 @@ export function RecordingControls() {
                   className="h-9 w-8 p-0"
                   aria-label="Select microphone"
                 >
-                  <ChevronDown className="h-3.5 w-3.5" />
+                  <ChevronDown className="size-3.5" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent
@@ -183,7 +186,7 @@ export function RecordingControls() {
                 <div className="max-h-60 overflow-y-auto py-1">
                   {isLoading ? (
                     <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-                      Loading devices...
+                      Loading devices…
                     </div>
                   ) : audioDevices.length === 0 ? (
                     <div className="px-3 py-6 text-center text-sm text-muted-foreground">
@@ -192,11 +195,12 @@ export function RecordingControls() {
                   ) : (
                     audioDevices.map((device) => (
                       <button
+                        type="button"
                         key={device.deviceId}
                         className={cn(
                           "flex w-full items-center gap-2 px-3 py-2 text-left text-sm",
                           "transition-colors hover:bg-accent",
-                          "focus-visible:bg-accent focus-visible:outline-hidden",
+                          "focus-visible:bg-accent focus-visible:outline-none",
                         )}
                         onClick={() => {
                           setSelectedAudioDevice(device.deviceId);
@@ -209,9 +213,7 @@ export function RecordingControls() {
                           device.deviceId,
                           selectedAudioDeviceId,
                           audioDevices,
-                        ) && (
-                          <Check className="h-4 w-4 shrink-0 text-primary" />
-                        )}
+                        ) && <Check className="size-4 shrink-0 text-primary" />}
                       </button>
                     ))
                   )}
@@ -232,12 +234,12 @@ export function RecordingControls() {
             >
               {isStopping ? (
                 <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  <span className="text-xs font-medium">Stopping...</span>
+                  <Loader2 className="size-3.5 animate-spin" />
+                  <span className="text-xs font-medium">Stopping…</span>
                 </>
               ) : (
                 <>
-                  <Square className="h-3.5 w-3.5 fill-current" />
+                  <Square className="size-3.5 fill-current" />
                   <span className="text-xs font-medium">Stop</span>
                 </>
               )}
@@ -250,12 +252,12 @@ export function RecordingControls() {
             >
               {isStarting ? (
                 <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  <span className="text-xs font-medium">Starting...</span>
+                  <Loader2 className="size-3.5 animate-spin" />
+                  <span className="text-xs font-medium">Starting…</span>
                 </>
               ) : (
                 <>
-                  <Video className="h-3.5 w-3.5" />
+                  <Video className="size-3.5" />
                   <span className="text-xs font-medium">Start Recording</span>
                 </>
               )}

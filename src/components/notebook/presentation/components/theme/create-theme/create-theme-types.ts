@@ -6,8 +6,7 @@ import {
   type ThemeProperties,
   type Themes,
 } from "@/lib/presentation/themes";
-
-import { type ColorKey, type ThemeFormValues } from "../types";
+import { type ThemeFormValues } from "../types";
 
 export type CreateThemeStep = "colors" | "fonts" | "design" | "save";
 
@@ -92,13 +91,3 @@ export const colorThemes: ColorTheme[] =
           mode: "light",
         },
       ];
-
-export const COLOR_LABELS: Record<ColorKey, string> = {
-  primary: "Primary Color",
-  accent: "Accent Color",
-  background: "Slide Color",
-  text: "Text Color",
-  heading: "Heading Color",
-  smartLayout: "Smart layouts",
-  cardBackground: "Card Background",
-};

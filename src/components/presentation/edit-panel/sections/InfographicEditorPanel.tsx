@@ -1,8 +1,9 @@
 "use client";
 
+import { X } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { usePresentationState } from "@/states/presentation-state";
-import { X } from "lucide-react";
 import { InfographicEditorControls } from "./InfographicEditorControls";
 
 export function InfographicEditorPanel() {

@@ -1,14 +1,5 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import ColorPicker from "@/components/ui/color-picker";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { themes } from "@/lib/presentation/themes";
-import { capitalizeFirstLetter, cn } from "@/lib/utils";
 import {
   AlignCenter,
   ArrowDown,
@@ -18,6 +9,17 @@ import {
   Maximize2,
   Palette,
 } from "lucide-react";
+
+import { PRESENTATION_PORTAL_CONTENT_CLASS } from "@/components/presentation/overlay-layers";
+import { Button } from "@/components/ui/button";
+import ColorPicker from "@/components/ui/color-picker";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { themes } from "@/lib/presentation/themes";
+import { capitalizeFirstLetter, cn } from "@/lib/utils";
 import { useSlideEditorContext } from "./SlideEditorContext";
 import { layoutMap } from "./types";
 
@@ -42,17 +44,21 @@ export function PaletteDropdown() {
         <Button
           variant="ghost"
           size="icon"
-          className="size-8! gap-1 rounded-full border border-white/20 bg-background/50 shadow-xs backdrop-blur-md transition-all hover:bg-background/80"
+          className="size-8! gap-1 rounded-full border border-white/20 bg-background/50 shadow backdrop-blur-md transition-all hover:bg-background/80"
         >
-          <Palette className="h-4 w-4 text-muted-foreground" />
+          <Palette className="size-4 text-muted-foreground" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-[360px] p-4">
+      <DropdownMenuContent
+        align="start"
+        className={cn(PRESENTATION_PORTAL_CONTENT_CLASS, "w-90 p-4")}
+      >
         {/* Layout options */}
         <div className="mb-4 flex gap-2 border-b border-border pb-4">
           {[0, 1, 2, 3, 4].map((idx) => (
             <button
-              key={idx}
+              type="button"
+              key={layoutMap[idx]}
               title={capitalizeFirstLetter(layoutMap[idx]!)}
               onClick={() => {
                 if (!hasRootImage) {
@@ -91,7 +97,7 @@ export function PaletteDropdown() {
                   />
                 )}
                 {idx === 2 && (
-                  <div className="flex h-full w-full gap-0.5 p-0.5">
+                  <div className="flex size-full gap-0.5 p-0.5">
                     <div
                       className={cn(
                         "flex-1 rounded-sm",
@@ -111,7 +117,7 @@ export function PaletteDropdown() {
                   </div>
                 )}
                 {idx === 3 && (
-                  <div className="flex h-full w-full gap-0.5 p-0.5">
+                  <div className="flex size-full gap-0.5 p-0.5">
                     <div
                       className={cn(
                         "flex-1 rounded-sm",
@@ -133,7 +139,7 @@ export function PaletteDropdown() {
                 {idx === 4 && (
                   <div
                     className={cn(
-                      "h-full w-full rounded-sm",
+                      "size-full rounded-sm",
                       selectedLayout === idx
                         ? "bg-muted"
                         : "bg-muted-foreground/50",
@@ -149,7 +155,7 @@ export function PaletteDropdown() {
         <div className="mb-4 border-b border-border pb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Palette className="h-4 w-4 text-muted-foreground" />
+              <Palette className="size-4 text-muted-foreground" />
               <span className="text-sm font-medium">Card color</span>
             </div>
             <ColorPicker
@@ -167,7 +173,7 @@ export function PaletteDropdown() {
         <div className="mb-4 border-b border-border pb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <AlignCenter className="h-4 w-4 text-muted-foreground" />
+              <AlignCenter className="size-4 text-muted-foreground" />
               <span className="text-sm font-medium">Content alignment</span>
             </div>
             <div className="flex gap-1">
@@ -177,6 +183,8 @@ export function PaletteDropdown() {
                 { value: "end" as const, icon: ArrowDown },
               ].map((item) => (
                 <button
+                  aria-label="palette dropdown control"
+                  type="button"
                   key={item.value}
                   onClick={() => updateSlide({ alignment: item.value })}
                   className={cn(
@@ -186,7 +194,7 @@ export function PaletteDropdown() {
                       : "border border-border hover:border-muted-foreground",
                   )}
                 >
-                  <item.icon className="h-4 w-4" />
+                  <item.icon className="size-4" />
                 </button>
               ))}
             </div>
@@ -197,12 +205,13 @@ export function PaletteDropdown() {
         <div className="mb-4 border-b border-border pb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Maximize2 className="h-4 w-4 text-muted-foreground" />
+              <Maximize2 className="size-4 text-muted-foreground" />
               <span className="text-sm font-medium">Card width</span>
             </div>
             <div className="flex gap-1">
               {(["M", "L"] as const).map((size) => (
                 <button
+                  type="button"
                   key={size}
                   onClick={() => updateSlide({ width: size })}
                   className={cn(
@@ -222,7 +231,7 @@ export function PaletteDropdown() {
         {/* Image */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <ImageIcon className="h-4 w-4 text-muted-foreground" />
+            <ImageIcon className="size-4 text-muted-foreground" />
             <span className="text-sm font-medium">Image</span>
           </div>
           <Button

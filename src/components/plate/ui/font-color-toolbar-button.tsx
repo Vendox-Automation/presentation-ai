@@ -1,15 +1,13 @@
 "use client";
 
-import React from "react";
-
 import {
   type DropdownMenuItemProps,
   type DropdownMenuProps,
 } from "@radix-ui/react-dropdown-menu";
-
 import debounce from "lodash.debounce";
 import { EraserIcon, PlusIcon } from "lucide-react";
-import { useComposedRef, useEditorRef, useEditorSelector } from "platejs/react";
+import { useEditorRef, useEditorSelector } from "platejs/react";
+import React from "react";
 
 import { buttonVariants } from "@/components/plate/ui/button";
 import {
@@ -25,7 +23,6 @@ import {
   TooltipTrigger,
 } from "@/components/plate/ui/tooltip";
 import { cn } from "@/lib/utils";
-
 import { ToolbarButton, ToolbarMenuGroup } from "./toolbar";
 
 export function FontColorToolbarButton({
@@ -229,10 +226,16 @@ function ColorCustom({
     [customColor, customColors],
   );
 
-  const updateCustomColorDebounced = React.useCallback(
-    debounce(updateCustomColor, 100),
+  const updateCustomColorDebounced = React.useMemo(
+    () => debounce(updateCustomColor, 100),
     [updateCustomColor],
   );
+
+  React.useEffect(() => {
+    return () => {
+      updateCustomColorDebounced.cancel();
+    };
+  }, [updateCustomColorDebounced]);
 
   return (
     <div className={cn("relative flex flex-col gap-4", className)} {...props}>
@@ -275,25 +278,16 @@ function ColorInput({
   value = "#000000",
   ...props
 }: React.ComponentProps<"input">) {
-  const inputRef = React.useRef<HTMLInputElement | null>(null);
+  const inputId = React.useId();
 
   return (
     <div className="flex flex-col items-center">
-      {React.Children.map(children, (child) => {
-        if (!child) return child;
-
-        return React.cloneElement(
-          child as React.ReactElement<{
-            onClick: () => void;
-          }>,
-          {
-            onClick: () => inputRef.current?.click(),
-          },
-        );
-      })}
+      <label htmlFor={inputId} className="contents cursor-pointer">
+        {children}
+      </label>
       <input
         {...props}
-        ref={useComposedRef(props.ref, inputRef)}
+        id={inputId}
         className={cn("size-0 overflow-hidden border-0 p-0", className)}
         value={value}
         type="color"

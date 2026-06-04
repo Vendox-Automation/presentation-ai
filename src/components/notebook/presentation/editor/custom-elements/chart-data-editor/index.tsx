@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+
 import { Grid } from "./grid";
 import { Toolbar } from "./toolbar";
 import {
@@ -43,6 +44,8 @@ export function ChartDataEditor({
     addZColumn,
     removeZColumn,
     hasZColumn,
+    fields,
+    schema,
     labelKey,
   } = useChartEditor(initialData, chartType, initialSeriesChartTypes);
 
@@ -65,8 +68,8 @@ export function ChartDataEditor({
   return (
     <div className="flex flex-col gap-3">
       <Toolbar
-        chartType={chartType}
-        rowCount={(data as unknown[]).length}
+        schema={schema}
+        rowCount={Array.isArray(data) ? data.length : 0}
         seriesCount={seriesNames.length}
         hasZColumn={hasZColumn}
         onAddRow={addRow}
@@ -77,9 +80,9 @@ export function ChartDataEditor({
 
       <Grid
         data={data}
-        chartType={chartType}
+        fields={fields}
+        schema={schema}
         seriesNames={seriesNames}
-        hasZColumn={hasZColumn}
         focusedCell={focusedCell}
         onUpdateCell={updateCell}
         onRemoveRow={removeRow}
@@ -94,7 +97,7 @@ export function ChartDataEditor({
         labelKey={labelKey}
       />
 
-      {(data as unknown[]).length === 0 && (
+      {Array.isArray(data) && data.length === 0 && (
         <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
           <p className="text-sm">No data points yet</p>
           <p className="mt-1 text-xs">

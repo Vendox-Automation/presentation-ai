@@ -1,19 +1,22 @@
-import { templates } from "@/constants/antv-templates";
-import { modelPicker } from "@/lib/modelPicker";
-import { auth } from "@/server/auth";
+import "server-only";
+
 import { toUIMessageStream } from "@ai-sdk/langchain";
 import { PromptTemplate } from "@langchain/core/prompts";
 import { RunnableSequence } from "@langchain/core/runnables";
-import { createUIMessageStreamResponse } from "ai";
+import { consumeStream, createUIMessageStreamResponse } from "ai";
 import { NextResponse } from "next/server";
-import "server-only";
+
+import { templates } from "@/constants/antv-templates";
+import { modelPicker } from "@/lib/modelPicker";
+import { logger } from "@/lib/observability/server/logger";
+import { auth } from "@/server/auth";
 
 const INFOGRAPHIC_MODEL = "google/gemini-3-flash-preview";
 
 // Organize templates by category for the prompt
 function organizeTemplates(templateList: string[]): string {
   const categories: Record<string, string[]> = {
-    charts: [],
+    wordCloud: [],
     compare: [],
     hierarchy: [],
     list: [],
@@ -23,7 +26,7 @@ function organizeTemplates(templateList: string[]): string {
   };
 
   for (const t of templateList) {
-    if (t.startsWith("chart-")) categories.charts!.push(t);
+    if (t.startsWith("chart-wordcloud")) categories.wordCloud!.push(t);
     else if (t.startsWith("compare-")) categories.compare!.push(t);
     else if (t.startsWith("hierarchy-")) categories.hierarchy!.push(t);
     else if (t.startsWith("list-")) categories.list!.push(t);
@@ -35,7 +38,11 @@ function organizeTemplates(templateList: string[]): string {
   let result = "";
   for (const [category, items] of Object.entries(categories)) {
     if (items.length > 0) {
-      result += `\n### ${category.charAt(0).toUpperCase() + category.slice(1)} Templates\n`;
+      const title =
+        category === "wordCloud"
+          ? "Word Cloud"
+          : category.charAt(0).toUpperCase() + category.slice(1);
+      result += `\n### ${title} Templates\n`;
       result += items.map((t) => `- ${t}`).join("\n");
       result += "\n";
     }
@@ -79,7 +86,7 @@ If the user wants to change the template, select the most appropriate template-i
 You must assign an icon to every item in the items list. Use one of these methods:
 
 **Option A: Material Design Icons (Recommended)**
-Use mdi/ prefix. Examples: mdi/rocket-launch, mdi/account-group, mdi/chart-line, mdi/lightbulb
+Use mdi/ prefix. Examples: mdi/rocket-launch, mdi/account-group, mdi/lightbulb, mdi/source-branch
 
 **Option B: Font Awesome**
 Use fa/ prefix. Examples: fa/check-circle, fa/users, fa/cog
@@ -106,8 +113,8 @@ Add a stylize property inside the theme block for special effects:
 
 ## Data Field Mapping (choose ONE main field)
 
-- chart-* => items
 - compare-* => compares
+- chart-wordcloud* => items
 - hierarchy-* => root
 - list-* => items
 - quadrant-* => items
@@ -155,7 +162,9 @@ relations
 8. Do NOT paste or quote the user text verbatim in labels or descriptions
 9. Avoid using more than 3 consecutive words from the user's text
 10. Rephrase and synthesize: derive core ideas, then express them freshly and concisely
-11. Expand outward from the seed text: add helpful supporting nodes, contrasts, examples, or implications
+11. Keep each item label at 20 characters or fewer
+12. Keep each item description at 60 characters or fewer
+13. Expand outward from the seed text: add helpful supporting nodes, contrasts, examples, or implications
 
 ---
 
@@ -173,15 +182,25 @@ relations
 
 Apply the user's requested changes to the infographic and output the complete modified syntax.`;
 
-const editDiagramChain = RunnableSequence.from([
-  PromptTemplate.fromTemplate(SYSTEM_PROMPT),
-  modelPicker(INFOGRAPHIC_MODEL),
-]);
-
 export async function POST(req: Request) {
+  let endSpanOnReturn = true;
+  const actionName = "presentation.edit_diagram.post";
+  const span = logger.startSpan(`allweone.api.${actionName}`, {
+    attributes: {
+      "allweone.scope": "api",
+      "allweone.action.type": "api_route",
+      "allweone.action.name": actionName,
+      "http.method": "POST",
+      "http.route": "/api/presentation/edit-diagram",
+    },
+  });
+
   try {
     const session = await auth();
     if (!session) {
+      span.event("allweone.api.request_rejected", {
+        "allweone.validation.error": "unauthorized",
+      });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -191,6 +210,9 @@ export async function POST(req: Request) {
     };
 
     if (!currentSyntax || currentSyntax.trim().length === 0) {
+      span.event("allweone.api.request_rejected", {
+        "allweone.validation.error": "missing_current_syntax",
+      });
       return NextResponse.json(
         { error: "No current syntax provided" },
         { status: 400 },
@@ -198,6 +220,9 @@ export async function POST(req: Request) {
     }
 
     if (!prompt || prompt.trim().length === 0) {
+      span.event("allweone.api.request_rejected", {
+        "allweone.validation.error": "missing_prompt",
+      });
       return NextResponse.json(
         { error: "No edit prompt provided" },
         { status: 400 },
@@ -205,21 +230,41 @@ export async function POST(req: Request) {
     }
 
     const templateList = organizeTemplates(templates);
+    const editDiagramChain = RunnableSequence.from([
+      PromptTemplate.fromTemplate(SYSTEM_PROMPT),
+      modelPicker(INFOGRAPHIC_MODEL),
+    ]);
 
     const stream = await editDiagramChain.stream({
       currentSyntax,
       prompt,
       templateList,
     });
+    span.event("allweone.api.response_stream_created");
+    endSpanOnReturn = false;
 
     return createUIMessageStreamResponse({
       stream: toUIMessageStream(stream),
+      consumeSseStream: ({ stream: sseStream }) => {
+        void consumeStream({
+          stream: sseStream,
+          onError: (error) => {
+            span.error(error);
+          },
+        }).finally(() => {
+          span.end();
+        });
+      },
     });
   } catch (error) {
-    console.error("Edit diagram error:", error);
+    span.error(error);
     return NextResponse.json(
       { error: "Failed to edit diagram" },
       { status: 500 },
     );
+  } finally {
+    if (endSpanOnReturn) {
+      span.end();
+    }
   }
 }

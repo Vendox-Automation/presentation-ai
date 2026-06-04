@@ -1,5 +1,8 @@
 "use client";
 
+import { Ban, ImageIcon, PaintBucket, Palette } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+
 import {
   Select,
   SelectContent,
@@ -7,8 +10,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Ban, ImageIcon, PaintBucket, Palette } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
 import { CompactColorGrid } from "./CompactColorGrid";
 import { CompactGradientGrid } from "./CompactGradientGrid";
 import { CompactImageSelector } from "./CompactImageSelector";
@@ -116,10 +117,10 @@ export function CompactBackgroundSelector({
       </Select>
 
       {/* Content Area */}
-      <div className="min-h-[200px]">
+      <div className="min-h-50">
         {activeType === "solid" && (
           <div className="space-y-4">
-            <div className="rounded-xl border border-border bg-card p-4 shadow-xs">
+            <div className="rounded-xl border border-border bg-card p-4 shadow">
               <CompactColorGrid
                 selected={value?.override}
                 onPick={handleSolidColorChange}
@@ -130,7 +131,7 @@ export function CompactBackgroundSelector({
 
         {activeType === "gradient" && (
           <div className="space-y-4">
-            <div className="rounded-xl border border-border bg-card p-4 shadow-xs">
+            <div className="rounded-xl border border-border bg-card p-4 shadow">
               <CompactGradientGrid onPick={handleGradientChange} />
             </div>
           </div>

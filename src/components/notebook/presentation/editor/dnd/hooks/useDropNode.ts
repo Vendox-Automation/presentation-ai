@@ -1,19 +1,17 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: This use requires any */
 import {
-  type DropTargetHookSpec,
-  type DropTargetMonitor,
-  useDrop,
-} from "react-dnd";
-
-import { type NodeEntry, type TElement } from "platejs";
-import { type PlateEditor } from "platejs/react";
-
-import {
   DndPlugin,
   type DragItemNode,
   type ElementDragItemNode,
   type FileDragItemNode,
 } from "@platejs/dnd";
+import { type NodeEntry, type TElement } from "platejs";
+import { type PlateEditor } from "platejs/react";
+import {
+  useDrop,
+  type DropTargetHookSpec,
+  type DropTargetMonitor,
+} from "react-dnd";
 
 import { onDropNode } from "../transforms/onDropNode";
 import { onHoverNode } from "../transforms/onHoverNode";

@@ -24,6 +24,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { FLOATING_TOOLBAR_IGNORE_CLASS } from "./toolbar-interaction";
 import { useToolbarContext } from "./ToolbarContext";
 
 export function ImageControls() {
@@ -65,7 +66,7 @@ export function ImageControls() {
             onClick={() => handleOpenImageEditor("generate")}
             size="sm"
           >
-            <Pencil className="mr-1 h-3.5 w-3.5" />
+            <Pencil className="mr-1 size-3.5" />
             Edit
           </ToolbarButton>
         </TooltipTrigger>
@@ -79,35 +80,38 @@ export function ImageControls() {
             <DropdownMenuTrigger asChild>
               <ToolbarButton size="sm">
                 {currentAlignment === "left" && (
-                  <AlignLeft className="h-4 w-4" />
+                  <AlignLeft className="size-4" />
                 )}
                 {currentAlignment === "center" && (
-                  <AlignCenter className="h-4 w-4" />
+                  <AlignCenter className="size-4" />
                 )}
                 {currentAlignment === "right" && (
-                  <AlignRight className="h-4 w-4" />
+                  <AlignRight className="size-4" />
                 )}
               </ToolbarButton>
             </DropdownMenuTrigger>
           </TooltipTrigger>
           <TooltipContent>Alignment</TooltipContent>
         </Tooltip>
-        <DropdownMenuContent align="start">
+        <DropdownMenuContent
+          align="start"
+          className={FLOATING_TOOLBAR_IGNORE_CLASS}
+        >
           <DropdownMenuRadioGroup
             value={currentAlignment}
             onValueChange={handleAlignmentChange}
-            className="ignore-click-outside/toolbar"
+            className={FLOATING_TOOLBAR_IGNORE_CLASS}
           >
             <DropdownMenuRadioItem value="left">
-              <AlignLeft className="mr-2 h-4 w-4" />
+              <AlignLeft className="mr-2 size-4" />
               Left
             </DropdownMenuRadioItem>
             <DropdownMenuRadioItem value="center">
-              <AlignCenter className="mr-2 h-4 w-4" />
+              <AlignCenter className="mr-2 size-4" />
               Center
             </DropdownMenuRadioItem>
             <DropdownMenuRadioItem value="right">
-              <AlignRight className="mr-2 h-4 w-4" />
+              <AlignRight className="mr-2 size-4" />
               Right
             </DropdownMenuRadioItem>
           </DropdownMenuRadioGroup>
@@ -118,7 +122,7 @@ export function ImageControls() {
 
       {/* Delete Button */}
       <Button size="sm" variant="ghost" {...removeButtonProps}>
-        <Trash2Icon className="h-4 w-4" />
+        <Trash2Icon className="size-4" />
       </Button>
     </ToolbarGroup>
   );

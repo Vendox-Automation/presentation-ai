@@ -1,8 +1,12 @@
-import { type NodeEntry, type SlateEditor, type TElement, NodeApi } from "platejs";
-import { type SlateElementProps, SlateElement } from "platejs/static";
-
-import { type Heading, BaseTocPlugin, isHeading } from "@platejs/toc";
+import { BaseTocPlugin, isHeading, type Heading } from "@platejs/toc";
 import { cva } from "class-variance-authority";
+import {
+  NodeApi,
+  type NodeEntry,
+  type SlateEditor,
+  type TElement,
+} from "platejs";
+import { SlateElement, type SlateElementProps } from "platejs/static";
 
 import { Button } from "@/components/plate/ui/button";
 
@@ -12,8 +16,8 @@ const headingItemVariants = cva(
     variants: {
       depth: {
         1: "pl-0.5",
-        2: "pl-[26px]",
-        3: "pl-[50px]",
+        2: "pl-6.5",
+        3: "pl-12.5",
       },
     },
   },
@@ -89,5 +93,3 @@ const getHeadingList = (editor?: SlateEditor) => {
 
   return headingList;
 };
-
-

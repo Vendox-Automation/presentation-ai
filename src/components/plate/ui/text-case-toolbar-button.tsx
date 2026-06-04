@@ -1,12 +1,10 @@
 "use client";
 
-import * as React from "react";
-
-import { type DropdownMenuProps } from "@radix-ui/react-dropdown-menu";
-
 import { BlockSelectionPlugin } from "@platejs/selection/react";
+import { type DropdownMenuProps } from "@radix-ui/react-dropdown-menu";
 import { type NodeEntry, type TText } from "platejs";
 import { useEditorRef } from "platejs/react";
+import * as React from "react";
 
 import {
   DropdownMenu,
@@ -15,7 +13,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/plate/ui/dropdown-menu";
-
 import { ToolbarButton } from "./toolbar";
 
 export function TextCaseToolbarButton(props: DropdownMenuProps) {
@@ -107,7 +104,7 @@ export function TextCaseToolbarButton(props: DropdownMenuProps) {
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
-        className="ignore-click-outside/toolbar min-w-[140px]"
+        className="ignore-click-outside/toolbar min-w-35"
         align="start"
       >
         <DropdownMenuGroup>

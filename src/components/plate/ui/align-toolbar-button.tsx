@@ -1,11 +1,8 @@
 "use client";
 
-import * as React from "react";
-
 import { type Alignment } from "@platejs/basic-styles";
-import { type DropdownMenuProps } from "@radix-ui/react-dropdown-menu";
-
 import { TextAlignPlugin } from "@platejs/basic-styles/react";
+import { type DropdownMenuProps } from "@radix-ui/react-dropdown-menu";
 import {
   AlignCenterIcon,
   AlignJustifyIcon,
@@ -13,6 +10,7 @@ import {
   AlignRightIcon,
 } from "lucide-react";
 import { useEditorPlugin, useSelectionFragmentProp } from "platejs/react";
+import * as React from "react";
 
 import {
   DropdownMenu,
@@ -21,7 +19,6 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/plate/ui/dropdown-menu";
-
 import { ToolbarButton } from "./toolbar";
 
 const items = [
@@ -77,7 +74,7 @@ export function AlignToolbarButton(props: DropdownMenuProps) {
           {items.map(({ icon: Icon, value: itemValue }) => (
             <DropdownMenuRadioItem
               key={itemValue}
-              className="pl-2 data-[state=checked]:bg-accent *:first:[span]:hidden"
+              className="pl-2 data-[state=checked]:bg-accent [span]:first:*:hidden"
               value={itemValue}
             >
               <Icon />

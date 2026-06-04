@@ -1,116 +1,166 @@
 // custom-elements/pyramid-item.tsx
 "use client";
-import { cn } from "@/lib/utils";
+
 import { NodeApi, PathApi } from "platejs";
 import { PlateElement, type PlateElementProps } from "platejs/react";
 import { useEffect, useRef, useState } from "react";
+
+import { IconPicker } from "@/components/ui/icon-picker";
+import { cn } from "@/lib/utils";
 import {
   type TPyramidGroupElement,
   type TPyramidItemElement,
 } from "../plugins/pyramid-plugin";
+import { getPresentationAccentColor } from "./color-utils";
+import {
+  getPyramidBorderExtension,
+  getPyramidSegmentClipPath,
+  getPyramidTextOffset,
+} from "./pyramid-geometry";
+import { usePyramidHeight } from "./pyramid-height-context";
+import { getSiblingIndexContext } from "./sibling-index";
 
 // PyramidItem component for individual items in the pyramid
 export const PyramidItem = (props: PlateElementProps<TPyramidItemElement>) => {
   // Get the parent pyramid element to access totalChildren
-  const parentPath = PathApi.parent(props.path);
-  const parentElement = NodeApi.get(
+  const { index, parentElement } = getSiblingIndexContext<TPyramidGroupElement>(
     props.editor,
-    parentPath,
-  ) as TPyramidGroupElement;
+    props.element,
+    props.path,
+  );
+  const fallbackParentPath = PathApi.parent(props.path);
+  const fallbackParentElement = NodeApi.get(
+    props.editor,
+    fallbackParentPath,
+  ) as TPyramidGroupElement | undefined;
+  const resolvedParentElement = parentElement ?? fallbackParentElement;
 
   // Get total items from parent element, fallback to calculating from parent's children
-  const totalItems = parentElement?.children?.length || 1;
-  const index = props.path.at(-1)!;
-  const isFunnel = parentElement?.isFunnel;
+  const totalItems = resolvedParentElement?.children?.length || 1;
+  const isFunnel = resolvedParentElement?.isFunnel;
 
-  const alignment = parentElement?.alignment;
+  const alignment = resolvedParentElement?.alignment;
   // Refs and state for dynamic height
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [shapeHeight, setShapeHeight] = useState(80);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [contentHeight, setContentHeight] = useState(80);
+  const { maxShapeHeight, registerItemHeight, unregisterItemHeight } =
+    usePyramidHeight();
+  const itemKey = props.path.join(".");
 
-  // ResizeObserver to dynamically adjust height based on container height (controlled by grid)
+  // ResizeObserver to dynamically adjust height based on content height
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!contentRef.current) return;
 
     const updateHeight = () => {
-      const containerHeight = containerRef.current?.offsetHeight ?? 80;
-      setShapeHeight(Math.max(containerHeight, 80));
+      const currentContentHeight = contentRef.current?.offsetHeight ?? 80;
+      const nextHeight = Math.max(currentContentHeight, 80);
+      setContentHeight(nextHeight);
+      registerItemHeight(itemKey, nextHeight);
     };
 
     updateHeight();
     const resizeObserver = new ResizeObserver(updateHeight);
-    resizeObserver.observe(containerRef.current);
+    resizeObserver.observe(contentRef.current);
 
-    return () => resizeObserver.disconnect();
-  }, []);
+    return () => {
+      resizeObserver.disconnect();
+      unregisterItemHeight(itemKey);
+    };
+  }, [itemKey, registerItemHeight, unregisterItemHeight]);
 
-  const maxWidthPercentage = 80; // Maximum width the bottom layer should take up
-  const increment = maxWidthPercentage / (2 * totalItems);
+  const shapeHeight = maxShapeHeight ?? contentHeight;
 
-  // Calculate clip path using the provided algorithm
-  const calculateClipPath = () => {
-    if (isFunnel) {
-      // Inverted pyramid (funnel) logic
-      if (index === 0) {
-        // First layer is widest (inverted triangle top)
-        const currentXOffset = increment * (totalItems - index);
-        const currentLeft = 50 - currentXOffset;
-        const currentRight = 50 + currentXOffset;
+  const geometryOptions = { index, totalItems, isFunnel };
+  const clipPath = getPyramidSegmentClipPath(geometryOptions);
+  const leftOffset = getPyramidTextOffset(geometryOptions);
+  const borderExtension = getPyramidBorderExtension(geometryOptions);
 
-        const nextXOffset = increment * (totalItems - index - 1);
-        const nextLeft = 50 - nextXOffset;
-        const nextRight = 50 + nextXOffset;
+  const contentGap = "2.5rem";
+  const { icon } = props.element;
+  const markerColor = getPresentationAccentColor(
+    props.element,
+    resolvedParentElement,
+    "var(--presentation-smart-layout)",
+  );
 
-        return `polygon(${currentLeft}% 0%, ${currentRight}% 0%, ${nextRight}% 100%, ${nextLeft}% 100%)`;
-      } else if (index === totalItems - 1) {
-        // Last layer is a triangle pointing down
-        const prevXOffset = increment * (totalItems - index);
-        const prevLeft = 50 - prevXOffset;
-        const prevRight = 50 + prevXOffset;
-
-        return `polygon(${prevLeft}% 0%, ${prevRight}% 0%, 50% 100%)`;
-      } else {
-        // Middle layers
-        const currentXOffset = increment * (totalItems - index);
-        const currentLeft = 50 - currentXOffset;
-        const currentRight = 50 + currentXOffset;
-
-        const nextXOffset = increment * (totalItems - index - 1);
-        const nextLeft = 50 - nextXOffset;
-        const nextRight = 50 + nextXOffset;
-
-        return `polygon(${currentLeft}% 0%, ${currentRight}% 0%, ${nextRight}% 100%, ${nextLeft}% 100%)`;
-      }
-    } else {
-      // Regular pyramid logic
-      if (index === 0) {
-        // First layer is a triangle
-        return `polygon(50% 0%, ${50 - increment}% 100%, ${50 + increment}% 100%)`;
-      } else {
-        // For other layers
-        const prevXOffset = increment * index;
-        const currentXOffset = increment * (index + 1);
-        const prevBottomLeft = 50 - prevXOffset;
-        const prevBottomRight = 50 + prevXOffset;
-        const currentBottomLeft = 50 - currentXOffset;
-        const currentBottomRight = 50 + currentXOffset;
-
-        return `polygon(${prevBottomLeft}% 0%, ${prevBottomRight}% 0%, ${currentBottomRight}% 100%, ${currentBottomLeft}% 100%)`;
-      }
-    }
+  const handleIconSelect = (iconName: string) => {
+    const itemPath = props.editor.api.findPath(props.element);
+    if (!itemPath) return;
+    props.editor.tf.setNodes({ icon: iconName }, { at: itemPath });
   };
 
-  const calculateLeftOffset = () => {
-    if (isFunnel) {
-      return 40 - (totalItems - (index + 1)) * increment;
-    }
-    return 40 - (index + 1) * increment;
-  };
+  const variant = resolvedParentElement?.variant;
+  const isInside = variant === "inside";
 
-  const clipPath = calculateClipPath();
+  // For inside variant, offset the geometry so segments start wider (no pointy tip).
+  // Offset of 3 means the first visible segment acts as index 3 in a larger pyramid.
+  // Dynamic offset ensures the narrowest (top) segment is at least 45% wide.
+  // For funnel, the top is already wide, so we don't offset the index, but we
+  // still use the larger totalItems so the bottom doesn't end in a point.
+  const insideOffset = Math.max(3, Math.ceil((45 * totalItems) / 55));
+  const effectiveIndex = isFunnel ? index : index + insideOffset;
+  const effectiveTotal = totalItems + insideOffset;
+  const insideGeometryOptions = {
+    index: effectiveIndex,
+    totalItems: effectiveTotal,
+    isFunnel,
+  };
+  const insideClipPath = getPyramidSegmentClipPath(insideGeometryOptions);
+
+  // Compute horizontal padding so text stays within the narrowest edge of the trapezoid.
+  // For pyramid the top is narrowest; for funnel the bottom is narrowest.
+  const increment = 50 / effectiveTotal;
+  const textInsetPercent = isFunnel
+    ? 50 - increment * (effectiveTotal - effectiveIndex - 1) // funnel: bottom is narrow
+    : 50 - increment * effectiveIndex; // pyramid: top is narrow
+  // Add 1% breathing room
+  const insidePadding = `${textInsetPercent + 1}%`;
+
+  // For inside variant, the shape spans the full width.
+  // All items share the same height via PyramidHeightProvider (maxShapeHeight).
+  if (isInside) {
+    return (
+      <PlateElement
+        {...props}
+        className={cn("group/pyramid-item relative h-full w-full")}
+      >
+        <div className="relative w-full">
+          <div
+            data-decor="true"
+            className="relative flex flex-col items-center justify-center border-b border-(--presentation-card-background)"
+            style={
+              {
+                height: `${shapeHeight}px`,
+                clipPath: insideClipPath,
+                backgroundColor: markerColor,
+                color: "var(--presentation-background)",
+                "--presentation-heading": "var(--presentation-card-background)",
+                "--presentation-text": "var(--presentation-card-background)",
+              } as React.CSSProperties
+            }
+          >
+            {/* Content inside the shape, padded to fit within the trapezoid */}
+            <div
+              ref={contentRef}
+              className="relative z-10 w-full py-4 text-center"
+              style={{
+                paddingLeft: insidePadding,
+                paddingRight: insidePadding,
+              }}
+            >
+              {props.children}
+            </div>
+          </div>
+        </div>
+      </PlateElement>
+    );
+  }
 
   return (
-    <div className={cn("group/pyramid-item relative h-full w-full")}>
+    <PlateElement
+      {...props}
+      className={cn("group/pyramid-item relative h-full w-full")}
+    >
       {/* The pyramid item layout */}
       <div
         className={cn(
@@ -121,51 +171,74 @@ export const PyramidItem = (props: PlateElementProps<TPyramidItemElement>) => {
         {/* Shape with number */}
         <div className="relative flex-1">
           <div
-            className="grid place-items-center text-2xl font-bold"
+            data-decor="true"
+            className="grid place-items-center border-b border-(--presentation-card-background) text-2xl font-bold"
             style={{
               height: `${shapeHeight}px`,
               clipPath: clipPath,
-              backgroundColor:
-                (parentElement?.color as string) ||
-                "var(--presentation-smart-layout)",
+              backgroundColor: markerColor,
               color: "var(--presentation-background)",
             }}
           >
-            {index + 1}
+            <IconPicker
+              defaultIcon={icon}
+              placeholder={
+                <span className="text-2xl font-bold">{index + 1}</span>
+              }
+              onIconSelect={(iconName) => handleIconSelect(iconName)}
+              onIconRemove={() => {
+                const itemPath = props.editor.api.findPath(props.element);
+                if (!itemPath) return;
+                props.editor.tf.setNodes({ icon: "" }, { at: itemPath });
+              }}
+              className="h-full w-full border-transparent bg-transparent shadow-none hover:bg-white/15"
+              size="lg"
+              style={{
+                borderColor: "transparent",
+                backgroundColor: "transparent",
+                color: "var(--presentation-background)",
+              }}
+            />
           </div>
         </div>
 
         <div
           className={cn(
-            "relative flex h-full flex-1 items-center border-b border-gray-700",
+            "relative flex h-full flex-1 items-center after:absolute after:bottom-0 after:h-px after:bg-(--presentation-card-background) after:content-['']",
+            alignment === "right"
+              ? "after:-right-(--border-extension) after:left-0"
+              : "after:right-0 after:-left-(--border-extension)",
             alignment === "right" && "col-start-1 justify-end",
           )}
-          style={{
-            right:
-              alignment === "right"
-                ? `calc(-${calculateLeftOffset()}% - 34px)`
-                : `calc(${calculateLeftOffset()}% + 34px)`,
-            paddingLeft: isFunnel
-              ? alignment === "right"
-                ? `0`
-                : `2.5rem`
-              : `0`,
-            paddingRight: isFunnel
-              ? alignment === "right"
-                ? `2.5rem`
-                : `0`
-              : `0`,
-          }}
+          style={
+            {
+              "--border-extension": `${borderExtension}%`,
+              transform:
+                alignment === "right"
+                  ? `translateX(${leftOffset}%)`
+                  : `translateX(-${leftOffset}%)`,
+              paddingLeft: isFunnel
+                ? alignment === "right"
+                  ? `0`
+                  : contentGap
+                : alignment === "right"
+                  ? `0`
+                  : contentGap,
+              paddingRight: isFunnel
+                ? alignment === "right"
+                  ? contentGap
+                  : `0`
+                : alignment === "right"
+                  ? contentGap
+                  : `0`,
+            } as React.CSSProperties
+          }
         >
-          <PlateElement
-            ref={containerRef}
-            className="grid h-full w-max items-center"
-            {...props}
-          >
+          <div ref={contentRef} className="grid w-max items-center px-3">
             {props.children}
-          </PlateElement>
+          </div>
         </div>
       </div>
-    </div>
+    </PlateElement>
   );
 };

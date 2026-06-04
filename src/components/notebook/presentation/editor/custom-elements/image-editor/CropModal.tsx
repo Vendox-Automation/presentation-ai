@@ -1,5 +1,8 @@
 "use client";
 
+import { Minus, Plus } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
 import { Button } from "@/components/ui/button";
 import {
   Credenza,
@@ -9,8 +12,6 @@ import {
 } from "@/components/ui/credenza";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
-import { Minus, Plus } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type ImageCropSettings } from "../../../utils/types";
 import { type ImageDimensions } from "./useImageDimensions";
 
@@ -221,7 +222,7 @@ export function CropModal({
             <div
               ref={containerRef}
               className={cn(
-                "absolute inset-0 z-10 overflow-hidden border-2 border-primary bg-black/20 ring-1 ring-white/20",
+                "absolute inset-0 z-10 overflow-hidden border-2 border-primary bg-black/20 ring ring-white/20",
                 isDragging ? "cursor-grabbing" : "cursor-grab",
               )}
               onMouseDown={handleMouseDown}

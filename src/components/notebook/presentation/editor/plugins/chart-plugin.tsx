@@ -1,73 +1,74 @@
 import { type TElement } from "platejs";
 import { createTPlatePlugin } from "platejs/react";
+
 // Existing chart components
 import AreaChartElement from "../custom-elements/area-chart";
 import BarGraphElement from "../custom-elements/bar-graph";
+// New chart components - Phase 3
+import BoxPlotChartElement from "../custom-elements/box-plot-chart";
 import BubbleChartElement from "../custom-elements/bubble-chart";
+import CandlestickChartElement from "../custom-elements/candlestick-chart";
+// New chart components - Phase 5
+import ChordChartElement from "../custom-elements/chord-chart";
 import ComposedChartElement from "../custom-elements/composed-chart";
+// New chart components - Phase 6
+import ConeFunnelChartElement from "../custom-elements/cone-funnel-chart";
 import DonutChartElement from "../custom-elements/donut-chart";
-import LineGraphElement from "../custom-elements/line-graph";
-import PieChartElement from "../custom-elements/pie-chart";
-import RadarChartElement from "../custom-elements/radar-chart";
-import RadialBarChartElement from "../custom-elements/radial-bar-chart";
-import ScatterPlotElement from "../custom-elements/scatter-plot";
-import TreemapChartElement from "../custom-elements/treemap-chart";
+import FunnelChartElement from "../custom-elements/funnel-chart";
 // New chart components - Phase 1
 import HeatmapChartElement from "../custom-elements/heatmap-chart";
 import HistogramChartElement from "../custom-elements/histogram-chart";
+import LineGraphElement from "../custom-elements/line-graph";
+// New chart components - Phase 7
+import LinearGaugeElement from "../custom-elements/linear-gauge";
+// New chart components - Phase 4
+import NightingaleChartElement from "../custom-elements/nightingale-chart";
+import OhlcChartElement from "../custom-elements/ohlc-chart";
+import PieChartElement from "../custom-elements/pie-chart";
+import PyramidChartElement from "../custom-elements/pyramid-chart";
+import RadarChartElement from "../custom-elements/radar-chart";
+import RadialBarChartElement from "../custom-elements/radial-bar-chart";
+import RadialColumnChartElement from "../custom-elements/radial-column-chart";
+import RadialGaugeElement from "../custom-elements/radial-gauge";
 // New chart components - Phase 2
 import RangeAreaChartElement from "../custom-elements/range-area-chart";
 import RangeBarChartElement from "../custom-elements/range-bar-chart";
-import WaterfallChartElement from "../custom-elements/waterfall-chart";
-// New chart components - Phase 3
-import BoxPlotChartElement from "../custom-elements/box-plot-chart";
-import CandlestickChartElement from "../custom-elements/candlestick-chart";
-import OhlcChartElement from "../custom-elements/ohlc-chart";
-// New chart components - Phase 4
-import NightingaleChartElement from "../custom-elements/nightingale-chart";
-import RadialColumnChartElement from "../custom-elements/radial-column-chart";
-// New chart components - Phase 5
-import ChordChartElement from "../custom-elements/chord-chart";
 import SankeyChartElement from "../custom-elements/sankey-chart";
-import SunburstChartElement from "../custom-elements/sunburst-chart";
-// New chart components - Phase 6
-import ConeFunnelChartElement from "../custom-elements/cone-funnel-chart";
-import FunnelChartElement from "../custom-elements/funnel-chart";
-import PyramidChartElement from "../custom-elements/pyramid-chart";
-// New chart components - Phase 7
-import LinearGaugeElement from "../custom-elements/linear-gauge";
-import RadialGaugeElement from "../custom-elements/radial-gauge";
+import ScatterPlotElement from "../custom-elements/scatter-plot";
 // Static chart components - Existing
 import AreaChartStatic from "../custom-elements/static/area-chart-static";
 import BarGraphStatic from "../custom-elements/static/bar-graph-static";
-import BubbleChartStatic from "../custom-elements/static/bubble-chart-static";
-import ComposedChartStatic from "../custom-elements/static/composed-chart-static";
-import DonutChartStatic from "../custom-elements/static/donut-chart-static";
-import LineGraphStatic from "../custom-elements/static/line-graph-static";
-import PieChartStatic from "../custom-elements/static/pie-chart-static";
-import RadarChartStatic from "../custom-elements/static/radar-chart-static";
-import RadialBarChartStatic from "../custom-elements/static/radial-bar-chart-static";
-import ScatterPlotStatic from "../custom-elements/static/scatter-plot-static";
-import TreemapChartStatic from "../custom-elements/static/treemap-chart-static";
 // Static chart components - New
 import BoxPlotChartStatic from "../custom-elements/static/box-plot-chart-static";
+import BubbleChartStatic from "../custom-elements/static/bubble-chart-static";
 import CandlestickChartStatic from "../custom-elements/static/candlestick-chart-static";
 import ChordChartStatic from "../custom-elements/static/chord-chart-static";
+import ComposedChartStatic from "../custom-elements/static/composed-chart-static";
 import ConeFunnelChartStatic from "../custom-elements/static/cone-funnel-chart-static";
+import DonutChartStatic from "../custom-elements/static/donut-chart-static";
 import FunnelChartStatic from "../custom-elements/static/funnel-chart-static";
 import HeatmapChartStatic from "../custom-elements/static/heatmap-chart-static";
 import HistogramChartStatic from "../custom-elements/static/histogram-chart-static";
+import LineGraphStatic from "../custom-elements/static/line-graph-static";
 import LinearGaugeStatic from "../custom-elements/static/linear-gauge-static";
 import NightingaleChartStatic from "../custom-elements/static/nightingale-chart-static";
 import OhlcChartStatic from "../custom-elements/static/ohlc-chart-static";
+import PieChartStatic from "../custom-elements/static/pie-chart-static";
 import PyramidChartStatic from "../custom-elements/static/pyramid-chart-static";
+import RadarChartStatic from "../custom-elements/static/radar-chart-static";
+import RadialBarChartStatic from "../custom-elements/static/radial-bar-chart-static";
 import RadialColumnChartStatic from "../custom-elements/static/radial-column-chart-static";
 import RadialGaugeStatic from "../custom-elements/static/radial-gauge-static";
 import RangeAreaChartStatic from "../custom-elements/static/range-area-chart-static";
 import RangeBarChartStatic from "../custom-elements/static/range-bar-chart-static";
 import SankeyChartStatic from "../custom-elements/static/sankey-chart-static";
+import ScatterPlotStatic from "../custom-elements/static/scatter-plot-static";
 import SunburstChartStatic from "../custom-elements/static/sunburst-chart-static";
+import TreemapChartStatic from "../custom-elements/static/treemap-chart-static";
 import WaterfallChartStatic from "../custom-elements/static/waterfall-chart-static";
+import SunburstChartElement from "../custom-elements/sunburst-chart";
+import TreemapChartElement from "../custom-elements/treemap-chart";
+import WaterfallChartElement from "../custom-elements/waterfall-chart";
 import {
   AREA_CHART_ELEMENT,
   BAR_CHART_ELEMENT,
@@ -101,28 +102,28 @@ import {
 } from "../lib";
 
 // Available chart types for composed chart series
-export type SeriesChartType = "bar" | "line" | "area" | "scatter";
+type SeriesChartType = "bar" | "line" | "area" | "scatter";
 
 // Chart title configuration
-export interface ChartTitleConfig {
+interface ChartTitleConfig {
   text?: string;
   fontSize?: number;
   color?: string;
 }
 
 // Chart axis label configuration
-export interface ChartAxisLabelConfig {
+interface ChartAxisLabelConfig {
   enabled?: boolean;
 }
 
 // Chart axis grid line configuration
-export interface ChartAxisGridLineConfig {
+interface ChartAxisGridLineConfig {
   enabled?: boolean;
   style?: "solid" | "dashed" | "dotted";
 }
 
 // Chart axis configuration (per-axis settings for X and Y)
-export interface ChartAxisConfig {
+interface ChartAxisConfig {
   title?: string | { text?: string; enabled?: boolean };
   label?: ChartAxisLabelConfig;
   gridLine?: ChartAxisGridLineConfig;
@@ -131,25 +132,25 @@ export interface ChartAxisConfig {
 }
 
 // Chart animation configuration
-export interface ChartAnimationConfig {
+interface ChartAnimationConfig {
   enabled: boolean;
   duration?: number; // in milliseconds
 }
 
 // Chart legend configuration
-export interface ChartLegendConfig {
+interface ChartLegendConfig {
   enabled: boolean;
   position?: "top" | "right" | "bottom" | "left";
 }
 
 // Chart background configuration
-export interface ChartBackgroundConfig {
+interface ChartBackgroundConfig {
   fill?: string;
   visible?: boolean;
 }
 
 // Donut inner label configuration
-export interface ChartInnerLabelConfig {
+interface ChartInnerLabelConfig {
   text: string;
   fontWeight?: "normal" | "bold";
   fontSize?: number;
@@ -158,23 +159,23 @@ export interface ChartInnerLabelConfig {
 }
 
 // Donut inner circle configuration
-export interface ChartInnerCircleConfig {
+interface ChartInnerCircleConfig {
   fill?: string;
 }
 
 // Gauge needle configuration
-export interface ChartNeedleConfig {
+interface ChartNeedleConfig {
   enabled?: boolean;
 }
 
 // Gauge bar configuration
-export interface ChartBarConfig {
+interface ChartBarConfig {
   enabled?: boolean;
   fill?: string;
 }
 
 // Chart marker configuration
-export interface ChartMarkerConfig {
+interface ChartMarkerConfig {
   shape?:
     | "circle"
     | "cross"
@@ -252,8 +253,7 @@ export type TChartNode = TElement & {
   legend?: ChartLegendConfig;
   background?: ChartBackgroundConfig;
 
-  // Line/Area interpolation (AG Charts type)
-  // step-start and step-end use { type: "step", position: "start"|"end" }
+  // Line/Area interpolation. Legacy values are preserved for existing slides.
   interpolation?: "linear" | "smooth" | "step" | "step-start" | "step-end";
 
   // Donut inner labels configuration

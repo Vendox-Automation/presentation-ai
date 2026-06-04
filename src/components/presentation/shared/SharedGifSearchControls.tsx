@@ -1,5 +1,11 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
+import { Loader2, Search, TrendingUp } from "lucide-react";
+import Image from "next/image";
+import type React from "react";
+import { useEffect, useState } from "react";
+
 import {
   getTrendingGiphyGifs,
   searchGiphyGifs,
@@ -9,10 +15,6 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { useQuery } from "@tanstack/react-query";
-import { Loader2, Search, TrendingUp } from "lucide-react";
-import type React from "react";
-import { useEffect, useState } from "react";
 
 interface SharedGifSearchControlsProps {
   onGifSelect: (url: string) => void | Promise<void>;
@@ -87,7 +89,7 @@ export function SharedGifSearchControls({
     <div className={cn("flex h-full flex-col gap-4", className)}>
       <div className="flex gap-2">
         <div className="relative flex-1">
-          <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
           <Input
             placeholder="Search GIFs on Giphy..."
             value={query}
@@ -96,7 +98,9 @@ export function SharedGifSearchControls({
             className="pl-9"
           />
         </div>
-        <Button onClick={handleSearch}>Search</Button>
+        <Button onClick={handleSearch}>
+          Search
+        </Button>
         {searchQuery && (
           <Button
             variant="outline"
@@ -104,7 +108,7 @@ export function SharedGifSearchControls({
             onClick={handleShowTrending}
             title="Show Trending"
           >
-            <TrendingUp className="h-4 w-4" />
+            <TrendingUp className="size-4" />
           </Button>
         )}
       </div>
@@ -118,7 +122,7 @@ export function SharedGifSearchControls({
           </span>
         ) : (
           <span className="flex items-center gap-1">
-            <TrendingUp className="h-3 w-3" />
+            <TrendingUp className="size-3" />
             Trending GIFs
           </span>
         )}
@@ -146,13 +150,15 @@ export function SharedGifSearchControls({
                       setSelectedUrl(gif.url);
                       try {
                         await onGifSelect(gif.url);
-                      } finally {
+                      } catch (caughtError) {
                         setLoadingGifUrl(null);
+                        throw caughtError;
                       }
+                      setLoadingGifUrl(null);
                     }}
                     disabled={loadingGifUrl !== null}
                     className={cn(
-                      "aspect-square w-full overflow-hidden rounded-md border transition-all hover:scale-[1.02] focus:ring-2 focus:ring-primary focus:ring-offset-1 focus:outline-hidden",
+                      "aspect-square w-full overflow-hidden rounded-md border transition-all hover:scale-[1.02] focus:ring-2 focus:ring-primary focus:ring-offset-1 focus:outline-none",
                       selectedUrl === gif.url
                         ? "border-primary ring-2 ring-primary ring-offset-1"
                         : "border-transparent hover:border-primary/50",
@@ -161,12 +167,14 @@ export function SharedGifSearchControls({
                         "cursor-not-allowed opacity-50",
                     )}
                   >
-                    {/* biome-ignore lint/performance/noImgElement: necessary for url inputs */}
-                    <img
+                    <Image
+                      unoptimized
+                      width={400}
+                      height={300}
                       src={gif.thumb || gif.url}
                       alt={gif.title || "GIF"}
                       className={cn(
-                        "h-full w-full object-cover transition-opacity group-hover:opacity-90",
+                        "size-full object-cover transition-opacity group-hover:opacity-90",
                         loadingGifUrl === gif.url && "opacity-50",
                       )}
                       loading="lazy"
@@ -174,7 +182,7 @@ export function SharedGifSearchControls({
                     {/* Loading spinner overlay */}
                     {loadingGifUrl === gif.url && (
                       <div className="absolute inset-0 flex items-center justify-center rounded-md bg-black/30">
-                        <Loader2 className="h-6 w-6 animate-spin text-white" />
+                        <Loader2 className="size-6 animate-spin text-white" />
                       </div>
                     )}
                     {selectedUrl === gif.url && loadingGifUrl !== gif.url && (
@@ -204,7 +212,9 @@ export function SharedGifSearchControls({
           {/* Empty state */}
           {!isLoading && gifs.length === 0 && (
             <div className="flex h-40 flex-col items-center justify-center text-muted-foreground">
-              <p className="text-sm">No GIFs found</p>
+              <p className="text-sm">
+                No GIFs found
+              </p>
             </div>
           )}
         </div>

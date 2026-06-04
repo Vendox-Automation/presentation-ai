@@ -1,10 +1,7 @@
 "use client";
 
-import * as React from "react";
-
-import { type DropdownMenuProps } from "@radix-ui/react-dropdown-menu";
-
 import { PlaceholderPlugin } from "@platejs/media/react";
+import { type DropdownMenuProps } from "@radix-ui/react-dropdown-menu";
 import {
   AudioLinesIcon,
   FileUpIcon,
@@ -14,6 +11,7 @@ import {
 } from "lucide-react";
 import { isUrl, KEYS } from "platejs";
 import { useEditorRef } from "platejs/react";
+import * as React from "react";
 import { toast } from "sonner";
 import { useFilePicker } from "use-file-picker";
 
@@ -35,7 +33,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/plate/ui/dropdown-menu";
 import { Input } from "@/components/plate/ui/input";
-
 import {
   ToolbarSplitButton,
   ToolbarSplitButtonPrimary,
@@ -76,6 +73,34 @@ const MEDIA_CONFIG: Record<
     tooltip: "Video",
   },
 };
+
+const UPLOADTHING_HOSTS = ["utfs.io", "ufs.sh"] as const;
+
+function isUploadThingHostname(hostname: string): boolean {
+  return UPLOADTHING_HOSTS.some(
+    (host) => hostname === host || hostname.endsWith(`.${host}`),
+  );
+}
+
+function resolveFileNameFromUrl(url: string): string | undefined {
+  try {
+    const parsedUrl = new URL(url);
+    if (isUploadThingHostname(parsedUrl.hostname)) {
+      return undefined;
+    }
+
+    const urlSegments = parsedUrl.pathname.split("/");
+    const lastSegment = urlSegments.at(-1);
+    if (!lastSegment) {
+      return undefined;
+    }
+
+    const decodedName = decodeURIComponent(lastSegment).trim();
+    return decodedName.length > 0 ? decodedName : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 export function MediaToolbarButton({
   nodeType,
@@ -181,7 +206,7 @@ function MediaUrlDialogContent({
     setOpen(false);
     editor.tf.insertNodes({
       children: [{ text: "" }],
-      name: nodeType === KEYS.file ? url.split("/").pop() : undefined,
+      name: nodeType === KEYS.file ? resolveFileNameFromUrl(url) : undefined,
       type: nodeType,
       url,
     });

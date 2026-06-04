@@ -1,5 +1,6 @@
 import { type TElement } from "platejs";
 import { createTPlatePlugin } from "platejs/react";
+
 import { CycleElement } from "../custom-elements/cycle-element";
 import { CycleItem } from "../custom-elements/cycle-item";
 import { CYCLE_GROUP, CYCLE_ITEM } from "../lib";
@@ -18,6 +19,7 @@ export const CycleItemPlugin = createTPlatePlugin({
   key: CYCLE_ITEM,
   node: {
     isElement: true,
+    isStrictSiblings: true,
     component: CycleItem,
   },
 });
@@ -27,8 +29,10 @@ export type TCycleGroupElement = TElement & {
   totalChildren?: number;
   hasOddItems?: boolean;
   alignment?: "left" | "center" | "right";
+  variant?: "cycle" | "flower" | "ring" | "circle";
 };
 export type TCycleItemElement = TElement & {
   type: typeof CYCLE_ITEM;
   alignment?: "left" | "center" | "right";
+  icon?: string; // react-icons name, e.g. "FaHome" — drives the wheel segment icon
 };

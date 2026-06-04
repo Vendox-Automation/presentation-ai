@@ -15,9 +15,15 @@ import {
   usePluginOption,
 } from "platejs/react";
 import React from "react";
+
 import { type MyEditor } from "../editor-kit";
 
 export type FloatingToolbarState = {
+  customSelection?: {
+    active: boolean;
+    getBoundingClientRect: () => DOMRect | null;
+    updateKey?: unknown;
+  };
   floatingOptions?: UseVirtualFloatingOptions;
   hideToolbar?: boolean;
   showWhenReadOnly?: boolean;
@@ -25,6 +31,7 @@ export type FloatingToolbarState = {
 };
 
 export const useFloatingToolbarState = ({
+  customSelection,
   editorId,
   floatingOptions,
   focusedEditorId,
@@ -48,6 +55,7 @@ export const useFloatingToolbarState = ({
   const selectedIds = usePluginOption(BlockSelectionPlugin, "selectedIds");
   const hasBlockSelection =
     enableBlockSelection && selectedIds && selectedIds.size > 0;
+  const hasCustomSelection = customSelection?.active ?? false;
 
   // Check if dragging is active
   const isDragging = usePluginOption(DndPlugin, "isDragging");
@@ -60,6 +68,12 @@ export const useFloatingToolbarState = ({
     React.useState(false);
 
   const getBoundingClientRect = React.useCallback(() => {
+    if (hasCustomSelection) {
+      const rect = customSelection?.getBoundingClientRect();
+
+      if (rect) return rect;
+    }
+
     if (hasBlockSelection && enableBlockSelection) {
       // Get all selected block IDs and find their DOM elements
       const selectedIdArray = Array.from(selectedIds || []);
@@ -103,7 +117,14 @@ export const useFloatingToolbarState = ({
 
     // Fallback to text selection
     return getSelectionBoundingClientRect(editor);
-  }, [editor, hasBlockSelection, enableBlockSelection, selectedIds]);
+  }, [
+    customSelection,
+    editor,
+    hasBlockSelection,
+    hasCustomSelection,
+    enableBlockSelection,
+    selectedIds,
+  ]);
 
   const floating = useVirtualFloating(
     mergeProps(
@@ -128,6 +149,7 @@ export const useFloatingToolbarState = ({
     selectionExpanded,
     selectionText,
     hasBlockSelection,
+    hasCustomSelection,
     enableBlockSelection,
     isDragging,
 
@@ -137,6 +159,7 @@ export const useFloatingToolbarState = ({
     showWhenReadOnly,
     waitForCollapsedSelection,
     selectedIds,
+    customSelectionUpdateKey: customSelection?.updateKey,
   };
 };
 
@@ -151,6 +174,7 @@ export const useFloatingToolbar = ({
   selectionExpanded,
   selectionText,
   hasBlockSelection,
+  hasCustomSelection,
   isDragging,
 
   setMousedown,
@@ -159,25 +183,20 @@ export const useFloatingToolbar = ({
   showWhenReadOnly,
   waitForCollapsedSelection,
   selectedIds,
+  customSelectionUpdateKey,
 }: ReturnType<typeof useFloatingToolbarState>) => {
   const editor = useEditorRef<MyEditor>();
   // On refocus, the editor keeps the previous selection,
+  const shouldWaitForCollapsedSelection =
+    editorId !== focusedEditorId &&
+    selectionExpanded &&
+    !hasBlockSelection &&
+    !hasCustomSelection;
+
   // so we need to wait it's collapsed at the new position before displaying the floating toolbar.
   React.useEffect(() => {
-    if (!(editorId === focusedEditorId)) {
-      setWaitForCollapsedSelection(true);
-    }
-    // Reset wait flag if we have block selection OR no text selection
-    if (!selectionExpanded || hasBlockSelection) {
-      setWaitForCollapsedSelection(false);
-    }
-  }, [
-    editorId,
-    focusedEditorId,
-    selectionExpanded,
-    hasBlockSelection,
-    setWaitForCollapsedSelection,
-  ]);
+    setWaitForCollapsedSelection(Boolean(shouldWaitForCollapsedSelection));
+  }, [setWaitForCollapsedSelection, shouldWaitForCollapsedSelection]);
 
   React.useEffect(() => {
     const mouseup = () => setMousedown(false);
@@ -188,13 +207,13 @@ export const useFloatingToolbar = ({
       document.removeEventListener("mouseup", mouseup);
       document.removeEventListener("mousedown", mousedown);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // MODIFIED: Updated visibility logic to include block selections and hide during dragging/mouse down
   React.useEffect(() => {
     const hasTextSelection = selectionExpanded && selectionText;
-    const hasAnySelection = hasTextSelection || hasBlockSelection;
+    const hasAnySelection =
+      hasTextSelection || hasBlockSelection || hasCustomSelection;
 
     // Hide conditions
     if (
@@ -209,7 +228,10 @@ export const useFloatingToolbar = ({
     // Show conditions - MODIFIED: Don't wait for collapsed selection if we have block selection
     else if (
       hasAnySelection &&
-      (!waitForCollapsedSelection || readOnly || hasBlockSelection) &&
+      (!waitForCollapsedSelection ||
+        readOnly ||
+        hasBlockSelection ||
+        hasCustomSelection) &&
       !isDragging // Don't show if dragging is active
     ) {
       setOpen(true);
@@ -223,6 +245,7 @@ export const useFloatingToolbar = ({
     selectionExpanded,
     selectionText,
     hasBlockSelection,
+    hasCustomSelection,
     mousedown,
     waitForCollapsedSelection,
     open,
@@ -234,7 +257,7 @@ export const useFloatingToolbar = ({
 
   useEditorSelector(() => {
     update?.();
-  }, [update, selectedIds]);
+  }, [update, selectedIds, customSelectionUpdateKey]);
 
   const clickOutsideRef = useOnClickOutside(
     () => {

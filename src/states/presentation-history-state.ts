@@ -1,8 +1,9 @@
 "use client";
 
+import { create } from "zustand";
+
 import { type PlateSlide } from "@/components/notebook/presentation/utils/parser";
 import { type ThemeProperties, type Themes } from "@/lib/presentation/themes";
-import { create } from "zustand";
 import { usePresentationState } from "./presentation-state";
 
 // Maximum number of history entries to keep

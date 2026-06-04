@@ -1,14 +1,16 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-import { type Descendant, type TText, type Value } from "platejs";
 import { createStaticEditor as createSlateEditor } from "platejs/static";
 import { useEffect, useMemo } from "react";
+
+import { cn } from "@/lib/utils";
+import { normalizePresentationValue } from "../../utils/normalizePresentationSlate";
 import { type PlateSlide } from "../../utils/parser";
 import { EditorStatic } from "../custom-elements/static/editor-static";
 import RootImageStatic from "../custom-elements/static/root-image-static";
 import { PresentationEditorBaseKit } from "../plugins/presentation-editor-base-kit";
 import { PresentationStaticCustomKit } from "../plugins/static-custom-kit";
+import { getAlignmentClass } from "../utils/alignment-utils";
 
 interface StaticPlateProps {
   initialContent?: PlateSlide;
@@ -16,43 +18,14 @@ interface StaticPlateProps {
   id?: string;
 }
 
-function isTextDescendant(node: Descendant): node is TText {
-  return "text" in node;
-}
-
-function normalizeDescendant(node: Descendant): Descendant {
-  if (isTextDescendant(node)) {
-    return node;
-  }
-
-  const normalizedChildren = Array.isArray(node.children)
-    ? node.children.map((child) => normalizeDescendant(child as Descendant))
-    : [];
-
-  return {
-    ...node,
-    children:
-      normalizedChildren.length > 0
-        ? normalizedChildren
-        : ([{ text: "" }] as TText[]),
-  };
-}
-
-function normalizeStaticContent(content?: PlateSlide["content"]): Value {
-  if (!Array.isArray(content)) {
-    return [] as Value;
-  }
-
-  return content.map((node) => normalizeDescendant(node as Descendant)) as Value;
-}
-
 export function StaticPlate({
   initialContent,
   className,
   id,
 }: StaticPlateProps) {
+  const slideId = initialContent?.id ?? id;
   const normalizedContent = useMemo(
-    () => normalizeStaticContent(initialContent?.content),
+    () => normalizePresentationValue(initialContent?.content),
     [initialContent?.content],
   );
 
@@ -60,9 +33,10 @@ export function StaticPlate({
     () =>
       createSlateEditor({
         plugins: [...PresentationEditorBaseKit, ...PresentationStaticCustomKit],
-        value: [] as Value,
+        value: normalizedContent,
+        id: slideId,
       }),
-    [],
+    [normalizedContent, slideId],
   );
 
   useEffect(() => {
@@ -74,10 +48,8 @@ export function StaticPlate({
       <EditorStatic
         className={cn(
           className,
-          "@container/presentation-editor-static flex flex-1 flex-col border-none bg-transparent! p-12 outline-hidden",
-          initialContent?.alignment === "start" && "justify-start",
-          initialContent?.alignment === "center" && "justify-center",
-          initialContent?.alignment === "end" && "justify-end",
+          "@container/presentation-slide-content flex flex-1 flex-col overflow-clip border-none bg-transparent! px-8 py-8 outline-hidden",
+          getAlignmentClass(initialContent?.alignment),
         )}
         id={id}
         editor={editor}

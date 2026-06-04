@@ -1,22 +1,23 @@
 "use client";
 
-import * as React from "react";
-
-import { type TComboboxInputElement, type TMentionElement } from "platejs";
-import { type PlateElementProps } from "platejs/react";
-
 import { getMentionOnSelectItem } from "@platejs/mention";
-import { IS_APPLE, KEYS } from "platejs";
+import {
+  IS_APPLE,
+  KEYS,
+  type TComboboxInputElement,
+  type TMentionElement,
+} from "platejs";
 import {
   PlateElement,
   useFocused,
   useReadOnly,
   useSelected,
+  type PlateElementProps,
 } from "platejs/react";
+import * as React from "react";
 
 import { useMounted } from "@/components/plate/hooks/use-mounted";
 import { cn } from "@/lib/utils";
-
 import {
   InlineCombobox,
   InlineComboboxContent,

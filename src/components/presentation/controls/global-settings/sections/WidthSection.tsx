@@ -1,9 +1,10 @@
 "use client";
 
+import { MdOutlineWidthFull } from "react-icons/md";
+
 import { Label } from "@/components/ui/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
-import { MdOutlineWidthFull } from "react-icons/md";
 import { useCommonValues } from "../hooks/useCommonValues";
 import { useUpdateAllSlides } from "../hooks/useUpdateAllSlides";
 
@@ -17,7 +18,7 @@ export function WidthSection() {
         htmlFor="card-width"
         className="flex items-center gap-2 text-sm font-semibold text-foreground"
       >
-        <MdOutlineWidthFull className="h-4 w-4 text-muted-foreground" />
+        <MdOutlineWidthFull className="size-4 text-muted-foreground" />
         Card Width
       </Label>
       <ToggleGroup

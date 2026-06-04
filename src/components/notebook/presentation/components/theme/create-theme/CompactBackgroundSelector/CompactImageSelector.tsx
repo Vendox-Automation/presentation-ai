@@ -1,3 +1,6 @@
+import { Image as ImageLucide, Sparkles, Upload } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+
 import { SharedGenerateControls } from "@/components/presentation/shared/SharedGenerateControls";
 import { SharedImageSearchControls } from "@/components/presentation/shared/SharedImageSearchControls";
 import { Button } from "@/components/ui/button";
@@ -6,8 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUploadFile } from "@/hooks/canvas/useUploadFile";
 import { type ThemeBackground } from "@/lib/presentation/themes";
-import { Image as ImageLucide, Sparkles, Upload } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
 import { CompactUploadZone } from "./CompactUploadZone";
 import { type ImageMode } from "./types";
 
@@ -83,28 +84,28 @@ export function CompactImageSelector({
       <TabsList className="mb-4 grid h-9 w-full grid-cols-3 bg-muted/50 p-1">
         <TabsTrigger
           value="upload-url"
-          className="text-xs data-[state=active]:bg-background data-[state=active]:shadow-xs"
+          className="text-xs data-[state=active]:bg-background data-[state=active]:shadow"
         >
           <Upload className="mr-1.5 size-3" />
           Upload
         </TabsTrigger>
         <TabsTrigger
           value="ai"
-          className="text-xs data-[state=active]:bg-background data-[state=active]:shadow-xs"
+          className="text-xs data-[state=active]:bg-background data-[state=active]:shadow"
         >
           <Sparkles className="mr-1.5 size-3" />
           AI Gen
         </TabsTrigger>
         <TabsTrigger
           value="search"
-          className="text-xs data-[state=active]:bg-background data-[state=active]:shadow-xs"
+          className="text-xs data-[state=active]:bg-background data-[state=active]:shadow"
         >
           <ImageLucide className="mr-1.5 size-3" />
           Search
         </TabsTrigger>
       </TabsList>
 
-      <div className="min-h-[200px] rounded-xl border border-border bg-card p-4 shadow-xs">
+      <div className="min-h-50 rounded-xl border border-border bg-card p-4 shadow">
         <TabsContent value="upload-url" className="mt-0 space-y-4">
           <div className="space-y-3">
             <div className="space-y-2">

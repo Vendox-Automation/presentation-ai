@@ -1,8 +1,9 @@
 "use client";
 
-import { extractFontsFromEditor } from "@/components/plate/utils/extractFontsFromEditor";
 import { type PlateEditor } from "platejs/react";
 import { useCallback, useState } from "react";
+
+import { extractFontsFromEditor } from "@/components/plate/utils/extractFontsFromEditor";
 
 export function useEditorFonts() {
   const [fontsToLoad, setFontsToLoad] = useState<string[]>([]);

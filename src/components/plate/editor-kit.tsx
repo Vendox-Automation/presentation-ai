@@ -1,7 +1,7 @@
 "use client";
 
-import { type Value, TrailingBlockPlugin } from "platejs";
-import { type TPlateEditor, useEditorRef } from "platejs/react";
+import { TrailingBlockPlugin, type Value } from "platejs";
+import { type TPlateEditor } from "platejs/react";
 
 import { AntvInfographicPluginNotes } from "@/components/notebook/notes/editor/plugins/antv-infographic-plugin-notes";
 import { AIKit } from "@/components/plate/plugins/ai-kit";
@@ -15,7 +15,6 @@ import { CalloutKit } from "@/components/plate/plugins/callout-kit";
 import { CodeBlockKit } from "@/components/plate/plugins/code-block-kit";
 import { ColumnKit } from "@/components/plate/plugins/column-kit";
 import { CommentKit } from "@/components/plate/plugins/comment-kit";
-import { NoteBlockPlaceholderKit } from "@/components/plate/plugins/note-block-placeholder-kit";
 // import { CopilotKit } from "@/components/plate/plugins/copilot-kit";
 import { CursorOverlayKit } from "@/components/plate/plugins/cursor-overlay-kit";
 import { DateKit } from "@/components/plate/plugins/date-kit";
@@ -36,6 +35,7 @@ import { MathKit } from "@/components/plate/plugins/math-kit";
 import { MediaKit } from "@/components/plate/plugins/media-kit";
 import { MentionKit } from "@/components/plate/plugins/mention-kit";
 import { NoteBasicBlocksKit } from "@/components/plate/plugins/note-basic-blocks-kit";
+import { NoteBlockPlaceholderKit } from "@/components/plate/plugins/note-block-placeholder-kit";
 import { SlashKit } from "@/components/plate/plugins/slash-kit";
 import { SuggestionKit } from "@/components/plate/plugins/suggestion-kit";
 import { TableKit } from "@/components/plate/plugins/table-kit";
@@ -215,6 +215,58 @@ export const DocEditorKit = [
   ...AntvInfographicPluginNotes,
 ];
 
-export type MyEditor = TPlateEditor<Value, (typeof EditorKit)[number]>;
+export const DocSidebarEditorKit = [
+  // ...CopilotKit,
+  ...AIKit,
 
-export const useEditor = () => useEditorRef<MyEditor>();
+  // Elements
+  ...BasicBlocksKit,
+  ...CodeBlockKit,
+  ...TableKit,
+  ...ToggleKit,
+  ...TocKit,
+  ...MediaKit,
+  ...CalloutKit,
+  ...ColumnKit,
+  ...MathKit,
+  ...DateKit,
+  ...LinkKit,
+  ...MentionKit,
+
+  // Marks
+  ...BasicMarksKit,
+  ...FontKit,
+
+  // Block Style
+  ...ListKit,
+  ...AlignKit,
+  ...LineHeightKit,
+
+  // Collaboration
+  ...DiscussionKit,
+  ...CommentKit,
+  ...SuggestionKit,
+
+  // Editing
+  ...SlashKit,
+  ...AutoformatKit,
+  ...CursorOverlayKit,
+  ...BlockMenuKit,
+  ...DndKit,
+  ...EmojiKit,
+  ...ExitBreakKit,
+  TrailingBlockPlugin,
+
+  // Parsers
+  ...DocxKit,
+  ...MarkdownKit,
+
+  // UI - doc surface without the fixed toolbar, for embedded editing.
+  ...BlockPlaceholderKit,
+  ...FloatingToolbarKit,
+
+  // AntV Infographic
+  ...AntvInfographicPluginNotes,
+];
+
+export type MyEditor = TPlateEditor<Value, (typeof EditorKit)[number]>;

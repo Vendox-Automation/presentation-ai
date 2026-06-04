@@ -12,7 +12,6 @@ import { BaseParagraphPlugin } from "platejs";
 
 import { BlockquoteElementStatic } from "@/components/plate/ui/blockquote-node-static";
 import { HrElementStatic } from "@/components/plate/ui/hr-node-static";
-
 import {
   H1ElementStatic,
   H2ElementStatic,

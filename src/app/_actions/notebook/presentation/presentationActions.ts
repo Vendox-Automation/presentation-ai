@@ -10,6 +10,12 @@ import { normalizeShareEmail } from "@/server/share/utils";
 import { type InputJsonValue } from "@prisma/client/runtime/library";
 import { notFound } from "next/navigation";
 
+export type PresentationOwnerProfile = {
+  id: string;
+  image: string | null;
+  name: string | null;
+};
+
 export async function createPresentation({
   content,
   title,
@@ -202,6 +208,57 @@ export async function updatePresentation({
       message: "Failed to update presentation",
     };
   }
+}
+
+export async function getPresentationOwner(id: string): Promise<
+  | {
+      success: true;
+      owner: PresentationOwnerProfile;
+    }
+  | {
+      success: false;
+      message: string;
+    }
+> {
+  const session = await auth();
+  const canRead = await canReadDocument(id, {
+    userId: session?.user.id ?? null,
+    userEmail: session?.user.email
+      ? normalizeShareEmail(session.user.email)
+      : null,
+  });
+
+  if (!canRead) {
+    return {
+      success: false,
+      message: "Unauthorized access",
+    };
+  }
+
+  const presentation = await db.baseDocument.findUnique({
+    where: { id },
+    select: {
+      user: {
+        select: {
+          id: true,
+          image: true,
+          name: true,
+        },
+      },
+    },
+  });
+
+  if (!presentation) {
+    return {
+      success: false,
+      message: "Presentation not found",
+    };
+  }
+
+  return {
+    success: true,
+    owner: presentation.user,
+  };
 }
 
 export async function updatePresentationTitle(id: string, title: string) {

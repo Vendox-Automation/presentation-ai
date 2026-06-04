@@ -1,5 +1,10 @@
-import { type TCaptionElement, type TResizableProps, type TVideoElement, NodeApi } from "platejs";
-import { type SlateElementProps, SlateElement } from "platejs/static";
+import {
+  NodeApi,
+  type TCaptionElement,
+  type TResizableProps,
+  type TVideoElement,
+} from "platejs";
+import { SlateElement, type SlateElementProps } from "platejs/static";
 
 export function VideoElementStatic(
   props: SlateElementProps<TVideoElement & TCaptionElement & TResizableProps>,
@@ -14,10 +19,13 @@ export function VideoElementStatic(
           style={{ width }}
         >
           <video
+            aria-label="media video node static control"
             className="w-full max-w-full rounded-sm object-cover px-0"
             src={url}
             controls
-          />
+          >
+            <track kind="captions" src="data:text/vtt,WEBVTT%0A" />
+          </video>
           {caption && <figcaption>{NodeApi.string(caption[0]!)}</figcaption>}
         </figure>
       </div>
@@ -25,5 +33,3 @@ export function VideoElementStatic(
     </SlateElement>
   );
 }
-
-

@@ -1,68 +1,185 @@
+import { useEffect, useRef } from "react";
+
 import { usePresentationState } from "@/states/presentation-state";
-import debounce from "lodash.debounce";
-import { type RefObject, useEffect, useLayoutEffect, useState } from "react";
 
 interface UsePresentationAutoScrollOptions {
-  containerRef: RefObject<HTMLDivElement | null>;
-  scrollRef: RefObject<HTMLDivElement | null>;
+  viewportElement: HTMLDivElement | null;
+  scrollElement: HTMLDivElement | null;
   bottomThreshold?: number;
   disabled?: boolean;
 }
 
+function isAtBottom(
+  viewportElement: HTMLDivElement,
+  bottomThreshold: number,
+): boolean {
+  return (
+    viewportElement.scrollHeight -
+      viewportElement.scrollTop -
+      viewportElement.clientHeight <=
+    bottomThreshold
+  );
+}
+
 export function usePresentationAutoScroll({
-  containerRef,
-  scrollRef,
-  bottomThreshold = 10,
+  viewportElement,
+  scrollElement,
+  bottomThreshold = 24,
   disabled = false,
 }: UsePresentationAutoScrollOptions) {
-  const [hasUserScrolledUp, setHasUserScrolledUp] = useState(false);
-  const [isDisabled, setIsDisabled] = useState(disabled);
+  const isGeneratingPresentation = usePresentationState(
+    (state) => state.isGeneratingPresentation,
+  );
+  const slides = usePresentationState((state) => state.slides);
 
-  useLayoutEffect(() => {
-    if (usePresentationState.getState().isGeneratingPresentation) {
-      setIsDisabled(false);
-    } else {
-      setIsDisabled(true);
+  const hasUserScrolledUpRef = useRef(false);
+  const hasPendingWheelRef = useRef(false);
+  const isProgrammaticScrollRef = useRef(false);
+  const scrollFrameRef = useRef<number | null>(null);
+
+  function stopAutoScroll() {
+    if (scrollFrameRef.current !== null) {
+      window.cancelAnimationFrame(scrollFrameRef.current);
+      scrollFrameRef.current = null;
     }
-  }, []);
 
-  const debouncedScroll = debounce(() => {
-    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, 100);
+    isProgrammaticScrollRef.current = false;
+  }
+
+  function getBottomTargetTop(): number {
+    if (!viewportElement || !scrollElement) {
+      return 0;
+    }
+
+    return Math.max(
+      0,
+      scrollElement.offsetTop +
+        scrollElement.offsetHeight -
+        viewportElement.clientHeight,
+    );
+  }
+
+  function smoothScrollToBottom() {
+    if (
+      disabled ||
+      !isGeneratingPresentation ||
+      !viewportElement ||
+      !scrollElement ||
+      hasUserScrolledUpRef.current
+    ) {
+      return;
+    }
+
+    if (scrollFrameRef.current !== null) {
+      return;
+    }
+
+    const step = () => {
+      if (
+        disabled ||
+        !isGeneratingPresentation ||
+        !viewportElement ||
+        !scrollElement ||
+        hasUserScrolledUpRef.current
+      ) {
+        stopAutoScroll();
+        return;
+      }
+
+      const targetTop = getBottomTargetTop();
+      const currentTop = viewportElement.scrollTop;
+      const delta = targetTop - currentTop;
+
+      if (Math.abs(delta) <= 1) {
+        viewportElement.scrollTo({
+          top: targetTop,
+          behavior: "auto",
+        });
+        stopAutoScroll();
+        return;
+      }
+
+      isProgrammaticScrollRef.current = true;
+
+      viewportElement.scrollTo({
+        top: currentTop + delta * 0.18,
+        behavior: "auto",
+      });
+
+      scrollFrameRef.current = window.requestAnimationFrame(step);
+    };
+
+    scrollFrameRef.current = window.requestAnimationFrame(step);
+  }
 
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    function handleScroll() {
-      if (!container) return;
-      const { scrollTop, scrollHeight, clientHeight } = container;
-      const isAtBottom =
-        scrollTop + clientHeight >= scrollHeight - bottomThreshold;
-      setHasUserScrolledUp(!isAtBottom);
+    if (disabled || !viewportElement) {
+      return;
     }
 
-    function handleResize() {
-      if (!container) return;
-      // If user hasn't scrolled up, scroll to bottom on resize
-      if (!hasUserScrolledUp && !isDisabled) {
-        debouncedScroll();
+    const handleWheel = (event: WheelEvent) => {
+      if (event.deltaY < 0) {
+        stopAutoScroll();
+        hasPendingWheelRef.current = false;
+        hasUserScrolledUpRef.current = true;
+        return;
       }
-    }
 
-    container.addEventListener("wheel", handleScroll, { passive: true });
+      if (isProgrammaticScrollRef.current) {
+        return;
+      }
 
-    const resizeObserver = new ResizeObserver(handleResize);
-    resizeObserver.observe(container);
+      hasPendingWheelRef.current = true;
+    };
+
+    const handleScroll = () => {
+      if (isProgrammaticScrollRef.current) {
+        return;
+      }
+
+      const atBottom = isAtBottom(viewportElement, bottomThreshold);
+
+      if (atBottom) {
+        hasUserScrolledUpRef.current = false;
+        hasPendingWheelRef.current = false;
+        return;
+      }
+
+      if (hasPendingWheelRef.current) {
+        hasUserScrolledUpRef.current = true;
+        hasPendingWheelRef.current = false;
+      }
+    };
+
+    viewportElement.addEventListener("wheel", handleWheel, { passive: true });
+    viewportElement.addEventListener("scroll", handleScroll, { passive: true });
 
     return () => {
-      container.removeEventListener("wheel", handleScroll);
-      resizeObserver.disconnect();
+      viewportElement.removeEventListener("wheel", handleWheel);
+      viewportElement.removeEventListener("scroll", handleScroll);
     };
-  }, [containerRef, bottomThreshold, hasUserScrolledUp, disabled, scrollRef]);
+  }, [bottomThreshold, disabled, viewportElement]);
 
-  return {
-    hasUserScrolledUp,
-    setHasUserScrolledUp,
-  };
+  useEffect(() => {
+    if (!isGeneratingPresentation || disabled) {
+      stopAutoScroll();
+      hasUserScrolledUpRef.current = false;
+      hasPendingWheelRef.current = false;
+      return;
+    }
+
+    smoothScrollToBottom();
+  }, [
+    disabled,
+    isGeneratingPresentation,
+    slides,
+    viewportElement,
+    scrollElement,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      stopAutoScroll();
+    };
+  }, []);
 }

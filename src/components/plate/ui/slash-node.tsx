@@ -1,18 +1,19 @@
 "use client";
 
-import type * as React from "react";
-
-import { type PlateEditor, type PlateElementProps } from "platejs/react";
-
 import { AIChatPlugin } from "@platejs/ai/react";
 import {
+  AlertCircleIcon,
   CalendarIcon,
+  CheckCircleIcon,
   ChevronRightIcon,
   Code2,
   Columns3Icon,
+  FileTextIcon,
   Heading1Icon,
   Heading2Icon,
   Heading3Icon,
+  HelpCircleIcon,
+  InfoIcon,
   LightbulbIcon,
   ListIcon,
   ListOrdered,
@@ -23,15 +24,22 @@ import {
   Square,
   Table,
   TableOfContentsIcon,
+  XCircleIcon,
 } from "lucide-react";
-import { type TComboboxInputElement, KEYS } from "platejs";
-import { PlateElement } from "platejs/react";
+import { KEYS, type TComboboxInputElement, type TElement } from "platejs";
+import {
+  PlateElement,
+  type PlateEditor,
+  type PlateElementProps,
+} from "platejs/react";
+import type * as React from "react";
 
+import { PRESENTATION_TITLE_ELEMENT } from "@/components/notebook/presentation/editor/lib";
 import {
   insertBlock,
   insertInlineElement,
 } from "@/components/plate/utils/transforms";
-
+import { type CalloutVariant } from "./callout-variants";
 import {
   InlineCombobox,
   InlineComboboxContent,
@@ -55,7 +63,66 @@ interface Item {
   focusEditor?: boolean;
   keywords?: string[];
   label?: string;
+  nodeType?: string;
+  props?: Partial<TElement>;
 }
+
+type CalloutSlashItem = Omit<Item, "onSelect">;
+
+const calloutItems: Item[] = (
+  [
+    {
+      icon: <FileTextIcon />,
+      keywords: ["callout", "note"],
+      label: "Note box",
+      props: { variant: "note" satisfies CalloutVariant },
+      value: "callout-note",
+    },
+    {
+      icon: <InfoIcon />,
+      keywords: ["callout", "info"],
+      label: "Info box",
+      props: { variant: "info" satisfies CalloutVariant },
+      value: "callout-info",
+    },
+    {
+      icon: <AlertCircleIcon />,
+      keywords: ["callout", "warning", "alert"],
+      label: "Warning box",
+      props: { variant: "warning" satisfies CalloutVariant },
+      value: "callout-warning",
+    },
+    {
+      icon: <XCircleIcon />,
+      keywords: ["callout", "caution", "danger"],
+      label: "Caution box",
+      props: { variant: "caution" satisfies CalloutVariant },
+      value: "callout-caution",
+    },
+    {
+      icon: <CheckCircleIcon />,
+      keywords: ["callout", "success", "done"],
+      label: "Success box",
+      props: { variant: "success" satisfies CalloutVariant },
+      value: "callout-success",
+    },
+    {
+      icon: <HelpCircleIcon />,
+      keywords: ["callout", "question", "help"],
+      label: "Question box",
+      props: { variant: "question" satisfies CalloutVariant },
+      value: "callout-question",
+    },
+  ] satisfies CalloutSlashItem[]
+).map((item) => ({
+  ...item,
+  nodeType: KEYS.callout,
+  onSelect: (editor) => {
+    insertBlock(editor, KEYS.callout, {
+      props: item.props,
+    });
+  },
+}));
 
 const groups: Group[] = [
   {
@@ -74,6 +141,29 @@ const groups: Group[] = [
   {
     group: "Basic blocks",
     items: [
+      {
+        icon: <Heading1Icon />,
+        keywords: ["title", "!"],
+        label: "Title",
+        props: { variant: "title" },
+        value: PRESENTATION_TITLE_ELEMENT,
+      },
+      {
+        icon: <Heading2Icon />,
+        keywords: ["display", "!!"],
+        label: "Display",
+        props: { variant: "display" },
+        value: "presentation-title-display",
+        nodeType: PRESENTATION_TITLE_ELEMENT,
+      },
+      {
+        icon: <Heading3Icon />,
+        keywords: ["humongous", "!!!"],
+        label: "Humongous",
+        props: { variant: "humongous" },
+        value: "presentation-title-humongous",
+        nodeType: PRESENTATION_TITLE_ELEMENT,
+      },
       {
         icon: <PilcrowIcon />,
         keywords: ["paragraph"],
@@ -148,10 +238,16 @@ const groups: Group[] = [
       },
     ].map((item) => ({
       ...item,
-      onSelect: (editor, value) => {
-        insertBlock(editor, value);
+      onSelect: (editor) => {
+        insertBlock(editor, item.nodeType ?? item.value, {
+          props: item.props,
+        });
       },
     })),
+  },
+  {
+    group: "Callout boxes",
+    items: calloutItems,
   },
   {
     group: "Advanced blocks",

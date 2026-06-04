@@ -5,7 +5,6 @@ import { useEditorRef, usePluginOption } from "platejs/react";
 
 import { commentPlugin } from "@/components/plate/plugins/comment-kit";
 import { discussionPlugin } from "@/components/plate/plugins/discussion-kit";
-
 import { ToolbarButton } from "./toolbar";
 
 export function CommentToolbarButton() {

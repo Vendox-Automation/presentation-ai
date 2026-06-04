@@ -1,3 +1,8 @@
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { Check, ChevronDown, GripVertical, Plus, X } from "lucide-react";
+import { memo, useState } from "react";
+
 import ProseMirrorEditor from "@/components/prose-mirror/ProseMirrorEditor";
 import {
   Popover,
@@ -5,11 +10,10 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import { Check, ChevronDown, GripVertical, Plus, X } from "lucide-react";
-import { memo, useEffect, useState } from "react";
-import { TEMPLATE_DEFINITIONS } from "../../utils/templates";
+import {
+  getTemplateSelectionIds,
+  TEMPLATE_DEFINITIONS,
+} from "../../utils/templates";
 
 interface OutlineItemProps {
   id: string;
@@ -18,11 +22,12 @@ interface OutlineItemProps {
   onTitleChange: (id: string, newTitle: string) => void;
   onDelete: (id: string) => void;
   // Template selection props
-  hasTemplatesSelected?: boolean;
+  showLayoutControl?: boolean;
   selectedTemplateId?: string | null;
   onTemplateChange?: (templateId: string | null) => void;
   availableTemplates?: Array<{ id: string; name: string }>;
   onOpenTemplateModal?: () => void;
+  disabled?: boolean;
 }
 
 // Wrap the component with memo to prevent unnecessary re-renders
@@ -32,14 +37,13 @@ export const OutlineItem = memo(function OutlineItem({
   title,
   onTitleChange,
   onDelete,
-  hasTemplatesSelected = false,
+  showLayoutControl = false,
   selectedTemplateId = null,
   onTemplateChange,
   availableTemplates = [],
   onOpenTemplateModal,
+  disabled = false,
 }: OutlineItemProps) {
-  // Always editable, no need for isEditing state
-  const [editedTitle, setEditedTitle] = useState(title);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const {
@@ -52,25 +56,12 @@ export const OutlineItem = memo(function OutlineItem({
   } = useSortable({ id });
 
   const style = {
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Translate.toString(transform),
     transition,
   };
 
-  // Update editedTitle when title prop changes
-  useEffect(() => {
-    setTimeout(() => {
-      setEditedTitle(title);
-    }, 0);
-  }, [title]);
-
   const handleProseMirrorChange = (newContent: string) => {
-    setEditedTitle(newContent);
-  };
-
-  const handleProseMirrorBlur = () => {
-    if (editedTitle.trim() !== title) {
-      onTitleChange(id, editedTitle);
-    }
+    onTitleChange(id, newContent);
   };
 
   const handleTemplateSelect = (templateId: string | null) => {
@@ -86,6 +77,9 @@ export const OutlineItem = memo(function OutlineItem({
   // Get display name for selected template
   const selectedTemplateName = selectedTemplateId
     ? (availableTemplates.find((t) => t.id === selectedTemplateId)?.name ??
+      TEMPLATE_DEFINITIONS.find((template) =>
+        getTemplateSelectionIds(template).includes(selectedTemplateId),
+      )?.name ??
       "Custom")
     : "Auto";
 
@@ -105,26 +99,27 @@ export const OutlineItem = memo(function OutlineItem({
       >
         <GripVertical size={20} />
       </div>
-      <span className="min-w-6 text-indigo-400">{index}</span>
+      <span className="min-w-6 text-primary">{index}</span>
       <div className="flex-1">
         <ProseMirrorEditor
-          content={editedTitle}
+          content={title}
           onChange={handleProseMirrorChange}
-          isEditing={true}
-          onBlur={handleProseMirrorBlur}
+          isEditing={!disabled}
           className="prose-headings:m-0 prose-headings:text-lg prose-headings:font-semibold prose-p:m-0 prose-ol:m-0 prose-ul:m-0 prose-li:m-0"
-          showFloatingToolbar={false}
+          showFloatingToolbar={!disabled}
         />
       </div>
-      {hasTemplatesSelected && (
+      {showLayoutControl && (
         <Popover open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
           <PopoverTrigger asChild>
             <button
               type="button"
+              disabled={disabled}
               className={cn(
                 "flex h-8 items-center gap-1.5 rounded-md border border-border/50 bg-background/50 px-3 text-xs font-medium text-primary transition-colors",
                 "hover:border-border hover:bg-background/80 hover:text-foreground",
                 isDropdownOpen && "border-border bg-background/80 text-primary",
+                disabled && "pointer-events-none opacity-50",
               )}
             >
               <span className="max-w-20 truncate">{selectedTemplateName}</span>
@@ -162,7 +157,11 @@ export const OutlineItem = memo(function OutlineItem({
                 const templateDef = TEMPLATE_DEFINITIONS.find(
                   (t) => t.id === template.id,
                 );
-                const isSelected = selectedTemplateId === template.id;
+                const isSelected = templateDef
+                  ? getTemplateSelectionIds(templateDef).includes(
+                      selectedTemplateId ?? "",
+                    )
+                  : selectedTemplateId === template.id;
                 return (
                   <button
                     key={template.id}
@@ -195,7 +194,7 @@ export const OutlineItem = memo(function OutlineItem({
                 <div className="flex h-24 w-28 shrink-0 items-center justify-center overflow-hidden rounded border border-dashed border-primary/50 bg-primary/5">
                   <Plus className="size-4 text-primary" />
                 </div>
-                <span className="flex-1 text-sm">More Templates</span>
+                <span className="flex-1 text-sm">More Layouts</span>
               </button>
             </div>
           </PopoverContent>
@@ -204,7 +203,8 @@ export const OutlineItem = memo(function OutlineItem({
       <button
         type="button"
         onClick={() => onDelete(id)}
-        className="text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-400"
+        disabled={disabled}
+        className="text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-400 disabled:pointer-events-none disabled:opacity-30"
       >
         <X size={20} />
       </button>

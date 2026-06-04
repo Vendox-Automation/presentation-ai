@@ -1,5 +1,10 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
+import { Check, Plus } from "lucide-react";
+import { useMemo, useState } from "react";
+import { useForm, useWatch } from "react-hook-form";
+
 import { createFontPair } from "@/app/_actions/presentation/font-pair-actions";
 import { CustomFontCreator } from "@/components/notebook/presentation/components/theme/create-theme/font-step/CustomFontCreator";
 import { useFontUpload } from "@/components/notebook/presentation/components/theme/create-theme/font-step/useFontUpload";
@@ -15,10 +20,6 @@ import {
 import { FontLoader } from "@/components/plate/utils/font-loader";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useQueryClient } from "@tanstack/react-query";
-import { Check, Plus } from "lucide-react";
-import { useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
 import { useCommonValues } from "../hooks/useCommonValues";
 import { useUpdateAllSlides } from "../hooks/useUpdateAllSlides";
 
@@ -59,7 +60,7 @@ function CreateFontPairForm({ onClose, onApply }: CreateFontPairFormProps) {
     },
   });
 
-  const { control, setValue, watch } = form;
+  const { control, setValue } = form;
 
   const {
     isUploadingHeading,
@@ -68,10 +69,15 @@ function CreateFontPairForm({ onClose, onApply }: CreateFontPairFormProps) {
     getLocalCustomFonts,
   } = useFontUpload({ setValue, control });
 
-  const currentHeadingFont = watch("fonts.heading");
-  const currentBodyFont = watch("fonts.body");
-  const currentHeadingUrl = watch("fonts.headingUrl");
-  const currentBodyUrl = watch("fonts.bodyUrl");
+  const currentHeadingFont = useWatch({ control, name: "fonts.heading" });
+  const currentBodyFont = useWatch({ control, name: "fonts.body" });
+  const currentHeadingUrl = useWatch({ control, name: "fonts.headingUrl" });
+  const currentBodyUrl = useWatch({ control, name: "fonts.bodyUrl" });
+  const currentHeadingWeight = useWatch({
+    control,
+    name: "fonts.headingWeight",
+  });
+  const currentBodyWeight = useWatch({ control, name: "fonts.bodyWeight" });
 
   const handleSave = async () => {
     if (!currentHeadingFont || !currentBodyFont) return;
@@ -93,8 +99,8 @@ function CreateFontPairForm({ onClose, onApply }: CreateFontPairFormProps) {
             body: currentBodyFont,
             headingUrl: currentHeadingUrl,
             bodyUrl: currentBodyUrl,
-            headingWeight: watch("fonts.headingWeight"),
-            bodyWeight: watch("fonts.bodyWeight"),
+            headingWeight: currentHeadingWeight,
+            bodyWeight: currentBodyWeight,
           },
         });
         onApply([currentHeadingFont, currentBodyFont]);
@@ -102,7 +108,6 @@ function CreateFontPairForm({ onClose, onApply }: CreateFontPairFormProps) {
       }
     } catch (error) {
       console.error("Error saving font pair:", error);
-    } finally {
       setIsSaving(false);
     }
   };

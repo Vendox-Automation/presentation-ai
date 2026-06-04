@@ -1,32 +1,29 @@
 "use client";
 
-import * as React from "react";
-
-import { type NodeEntry, type TLinkElement } from "platejs";
-
 import {
-  type UseVirtualFloatingOptions,
   flip,
   offset,
+  type UseVirtualFloatingOptions,
 } from "@platejs/floating";
 import { getLinkAttributes } from "@platejs/link";
 import {
-  type LinkFloatingToolbarState,
   FloatingLinkUrlInput,
   useFloatingLinkEdit,
   useFloatingLinkEditState,
   useFloatingLinkInsert,
   useFloatingLinkInsertState,
+  type LinkFloatingToolbarState,
 } from "@platejs/link/react";
 import { cva } from "class-variance-authority";
 import { ExternalLink, Link, Text, Unlink } from "lucide-react";
-import { KEYS } from "platejs";
+import { KEYS, type NodeEntry, type TLinkElement } from "platejs";
 import {
   useEditorRef,
   useEditorSelection,
   useFormInputProps,
   usePluginOption,
 } from "platejs/react";
+import * as React from "react";
 
 import { buttonVariants } from "@/components/plate/ui/button";
 import { Separator } from "@/components/plate/ui/separator";
@@ -36,7 +33,7 @@ const popoverVariants = cva(
 );
 
 const inputVariants = cva(
-  "flex h-[28px] w-full rounded-md border-none bg-transparent px-1.5 py-1 text-base placeholder:text-muted-foreground focus-visible:ring-transparent focus-visible:outline-hidden md:text-sm",
+  "flex h-7 w-full rounded-md border-none bg-transparent px-1.5 py-1 text-base placeholder:text-muted-foreground focus-visible:ring-transparent focus-visible:outline-hidden md:text-sm",
 );
 
 type FloatingStyle = React.CSSProperties & {
@@ -125,7 +122,7 @@ export function LinkFloatingToolbar({
   if (hidden) return null;
 
   const input = (
-    <div className="flex w-[330px] flex-col" {...inputProps}>
+    <div className="flex w-82.5 flex-col" {...inputProps}>
       <div className="flex items-center">
         <div className="flex items-center pr-1 pl-2 text-muted-foreground">
           <Link className="size-4" />

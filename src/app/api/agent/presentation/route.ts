@@ -1,13 +1,16 @@
-import { createPresentationGraph } from "@/ai/agents/presentation/createAgent";
-import { ensureCheckpointerSetup } from "@/ai/lib/postgres";
-import { getLatestUserMessage } from "@/lib/ai/uiMessageParts";
-import { assertModelIsConfigured, ensureModelIsReady } from "@/lib/modelPicker";
-import { createLogger } from "@/lib/observability/logger";
-import { auth } from "@/server/auth";
 import { toBaseMessages, toUIMessageStream } from "@ai-sdk/langchain";
 import { type HumanMessage } from "@langchain/core/messages";
 import { Command } from "@langchain/langgraph";
-import { createUIMessageStreamResponse, type UIMessage } from "ai";
+import {
+  consumeStream,
+  createUIMessageStreamResponse,
+  type UIMessage,
+} from "ai";
+
+import { createPresentationGraph } from "@/ai/agents/presentation/createAgent";
+import { getLatestUserMessage } from "@/lib/ai/uiMessageParts";
+import { logger } from "@/lib/observability/server/logger";
+import { auth } from "@/server/auth";
 
 type PresentationStreamOptions = Parameters<
   ReturnType<typeof createPresentationGraph>["stream"]
@@ -16,88 +19,52 @@ type PresentationStreamOptions = Parameters<
 };
 
 export async function POST(req: Request) {
-  const requestId = crypto.randomUUID();
-  const routeLogger = createLogger("api:presentation-agent");
+  let endSpanOnReturn = true;
+  const actionName = "agent.presentation.post";
+  const span = logger.startSpan(`allweone.api.${actionName}`, {
+    attributes: {
+      "allweone.scope": "api",
+      "allweone.action.type": "api_route",
+      "allweone.action.name": actionName,
+      "http.method": "POST",
+      "http.route": "/api/agent/presentation",
+    },
+  });
 
   try {
-    const { id, messages, resumeData, modelProvider, modelId } =
-      (await req.json()) as {
+    const { id, messages, resumeData } = (await req.json()) as {
       id?: string;
       messages?: UIMessage[];
       resumeData?: Record<string, unknown>;
-      modelProvider?: "openai" | "ollama" | "lmstudio";
-      modelId?: string;
     };
 
     if (!id) {
-      routeLogger.warn("Presentation agent request rejected: missing presentation id", {
-        requestId,
+      span.event("allweone.api.request_rejected", {
+        "allweone.validation.error": "missing_presentation_id",
       });
       return new Response("Missing presentation id", { status: 400 });
     }
 
-    routeLogger.info("Presentation agent request received", {
-      requestId,
-      presentationId: id,
-      isResume: Boolean(resumeData),
-      messageCount: Array.isArray(messages) ? messages.length : 0,
-      modelProvider: modelProvider ?? "openai",
-      modelId: modelId || "gpt-4o-mini",
-    });
     const session = await auth();
 
     if (!session?.user) {
-      routeLogger.warn("Presentation agent request rejected: unauthorized", {
-        requestId,
-        presentationId: id,
+      span.event("allweone.api.request_rejected", {
+        "allweone.validation.error": "unauthorized",
       });
       return new Response("Unauthorized", { status: 401 });
     }
 
-    await ensureCheckpointerSetup();
-    try {
-      assertModelIsConfigured(modelProvider ?? "openai", modelId);
-    } catch (error) {
-      routeLogger.error(
-        "Presentation agent request rejected: invalid model configuration",
-        error,
-        {
-          requestId,
-          presentationId: id,
-          modelProvider: modelProvider ?? "openai",
-          modelId: modelId || "gpt-4o-mini",
-        },
-      );
-      return new Response(
-        error instanceof Error ? error.message : "Invalid model configuration",
-        { status: 400 },
-      );
-    }
-    try {
-      await ensureModelIsReady(modelProvider ?? "openai", modelId);
-    } catch (error) {
-      routeLogger.error(
-        "Presentation agent request rejected: selected model could not be prepared",
-        error,
-        {
-          requestId,
-          presentationId: id,
-          modelProvider: modelProvider ?? "openai",
-          modelId: modelId || "gpt-4o-mini",
-        },
-      );
-      return new Response(
-        error instanceof Error
-          ? error.message
-          : "Failed to prepare selected model",
-        { status: 503 },
-      );
-    }
-
-    const graph = createPresentationGraph({
-      modelProvider,
-      modelId,
+    span.annotate({
+      "allweone.thread.id": `presentation:${id}`,
+      "allweone.thread.type": "presentation",
+      "allweone.presentation.thread_id": id,
+      "allweone.presentation.message.count": Array.isArray(messages)
+        ? messages.length
+        : 0,
+      "allweone.presentation.resume.present": Boolean(resumeData),
     });
+
+    const graph = createPresentationGraph();
     const streamOptions: PresentationStreamOptions = {
       streamMode: ["values", "messages"],
       interruptBefore: ["tools"],
@@ -105,18 +72,12 @@ export async function POST(req: Request) {
         thread_id: id,
       },
     };
-
-    routeLogger.info("Presentation agent generation started", {
-      requestId,
-      presentationId: id,
-      isResume: Boolean(resumeData),
-    });
-    const stream = resumeData
-      ? await graph.stream(
+    const stream = await (resumeData
+      ? graph.stream(
           new Command({ resume: resumeData }),
           streamOptions as Parameters<typeof graph.stream>[1],
         )
-      : await (async () => {
+      : (async () => {
           const latestUserMessage = getLatestUserMessage(
             Array.isArray(messages) ? messages : [],
           );
@@ -135,20 +96,29 @@ export async function POST(req: Request) {
             },
             streamOptions as Parameters<typeof graph.stream>[1],
           );
-        })();
+        })());
+    span.event("allweone.api.response_stream_created");
+    endSpanOnReturn = false;
 
-    routeLogger.info("Presentation agent stream created", {
-      requestId,
-      presentationId: id,
-      isResume: Boolean(resumeData),
-    });
     return createUIMessageStreamResponse({
       stream: toUIMessageStream(stream),
+      consumeSseStream: ({ stream: sseStream }) => {
+        void consumeStream({
+          stream: sseStream,
+          onError: (error) => {
+            span.error(error);
+          },
+        }).finally(() => {
+          span.end();
+        });
+      },
     });
   } catch (error) {
-    routeLogger.error("Presentation agent request failed", error, {
-      requestId,
-    });
+    span.error(error);
     return new Response("Internal Server Error", { status: 500 });
+  } finally {
+    if (endSpanOnReturn) {
+      span.end();
+    }
   }
 }

@@ -1,7 +1,9 @@
-import {
-  generateImageAction,
-  type ImageModelList,
-} from "@/app/_actions/apps/image-studio/generate";
+import { ImagePlugin } from "@platejs/media/react";
+import { useEditorRef } from "platejs/react";
+import { useState } from "react";
+import { toast } from "sonner";
+
+import { generateImageAction } from "@/app/_actions/apps/image-studio/generate";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,11 +23,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { type ImageModelList } from "@/constants/image-models";
+import { raiseError } from "@/lib/raise-error";
 import { useNotesState } from "@/states/notes-state";
-import { ImagePlugin } from "@platejs/media/react";
-import { useEditorRef } from "platejs/react";
-import { useState } from "react";
-import { toast } from "sonner";
 
 const MODEL_OPTIONS = [
   {
@@ -42,7 +42,7 @@ const MODEL_OPTIONS = [
   },
 ];
 
-export function GenerateImageDialogContent({
+function GenerateImageDialogContent({
   setOpen,
   isGenerating,
   setIsGenerating,
@@ -68,20 +68,14 @@ export function GenerateImageDialogContent({
     try {
       const result = await generateImageAction(prompt, selectedModel);
 
-      if (!result.success) {
-        throw new Error(result.error ?? "Failed to generate image");
-      }
-
-      const image = "image" in result ? result.image : undefined;
-
-      if (!image?.url) {
-        throw new Error("Failed to generate image");
+      if (!result.success || !("image" in result) || !result.image?.url) {
+        raiseError(new Error(result.error ?? "Failed to generate image"));
       }
 
       editor.tf.insertNodes({
         children: [{ text: "" }],
         type: ImagePlugin.key,
-        url: image.url,
+        url: result.image.url,
         query: prompt,
       });
 
@@ -91,9 +85,9 @@ export function GenerateImageDialogContent({
       toast.error(
         error instanceof Error ? error.message : "Failed to generate image",
       );
-    } finally {
       setIsGenerating(false);
     }
+    setIsGenerating(false);
   };
 
   return (
@@ -126,7 +120,7 @@ export function GenerateImageDialogContent({
           <div className="mt-4 space-y-3">
             <div className="h-64 w-full animate-pulse rounded-lg bg-gray-200 dark:bg-gray-800" />
             <div className="text-center text-sm text-gray-500">
-              Generating your image...
+              Generating your image…
             </div>
           </div>
         )}

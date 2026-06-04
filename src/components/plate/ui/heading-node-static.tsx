@@ -1,8 +1,6 @@
+import { cva, type VariantProps } from "class-variance-authority";
+import { SlateElement, type SlateElementProps } from "platejs/static";
 import type * as React from "react";
-
-import { type SlateElementProps, SlateElement } from "platejs/static";
-
-import { type VariantProps, cva } from "class-variance-authority";
 
 const headingVariants = cva("relative mb-1", {
   variants: {
@@ -65,5 +63,3 @@ export function H6ElementStatic(
 ) {
   return <HeadingElementStatic variant="h6" {...props} />;
 }
-
-

@@ -1,49 +1,18 @@
-import { cn } from "@/lib/utils";
-import { cva } from "class-variance-authority";
 import { NodeApi, PathApi } from "platejs";
 import { SlateElement, type SlateElementProps } from "platejs/static";
+
+import { cn } from "@/lib/utils";
 import {
   type TBulletGroupElement,
   type TBulletItemElement,
 } from "../../plugins/bullet-plugin";
 import { getAlignmentClasses } from "../../utils";
-
-const bulletItemVariants = cva("", {
-  variants: {
-    bulletType: {
-      numbered: "flex items-start",
-      basic: "flex items-start",
-      arrow: "flex items-start",
-    },
-  },
-});
-
-const bulletMarkerVariants = cva("shrink-0", {
-  variants: {
-    bulletType: {
-      numbered:
-        "flex h-12 w-12 items-center justify-center rounded-md bg-primary text-xl font-bold text-primary-foreground",
-      basic:
-        "mt-3 flex h-2 w-2 items-center justify-center rounded-full bg-primary",
-      arrow: "mt-1 flex h-6 w-6 items-center justify-center",
-    },
-  },
-});
-
-// Arrow SVG component for arrow bullet type
-const ArrowMarker = ({ color }: { color: string }) => (
-  <svg
-    width="24"
-    height="24"
-    viewBox="0 0 155.139 155.139"
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <polygon
-      fill={color}
-      points="155.139,77.566 79.18,1.596 79.18,45.978 0,45.978 0,109.155 79.18,109.155 79.18,153.542"
-    />
-  </svg>
-);
+import { ArrowMarker } from "../bullet-item";
+import {
+  bulletItemVariants,
+  bulletMarkerVariants,
+} from "../bullet-item";
+import { PresentationIcon } from "../presentation-icon";
 
 export function BulletItemStatic(props: SlateElementProps<TBulletItemElement>) {
   const path = props.editor.api.findPath(props.element) ?? [-1];
@@ -60,6 +29,9 @@ export function BulletItemStatic(props: SlateElementProps<TBulletItemElement>) {
   const itemAlignment = props.element.alignment;
   const parentAlignment = parentElement?.alignment;
   const alignment = itemAlignment ?? parentAlignment ?? "left";
+  const { icon } = props.element;
+  const markerColor =
+    (parentElement?.color as string) || "var(--presentation-primary)";
 
   return (
     <SlateElement {...props}>
@@ -74,26 +46,28 @@ export function BulletItemStatic(props: SlateElementProps<TBulletItemElement>) {
         >
           {/* Bullet marker - numbered, basic dot, or arrow */}
           <div
+            data-decor="true"
             className={bulletMarkerVariants({ bulletType })}
             style={{
               backgroundColor:
-                bulletType !== "arrow"
-                  ? (parentElement?.color as string) ||
-                    "var(--presentation-primary)"
-                  : undefined,
+                bulletType === "numbered" ? markerColor : "transparent",
+              borderColor: "transparent",
               color:
                 bulletType === "numbered"
                   ? "var(--presentation-background)"
-                  : undefined,
+                  : markerColor,
             }}
           >
-            {bulletType === "numbered" && index + 1}
-            {bulletType === "arrow" && (
-              <ArrowMarker
-                color={
-                  (parentElement?.color as string) ||
-                  "var(--presentation-primary)"
-                }
+            {icon ? (
+              <PresentationIcon icon={icon} size={20} />
+            ) : bulletType === "numbered" ? (
+              index + 1
+            ) : bulletType === "arrow" ? (
+              <ArrowMarker color={markerColor} />
+            ) : (
+              <span
+                className="size-2 rounded-full"
+                style={{ backgroundColor: markerColor }}
               />
             )}
           </div>
@@ -106,5 +80,3 @@ export function BulletItemStatic(props: SlateElementProps<TBulletItemElement>) {
     </SlateElement>
   );
 }
-
-

@@ -1,11 +1,18 @@
 import { NodeApi, PathApi } from "platejs";
-import { type SlateElementProps, SlateElement } from "platejs/static";
+import { SlateElement, type SlateElementProps } from "platejs/static";
+import { useLayoutEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
-import { useEffect, useRef, useState } from "react";
-import { type TStairGroupElement } from "../../plugins/staircase-plugin";
+import {
+  type TStairGroupElement,
+  type TStairItemElement,
+} from "../../plugins/staircase-plugin";
+import { getAlignmentClasses } from "../../utils";
+import { PresentationIcon } from "../presentation-icon";
 
-export function StairItemStatic(props: SlateElementProps) {
+const STAIR_MIN_BLOCK_HEIGHT = 48;
+
+export function StairItemStatic(props: SlateElementProps<TStairItemElement>) {
   const path = props.editor.api.findPath(props.element) ?? [-1];
   const parentPath = PathApi.parent(path);
   const parentElement = NodeApi.get(
@@ -15,23 +22,37 @@ export function StairItemStatic(props: SlateElementProps) {
 
   const totalItems = parentElement?.children?.length || 1;
   const index = (path?.at(-1) as number) ?? 0;
+  const alignment =
+    props.element.alignment ?? parentElement?.alignment ?? "left";
+  const { icon } = props.element;
+  const markerColor =
+    (parentElement?.color as string) || "var(--presentation-smart-layout)";
 
   // Refs and state for dynamic height
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [blockHeight, setBlockHeight] = useState(70);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [blockHeight, setBlockHeight] = useState(STAIR_MIN_BLOCK_HEIGHT);
 
-  // ResizeObserver to dynamically adjust height based on container height
-  useEffect(() => {
-    if (!containerRef.current) return;
+  // ResizeObserver to dynamically adjust height based on content height
+  useLayoutEffect(() => {
+    if (!contentRef.current) return;
 
     const updateHeight = () => {
-      const containerHeight = containerRef.current?.offsetHeight ?? 70;
-      setBlockHeight(Math.max(containerHeight, 70));
+      const contentHeight =
+        contentRef.current?.getBoundingClientRect().height ??
+        STAIR_MIN_BLOCK_HEIGHT;
+      const nextHeight = Math.max(
+        Math.ceil(contentHeight),
+        STAIR_MIN_BLOCK_HEIGHT,
+      );
+
+      setBlockHeight((currentHeight) =>
+        Math.abs(currentHeight - nextHeight) > 0.5 ? nextHeight : currentHeight,
+      );
     };
 
     updateHeight();
     const resizeObserver = new ResizeObserver(updateHeight);
-    resizeObserver.observe(containerRef.current);
+    resizeObserver.observe(contentRef.current);
 
     return () => resizeObserver.disconnect();
   }, []);
@@ -42,27 +63,92 @@ export function StairItemStatic(props: SlateElementProps) {
   const increment = (maxWidth - baseWidth) / (totalItems - 1 || 1);
   const widthPx = baseWidth + index * increment;
 
+  const variant = parentElement?.variant;
+  const isInside = variant === "inside";
+
+  // For inside variant, use percentage-based widths
+  const baseWidthPercent = 30;
+  const maxWidthPercent = 70;
+  const incrementPercent =
+    (maxWidthPercent - baseWidthPercent) / (totalItems - 1 || 1);
+  const widthPercent = baseWidthPercent + index * incrementPercent;
+
+  if (isInside) {
+    return (
+      <div className={cn("group/stair-item relative w-full")}>
+        <div
+          className={cn(
+            "flex w-full border-b border-gray-700",
+            alignment === "right" && "justify-end",
+            alignment !== "right" && "justify-start",
+          )}
+        >
+          <div
+            data-shape="rect"
+            data-shape-text={String(index + 1)}
+            data-fill-color={
+              (parentElement?.color as string) ||
+              "var(--presentation-smart-layout)"
+            }
+            data-text-color="var(--presentation-background)"
+            style={
+              {
+                width: `${widthPercent}%`,
+                backgroundColor: markerColor,
+                color: "var(--presentation-background)",
+                "--presentation-heading": "var(--presentation-card-background)",
+                "--presentation-text": "var(--presentation-card-background)",
+              } as React.CSSProperties
+            }
+            className="flex min-h-15 shrink-0 flex-col justify-center rounded-md px-4 py-3"
+          >
+            <SlateElement
+              ref={contentRef}
+              className="w-full font-normal"
+              {...props}
+            >
+              {props.children}
+            </SlateElement>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className={cn("group/stair-item relative mb-2 w-full")}>
-      <div className="flex items-center gap-4 border-b border-gray-700">
+    <div className={cn("group/stair-item relative w-full")}>
+      <div
+        className={cn(
+          "flex items-center gap-4 border-b border-gray-700",
+          alignment === "right" && "flex-row-reverse",
+        )}
+      >
         {/* Width-growing block with number */}
         <div
+          data-shape="rect"
+          data-shape-text={String(index + 1)}
+          data-fill-color={
+            (parentElement?.color as string) ||
+            "var(--presentation-smart-layout)"
+          }
+          data-text-color="var(--presentation-background)"
           style={{
             width: `${widthPx}px`,
             height: `${blockHeight}px`,
-            backgroundColor:
-              (parentElement?.color as string) ||
-              "var(--presentation-smart-layout)",
+            backgroundColor: markerColor,
             color: "var(--presentation-background)",
           }}
           className="flex shrink-0 items-center justify-center rounded-md text-2xl font-bold"
         >
-          {index + 1}
+          {icon ? <PresentationIcon icon={icon} size={24} /> : index + 1}
         </div>
 
         <SlateElement
-          ref={containerRef}
-          className="flex flex-1 items-center"
+          ref={contentRef}
+          className={cn(
+            "min-w-0 flex flex-1 flex-col justify-center self-center",
+            getAlignmentClasses(alignment),
+          )}
           {...props}
         >
           {props.children}
@@ -71,5 +157,3 @@ export function StairItemStatic(props: SlateElementProps) {
     </div>
   );
 }
-
-

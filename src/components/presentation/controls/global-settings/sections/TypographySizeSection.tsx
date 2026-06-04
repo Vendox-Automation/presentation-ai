@@ -1,9 +1,10 @@
 "use client";
 
+import { RiFontSize } from "react-icons/ri";
+
 import { Label } from "@/components/ui/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
-import { RiFontSize } from "react-icons/ri";
 import { useCommonValues } from "../hooks/useCommonValues";
 import { useUpdateAllSlides } from "../hooks/useUpdateAllSlides";
 
@@ -17,7 +18,7 @@ export function TypographySizeSection() {
         htmlFor="font-size"
         className="flex items-center gap-2 text-sm font-semibold text-foreground"
       >
-        <RiFontSize className="h-4 w-4 text-muted-foreground" />
+        <RiFontSize className="size-4 text-muted-foreground" />
         Font Size
       </Label>
 

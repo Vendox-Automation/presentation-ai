@@ -1,7 +1,11 @@
 "use client";
 
+import { ImageIcon, Loader2, Search, Sparkles, Upload } from "lucide-react";
+import { type TImageElement } from "platejs";
+import { useEditorReadOnly, useEditorRef } from "platejs/react";
 import type React from "react";
 import { useRef } from "react";
+import { toast } from "sonner";
 
 import { useUploadFile } from "@/components/plate/hooks/use-upload-file";
 import { Button } from "@/components/ui/button";
@@ -15,23 +19,21 @@ import {
 } from "@/components/ui/empty";
 import { cn } from "@/lib/utils";
 import {
-  type ImageEditorMode,
   usePresentationState,
+  type ImageEditorMode,
 } from "@/states/presentation-state";
-import { ImageIcon, Loader2, Search, Sparkles, Upload } from "lucide-react";
-import { type TImageElement } from "platejs";
-import { useEditorReadOnly, useEditorRef } from "platejs/react";
-import { toast } from "sonner";
 
 export interface PresentationImagePlaceholderProps {
   className?: string;
   element: TImageElement & { query?: string; id?: string };
+  imageNotFound?: boolean;
   onOpenEditor?: (mode: ImageEditorMode) => void;
 }
 
 export function PresentationImagePlaceholder({
   className,
   element,
+  imageNotFound = false,
   onOpenEditor,
 }: PresentationImagePlaceholderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -88,7 +90,7 @@ export function PresentationImagePlaceholder({
         });
       };
       // Open the presentation image editor panel with the element ID, slide ID, and bound function
-      openPresentationImageEditor(mode, boundUpdateElement);
+      openPresentationImageEditor(mode, boundUpdateElement, element);
     }
   };
 
@@ -101,7 +103,7 @@ export function PresentationImagePlaceholder({
         )}
       >
         <div className="flex flex-col items-center gap-2 text-muted-foreground">
-          <ImageIcon className="h-8 w-8" />
+          <ImageIcon className="size-8" />
           <span className="text-sm">No image</span>
         </div>
       </div>
@@ -111,7 +113,7 @@ export function PresentationImagePlaceholder({
   return (
     <div
       className={cn(
-        "flex h-full w-full items-center justify-center rounded-[inherit] border bg-background",
+        "flex size-full items-center justify-center rounded-[inherit] border bg-background",
         className,
       )}
     >
@@ -120,8 +122,14 @@ export function PresentationImagePlaceholder({
           <EmptyMedia variant="icon">
             <ImageIcon />
           </EmptyMedia>
-          <EmptyTitle className="text-primary">No image yet</EmptyTitle>
-          <EmptyDescription>Upload or generate an image</EmptyDescription>
+          <EmptyTitle className="text-primary">
+            {imageNotFound ? "Image not found" : "No image yet"}
+          </EmptyTitle>
+          <EmptyDescription>
+            {imageNotFound
+              ? "Try uploading, generating, or searching for another image"
+              : "Upload or generate an image"}
+          </EmptyDescription>
         </EmptyHeader>
 
         <EmptyContent className="flex-row gap-3 text-primary">
@@ -133,7 +141,7 @@ export function PresentationImagePlaceholder({
           >
             {isUploading ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 size-4 animate-spin" />
                 {uploadProgress}%
               </>
             ) : (
@@ -166,6 +174,7 @@ export function PresentationImagePlaceholder({
 
       {/* Hidden file input */}
       <input
+        aria-label="presentation image placeholder control"
         ref={fileInputRef}
         type="file"
         accept="image/*"

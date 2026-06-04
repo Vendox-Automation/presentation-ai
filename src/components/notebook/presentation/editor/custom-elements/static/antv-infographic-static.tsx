@@ -1,16 +1,28 @@
 "use client";
 
-import { usePresentationTheme } from "@/components/presentation/providers/PresentationThemeProvider";
-import { SparklesCore } from "@/components/ui/sparkles";
-import { cn } from "@/lib/utils";
 import { Infographic } from "@antv/infographic";
-import { PlateElement, type PlateElementProps } from "platejs/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { SlateElement, type SlateElementProps } from "platejs/static";
+import { useEffect, useRef, useState } from "react";
+
+import { SparklesCore } from "@/components/ui/sparkles";
+import { useAntvInfographicTheme } from "@/hooks/presentation/infographic/useAntvInfographicTheme";
+import { cn } from "@/lib/utils";
 import { type TAntvInfographicElement } from "../../plugins/antv-infographic-plugin";
 import {
-  applyThemeToData,
-  applyThemeToSyntax,
-} from "../../utils/infographic-utils";
+  enforceInfographicCardBackground,
+  useInfographicCardBackground,
+} from "../../utils/infographic-card-background";
+import {
+  applyInitialInfographicTitleLayout,
+  hasInfographicTitleLayoutAttributes,
+} from "../../utils/infographic-title-layout";
+import { applyThemeToData } from "../../utils/infographic-utils";
+
+const alignmentClasses = {
+  center: "mx-auto",
+  left: "mr-auto",
+  right: "ml-auto",
+} as const;
 
 /**
  *
@@ -18,16 +30,10 @@ import {
  * This component re-renders when element.data changes (unlike the editable version)
  */
 export default function AntvInfographicStatic(
-  props: PlateElementProps<TAntvInfographicElement>,
+  props: SlateElementProps<TAntvInfographicElement>,
 ) {
   const { element, children } = props;
   const align = element.align ?? "center";
-
-  const alignmentClasses = {
-    center: "mx-auto",
-    left: "mr-auto",
-    right: "ml-auto",
-  } as const;
 
   const containerStyles: React.CSSProperties = {
     width:
@@ -44,13 +50,10 @@ export default function AntvInfographicStatic(
   const [hasError, setHasError] = useState(false);
 
   // Theme
-  const { resolvedTheme } = usePresentationTheme();
-  const isDark = resolvedTheme === "dark";
-
-  // Themed syntax
-  const themedSyntax = useMemo(() => {
-    return applyThemeToSyntax(element.syntax ?? "", isDark);
-  }, [element.syntax, isDark]);
+  const { isDark, themedSyntax, themeColors } = useAntvInfographicTheme(
+    element.syntax,
+  );
+  const cardBackgroundRefreshKey = `${isDark}:${themeColors?.cardBackground ?? ""}`;
 
   // ============================================================================
   // INFOGRAPHIC INSTANCE LIFECYCLE
@@ -86,33 +89,54 @@ export default function AntvInfographicStatic(
     if (!instance || element.isLoading) {
       return;
     }
+    let frameId: number | null = null;
 
     // Prefer data over syntax
+    const savedData = element.data;
+    const hasSavedData = Boolean(
+      savedData && Object.keys(savedData).length > 0,
+    );
     const payload =
-      element.data && Object.keys(element.data).length > 0
-        ? applyThemeToData(element.data, isDark)
+      hasSavedData && savedData
+        ? applyThemeToData(savedData, isDark, themeColors)
         : themedSyntax;
 
     if (!payload || (typeof payload === "string" && !payload.trim())) return;
 
     try {
       instance.render(payload);
+      frameId = window.requestAnimationFrame(() => {
+        const container = containerRef.current;
+        if (container) {
+          if (!hasInfographicTitleLayoutAttributes(savedData)) {
+            applyInitialInfographicTitleLayout(container, instance);
+          }
+          enforceInfographicCardBackground(container);
+        }
+      });
       setHasError(false);
     } catch (err) {
       console.error("Failed to render infographic:", err);
       setHasError(true);
     }
-  }, [themedSyntax, element.isLoading, element.data]);
+
+    return () => {
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+      }
+    };
+  }, [themedSyntax, element.isLoading, element.data, isDark, themeColors]);
+  useInfographicCardBackground(containerRef, cardBackgroundRefreshKey);
 
   // ============================================================================
   // RENDER
   // ============================================================================
 
   return (
-    <PlateElement {...props}>
+    <SlateElement {...props}>
       <div
         className={cn(
-          "relative my-4 min-h-[300px] overflow-hidden rounded-lg",
+          "relative my-4 min-h-75 overflow-hidden rounded-lg",
           alignmentClasses[align],
         )}
         style={{
@@ -126,7 +150,7 @@ export default function AntvInfographicStatic(
         {/* Container is always mounted so instance can be created */}
         <div
           ref={containerRef}
-          className="min-h-[300px] w-full"
+          className="min-h-75 w-full overflow-hidden"
           style={{
             minHeight: "300px",
             display: element.isLoading || hasError ? "none" : "block",
@@ -135,7 +159,7 @@ export default function AntvInfographicStatic(
 
         {/* Loading state */}
         {element.isLoading && (
-          <div className="relative flex h-[300px] w-full items-center justify-center">
+          <div className="relative flex h-75 w-full items-center justify-center">
             <SparklesCore
               background="transparent"
               minSize={1}
@@ -149,7 +173,7 @@ export default function AntvInfographicStatic(
 
         {/* Error state */}
         {hasError && !element.isLoading && (
-          <div className="flex h-[200px] w-full flex-col items-center justify-center rounded-lg bg-red-50 text-red-500 dark:bg-red-950">
+          <div className="flex h-50 w-full flex-col items-center justify-center rounded-lg bg-red-50 text-red-500 dark:bg-red-950">
             <p className="font-medium">Failed to render diagram</p>
             <p className="mt-1 text-sm text-red-400">
               Please try again with different content
@@ -158,6 +182,6 @@ export default function AntvInfographicStatic(
         )}
       </div>
       {children}
-    </PlateElement>
+    </SlateElement>
   );
 }

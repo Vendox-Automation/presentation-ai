@@ -11,7 +11,7 @@ import { type PresentationStyles } from "./types";
  * @param element - Element to get computed style from
  * @returns Resolved value as a hex color or string
  */
-export function resolveCssVariable(varName: string, element: Element): string {
+function resolveCssVariable(varName: string, element: Element): string {
   const computed = getComputedStyle(element);
   const cleanName = varName.startsWith("--") ? varName : `--${varName}`;
   const value = computed.getPropertyValue(cleanName).trim();
@@ -25,32 +25,11 @@ export function resolveCssVariable(varName: string, element: Element): string {
 }
 
 /**
- * Parse a CSS value that might contain var() and resolve it
- * @param value - CSS value (might be "var(--something)" or a direct value)
- * @param element - Element for computed style lookup
- * @returns Resolved value
- */
-export function resolveValue(value: string, element: Element): string {
-  if (!value) return "";
-
-  // Check if it's a CSS variable
-  const varMatch = value.match(/var\(--([^,)]+)(?:,\s*([^)]+))?\)/);
-  if (varMatch) {
-    const varName = `--${varMatch[1]}`;
-    const fallback = varMatch[2]?.trim();
-    const resolved = resolveCssVariable(varName, element);
-    return resolved || fallback || "";
-  }
-
-  return value;
-}
-
-/**
  * Convert any color format to hex
  * @param color - Color in any CSS format (rgb, rgba, hsl, hex, named)
  * @returns Hex color string (without #)
  */
-export function colorToHex(color: string): string {
+function colorToHex(color: string): string {
   if (!color) return "000000";
 
   // Already hex
@@ -71,14 +50,6 @@ export function colorToHex(color: string): string {
 
   const toHex = (n: number) => n.toString(16).padStart(2, "0");
   return `${toHex(data[0]!)}${toHex(data[1]!)}${toHex(data[2]!)}`.toUpperCase();
-}
-
-/**
- * Resolve a CSS color value (handles var() and converts to hex)
- */
-export function resolveColor(value: string, element: Element): string {
-  const resolved = resolveValue(value, element);
-  return colorToHex(resolved);
 }
 
 /**
@@ -196,28 +167,5 @@ export function extractTextStyles(element: Element): {
         : undefined,
     fontStyle: computed.fontStyle !== "normal" ? computed.fontStyle : undefined,
     lineHeight: parseFloat(computed.lineHeight) || undefined,
-  };
-}
-
-/**
- * Extract border styles from a DOM element
- */
-export function extractBorderStyles(
-  element: Element,
-):
-  | { width: number; color: string; style: string; radius?: number }
-  | undefined {
-  const computed = getComputedStyle(element);
-  const borderWidth = parseFloat(computed.borderWidth);
-
-  if (borderWidth === 0 || computed.borderStyle === "none") {
-    return undefined;
-  }
-
-  return {
-    width: borderWidth,
-    color: colorToHex(computed.borderColor),
-    style: computed.borderStyle,
-    radius: parseFloat(computed.borderRadius) || undefined,
   };
 }

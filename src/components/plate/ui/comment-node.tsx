@@ -1,15 +1,14 @@
 "use client";
 
-import { type TCommentText } from "platejs";
-import { type PlateLeafProps } from "platejs/react";
-
 import { getCommentCount } from "@platejs/comment";
+import { type TCommentText } from "platejs";
 import {
   PlateLeaf,
   useEditorPlugin,
-  useEditorRef,
   useEditorReadOnly,
+  useEditorRef,
   usePluginOption,
+  type PlateLeafProps,
 } from "platejs/react";
 
 import { commentPlugin } from "@/components/plate/plugins/comment-kit";
@@ -37,7 +36,7 @@ export function CommentLeaf(props: PlateLeafProps<TCommentText>) {
         "rounded-[3px] bg-amber-200/30 text-inherit no-underline transition-colors duration-200",
         !readOnly && "bg-amber-200/45",
         !readOnly && (isHover || isActive) && "bg-amber-200/65",
-        isOverlapping && "outline-solid outline-1 outline-amber-300/50",
+        isOverlapping && "outline outline-amber-300/50",
         !readOnly && isOverlapping && "bg-amber-200/55 outline-amber-300/70",
         (isHover || isActive) &&
           !readOnly &&

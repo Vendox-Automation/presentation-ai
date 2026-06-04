@@ -1,7 +1,6 @@
+import { IS_APPLE, KEYS, type TMentionElement } from "platejs";
+import { SlateElement, type SlateElementProps } from "platejs/static";
 import * as React from "react";
-
-import { type TMentionElement, IS_APPLE, KEYS } from "platejs";
-import { type SlateElementProps, SlateElement } from "platejs/static";
 
 import { cn } from "@/lib/utils";
 
@@ -42,5 +41,3 @@ export function MentionElementStatic(
     </SlateElement>
   );
 }
-
-

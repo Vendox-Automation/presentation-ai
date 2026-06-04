@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useWatch } from "react-hook-form";
+
 import { CurrentFontDisplay } from "./CurrentFontDisplay";
 import { CustomFontCreator } from "./CustomFontCreator";
 import { FontCombinationsList } from "./FontCombinationsList";
@@ -44,6 +45,8 @@ export function FontStep({ control, setValue }: FontStepProps) {
     const options = { shouldDirty: true };
     setValue("fonts.heading", heading, options);
     setValue("fonts.body", body, options);
+    setValue("fonts.headingUrl", undefined, options);
+    setValue("fonts.bodyUrl", undefined, options);
   };
 
   const handleSelectUserFontPair = (
@@ -55,8 +58,8 @@ export function FontStep({ control, setValue }: FontStepProps) {
     const options = { shouldDirty: true };
     setValue("fonts.heading", heading, options);
     setValue("fonts.body", body, options);
-    if (headingUrl) setValue("fonts.headingUrl", headingUrl, options);
-    if (bodyUrl) setValue("fonts.bodyUrl", bodyUrl, options);
+    setValue("fonts.headingUrl", headingUrl, options);
+    setValue("fonts.bodyUrl", bodyUrl, options);
   };
 
   return (

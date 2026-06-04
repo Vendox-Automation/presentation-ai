@@ -1,9 +1,5 @@
 "use client";
 
-import * as React from "react";
-
-import { type PlateElementProps, type RenderNodeWrapper } from "platejs/react";
-
 import { getDraftCommentKey } from "@platejs/comment";
 import { CommentPlugin } from "@platejs/comment/react";
 import { getTransientSuggestionKey } from "@platejs/suggestion";
@@ -14,21 +10,28 @@ import {
   PencilLineIcon,
 } from "lucide-react";
 import {
+  PathApi,
+  TextApi,
   type AnyPluginConfig,
   type NodeEntry,
   type Path,
   type TCommentText,
   type TElement,
   type TSuggestionText,
-  PathApi,
-  TextApi,
 } from "platejs";
-import { useEditorPlugin, useEditorRef, usePluginOption } from "platejs/react";
+import {
+  useEditorPlugin,
+  useEditorRef,
+  usePluginOption,
+  type PlateElementProps,
+  type RenderNodeWrapper,
+} from "platejs/react";
+import * as React from "react";
 
 import { commentPlugin } from "@/components/plate/plugins/comment-kit";
 import {
-  type TDiscussion,
   discussionPlugin,
+  type TDiscussion,
 } from "@/components/plate/plugins/discussion-kit";
 import { suggestionPlugin } from "@/components/plate/plugins/suggestion-kit";
 import {
@@ -38,9 +41,8 @@ import {
   PopoverTrigger,
 } from "@/components/plate/ui/popover";
 import { Button } from "@/components/ui/button";
-
+import { BlockSuggestionCard } from "./block-suggestion";
 import {
-  BlockSuggestionCard,
   isResolvedSuggestion,
   useResolveSuggestion,
 } from "./block-suggestion";
@@ -162,7 +164,6 @@ const BlockCommentContent = ({
     if (!activeNode) return null;
 
     return editor.api.toDOMNode(activeNode[0])!;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     open,
     activeSuggestion,
@@ -201,7 +202,7 @@ const BlockCommentContent = ({
         )}
 
         <PopoverContent
-          className="max-h-[min(50dvh,calc(-24px+var(--radix-popper-available-height)))] w-[380px] max-w-[calc(100vw-24px)] min-w-[130px] overflow-y-auto rounded-xl border-border/50 bg-popover/95 p-0 shadow-xl backdrop-blur-md data-[state=closed]:opacity-0"
+          className="max-h-[min(50dvh,calc(-24px+var(--radix-popper-available-height)))] w-95 max-w-[calc(100vw-24px)] min-w-32.5 overflow-y-auto rounded-xl border-border/50 bg-popover/95 p-0 shadow-xl backdrop-blur-md data-[state=closed]:opacity-0"
           onCloseAutoFocus={(e) => e.preventDefault()}
           onOpenAutoFocus={(e) => e.preventDefault()}
           align="center"
@@ -209,11 +210,7 @@ const BlockCommentContent = ({
           sideOffset={10}
         >
           {isCommenting ? (
-            <CommentCreateForm
-              className="p-4"
-              focusOnMount
-              variant="popover"
-            />
+            <CommentCreateForm className="p-4" focusOnMount variant="popover" />
           ) : noneActive ? (
             sortedMergedData.map((item, index) =>
               isResolvedSuggestion(item) ? (
@@ -304,7 +301,7 @@ function BlockComment({
             showDocumentContent
           />
         ))}
-        <div className="mt-1 ml-[30px]">
+        <div className="mt-1 ml-7.5">
           <CommentCreateForm discussionId={discussion.id} />
         </div>
       </div>
@@ -345,15 +342,18 @@ const useResolvedDiscussion = (
   });
 
   const commentsIds = new Set(
-    commentNodes.map(([node]) => api.comment.nodeId(node)).filter(Boolean),
+    commentNodes.flatMap(([node]) => {
+      const nodeId = api.comment.nodeId(node);
+      return nodeId ? [nodeId] : [];
+    }),
   );
 
-  const resolvedDiscussions = (discussions as TDiscussion[])
-    .map((d) => ({
+  const resolvedDiscussions = discussions
+    .map((d: TDiscussion) => ({
       ...d,
       createdAt: new Date(d.createdAt),
     }))
-    .filter((item) => {
+    .filter((item: TDiscussion) => {
       /** If comment cross blocks just show it in the first block */
       const commentsPathMap = getOption("uniquePathMap");
       const firstBlockPath = commentsPathMap.get(item.id);

@@ -1,9 +1,10 @@
 // Main visualization item component with withRef pattern
 "use client";
 
-import { cn } from "@/lib/utils";
 import { NodeApi, PathApi } from "platejs";
 import { type StyledPlateElementProps } from "platejs/react";
+
+import { cn } from "@/lib/utils";
 import { ARROW_LIST_ITEM, PYRAMID_ITEM, TIMELINE_ITEM } from "../../lib";
 import { type TArrowListItemElement } from "../../plugins/arrow-plugin";
 import { type TVisualizationListElement } from "../../plugins/legacy/visualization-list-plugin";

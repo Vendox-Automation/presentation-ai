@@ -1,9 +1,10 @@
 "use client";
 
-import { type LayoutType } from "@/components/notebook/presentation/utils/parser";
-import { themes } from "@/lib/presentation/themes";
-import { usePresentationState } from "@/states/presentation-state";
 import { useCallback, useMemo } from "react";
+
+import { type LayoutType } from "@/components/notebook/presentation/utils/parser";
+import { resolvePresentationThemeData } from "@/lib/presentation/theme-resolution";
+import { usePresentationState } from "@/states/presentation-state";
 import { type ContentAlignment } from "../types";
 
 export function useCommonValues() {
@@ -11,16 +12,12 @@ export function useCommonValues() {
 
   // Get the current theme's font family as default
   const getThemeFontFamily = useCallback(() => {
-    // If custom theme data exists, use its fonts
-    if (customThemeData?.fonts) {
-      return {
-        heading: customThemeData.fonts.heading,
-        body: customThemeData.fonts.body,
-      };
-    }
-    // Otherwise, use the theme from themes object
-    if (typeof theme === "string" && theme in themes) {
-      const themeData = themes[theme as keyof typeof themes];
+    const themeData = resolvePresentationThemeData({
+      customThemeData,
+      theme,
+    });
+
+    if (themeData?.fonts) {
       return {
         heading: themeData.fonts.heading,
         body: themeData.fonts.body,

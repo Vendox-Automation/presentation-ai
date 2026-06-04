@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowLeft, Palette, X } from "lucide-react";
+
 import { type CreateThemeStep } from "./create-theme-types";
 
 interface CreateThemeHeaderProps {
@@ -32,9 +33,9 @@ export function CreateThemeHeader({
           className="rounded-lg p-1 transition-colors hover:bg-muted"
           type="button"
         >
-          <ArrowLeft className="h-5 w-5 text-foreground" />
+          <ArrowLeft className="size-5 text-foreground" />
         </button>
-        <Palette className="h-5 w-5 text-foreground" />
+        <Palette className="size-5 text-foreground" />
         <h2 className="text-lg font-semibold text-foreground">
           {getStepTitle()}
         </h2>
@@ -45,7 +46,7 @@ export function CreateThemeHeader({
           className="rounded-lg p-1 transition-colors hover:bg-muted"
           type="button"
         >
-          <X className="h-5 w-5 text-foreground" />
+          <X className="size-5 text-foreground" />
         </button>
       </div>
     </div>

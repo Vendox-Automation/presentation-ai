@@ -1,15 +1,15 @@
 "use client";
 
-import * as React from "react";
-
-import { type PlateElementProps } from "platejs/react";
-
 import { EmojiInlineIndexSearch, insertEmoji } from "@platejs/emoji";
 import { EmojiPlugin } from "@platejs/emoji/react";
-import { PlateElement, usePluginOption } from "platejs/react";
+import {
+  PlateElement,
+  usePluginOption,
+  type PlateElementProps,
+} from "platejs/react";
+import * as React from "react";
 
 import { useDebounce } from "@/components/plate/hooks/use-debounce";
-
 import {
   InlineCombobox,
   InlineComboboxContent,

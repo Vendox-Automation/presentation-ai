@@ -1,128 +1,66 @@
 "use client";
 
-import type React from "react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 
-type IconModule = Record<string, React.ComponentType<{ size?: number }>>;
-
-export const DEFAULT_PRESENTATION_ICON = "FaHome";
-
-const EXACT_ICON_LOADERS: Record<string, () => Promise<IconModule>> = {
-  fa: async () => (await import("react-icons/fa")) as unknown as IconModule,
-  fi: async () => (await import("react-icons/fi")) as unknown as IconModule,
-  ai: async () => (await import("react-icons/ai")) as unknown as IconModule,
-  bs: async () => (await import("react-icons/bs")) as unknown as IconModule,
-  bi: async () => (await import("react-icons/bi")) as unknown as IconModule,
-  gi: async () => (await import("react-icons/gi")) as unknown as IconModule,
-  hi: async () => (await import("react-icons/hi")) as unknown as IconModule,
-  im: async () => (await import("react-icons/im")) as unknown as IconModule,
-  io: async () => (await import("react-icons/io")) as unknown as IconModule,
-  md: async () => (await import("react-icons/md")) as unknown as IconModule,
-  ri: async () => (await import("react-icons/ri")) as unknown as IconModule,
-  si: async () => (await import("react-icons/si")) as unknown as IconModule,
-  ti: async () => (await import("react-icons/ti")) as unknown as IconModule,
-  vsc: async () => (await import("react-icons/vsc")) as unknown as IconModule,
-  wi: async () => (await import("react-icons/wi")) as unknown as IconModule,
-};
-
-const FUZZY_ICON_LOADERS: Array<() => Promise<IconModule>> = [
-  async () => (await import("react-icons/fa")) as unknown as IconModule,
-  async () => (await import("react-icons/md")) as unknown as IconModule,
-  async () => (await import("react-icons/bs")) as unknown as IconModule,
-  async () => (await import("react-icons/ai")) as unknown as IconModule,
-  async () => (await import("react-icons/fi")) as unknown as IconModule,
-  async () => (await import("react-icons/bi")) as unknown as IconModule,
-];
-
-function renderIcon(
-  iconModule: IconModule,
-  iconName: string,
-  size: number,
-): ReactNode | null {
-  const IconComponent = iconModule[iconName];
-  return IconComponent ? <IconComponent size={size} /> : null;
-}
-
-async function loadExactIcon(
-  iconName: string,
-  size: number,
-): Promise<ReactNode | null> {
-  const normalizedName = iconName.trim();
-  if (!normalizedName) return null;
-
-  const prefix = normalizedName.slice(0, 3).toLowerCase();
-  const fallbackPrefix = normalizedName.slice(0, 2).toLowerCase();
-  const loadModule =
-    EXACT_ICON_LOADERS[prefix] ?? EXACT_ICON_LOADERS[fallbackPrefix];
-
-  if (!loadModule) return null;
-
-  try {
-    return renderIcon(await loadModule(), normalizedName, size);
-  } catch {
-    return null;
-  }
-}
-
-async function loadFuzzyIcon(
-  iconQuery: string,
-  size: number,
-): Promise<ReactNode | null> {
-  const normalizedQuery = iconQuery.trim().toLowerCase();
-  if (!normalizedQuery) return null;
-
-  try {
-    const modules = await Promise.all(
-      FUZZY_ICON_LOADERS.map((loadModule) => loadModule()),
-    );
-
-    for (const iconModule of modules) {
-      const iconName = Object.keys(iconModule).find((key) =>
-        key.toLowerCase().includes(normalizedQuery),
-      );
-
-      if (iconName) {
-        return renderIcon(iconModule, iconName, size);
-      }
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
-}
-
-async function resolveIcon(
-  icon: string,
-  size: number,
-): Promise<ReactNode | null> {
-  return (await loadExactIcon(icon, size)) ?? loadFuzzyIcon(icon, size);
-}
+import {
+  DEFAULT_PRESENTATION_ICON,
+  resolvePresentationIcon,
+  type ResolvedPresentationIcon,
+} from "./presentation-icon-utils";
 
 export function PresentationIcon({
   icon,
   size = 24,
   className,
+  iconClassName,
+  fallbackIcon,
 }: {
   icon?: string;
   size?: number;
   className?: string;
+  iconClassName?: string;
+  fallbackIcon?: string;
 }) {
-  const [iconNode, setIconNode] = useState<ReactNode>(null);
+  const [resolvedIcon, setResolvedIcon] =
+    useState<ResolvedPresentationIcon | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     const run = async () => {
-      if (!icon?.trim()) {
-        if (!cancelled) setIconNode(null);
+      const normalizedIcon = icon?.trim();
+      const normalizedFallbackIcon = fallbackIcon?.trim();
+      const nextIconName = normalizedIcon || normalizedFallbackIcon;
+
+      if (!nextIconName) {
+        if (!cancelled) {
+          setResolvedIcon(null);
+        }
         return;
       }
 
-      const resolvedIcon = await resolveIcon(icon, size);
+      let nextResolvedIcon: ResolvedPresentationIcon | null = null;
+
+      try {
+        nextResolvedIcon = await resolvePresentationIcon(nextIconName);
+      } catch (error) {
+        console.error("Error resolving presentation icon:", error);
+      }
+
+      let fallbackResolvedIcon: ResolvedPresentationIcon | null = null;
+
+      if (!nextResolvedIcon && normalizedIcon) {
+        try {
+          fallbackResolvedIcon = await resolvePresentationIcon(
+            normalizedFallbackIcon || DEFAULT_PRESENTATION_ICON,
+          );
+        } catch (error) {
+          console.error("Error resolving fallback presentation icon:", error);
+        }
+      }
 
       if (!cancelled) {
-        setIconNode(resolvedIcon);
+        setResolvedIcon(nextResolvedIcon ?? fallbackResolvedIcon);
       }
     };
 
@@ -131,9 +69,15 @@ export function PresentationIcon({
     return () => {
       cancelled = true;
     };
-  }, [icon, size]);
+  }, [fallbackIcon, icon]);
 
-  if (!iconNode) return null;
+  if (!resolvedIcon) return null;
 
-  return <div className={className}>{iconNode}</div>;
+  const IconComponent = resolvedIcon.Component;
+
+  return (
+    <div className={className}>
+      <IconComponent aria-hidden="true" className={iconClassName} size={size} />
+    </div>
+  );
 }

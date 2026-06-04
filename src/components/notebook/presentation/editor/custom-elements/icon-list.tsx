@@ -1,10 +1,15 @@
 "use client";
 
 // Import IconItem and constants
-import { cn } from "@/lib/utils";
 import { PlateElement, type PlateElementProps } from "platejs/react";
+
+import { cn } from "@/lib/utils";
 import { type TIconListElement } from "../plugins/icon-list-plugin";
-import { columnSizeVariant } from "../utils";
+import {
+  getDefaultColumnSize,
+  getIconListOrientation,
+  iconListColumnSizeVariant,
+} from "../utils";
 
 export function IconList({
   element,
@@ -13,7 +18,12 @@ export function IconList({
   ref,
   ...props
 }: PlateElementProps<TIconListElement>) {
-  const { columnSize = "md" } = element;
+  const columnSize =
+    element.columnSize ?? getDefaultColumnSize(element.children.length);
+  const orientation = getIconListOrientation(
+    element.orientation,
+    element.children.length,
+  );
 
   return (
     <PlateElement
@@ -22,15 +32,19 @@ export function IconList({
       className={cn("my-6", className)}
       {...props}
     >
-      <div
-        className={cn(
-          "max-w-full gap-6",
-          columnSizeVariant({
-            columnSize: columnSize as "sm" | "md" | "lg" | "xl",
-          }),
-        )}
-      >
-        {children}
+      <div className="@container/icon-list max-w-full">
+        <div
+          data-icon-list-grid="true"
+          className={cn(
+            "gap-6",
+            orientation === "top" && "items-start",
+            iconListColumnSizeVariant({
+              columnSize: columnSize as "sm" | "md" | "lg" | "xl",
+            }),
+          )}
+        >
+          {children}
+        </div>
       </div>
     </PlateElement>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { PlateElement, type StyledPlateElementProps } from "platejs/react";
+
 import { ARROW_LIST, PYRAMID_GROUP, TIMELINE_GROUP } from "../../lib";
 import { type TArrowListElement } from "../../plugins/arrow-plugin";
 import { type TVisualizationListElement } from "../../plugins/legacy/visualization-list-plugin";
@@ -9,6 +10,7 @@ import { type TTimelineGroupElement } from "../../plugins/timeline-plugin";
 import ArrowList from "../arrow-list";
 import Pyramid from "../pyramid";
 import Timeline from "../timeline";
+
 // Main visualization list component with withRef pattern
 export const VisualizationListElement = ({
   element,

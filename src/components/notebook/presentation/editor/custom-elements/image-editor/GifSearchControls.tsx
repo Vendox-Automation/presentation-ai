@@ -1,12 +1,13 @@
 "use client";
 
+import { type TElement } from "platejs";
+import { useEditorRef } from "platejs/react";
+import React from "react";
+
 import { type RootImage as RootImageType } from "@/components/notebook/presentation/utils/parser";
 import { SharedGifSearchControls } from "@/components/presentation/shared/SharedGifSearchControls";
 import { useDebouncedSave } from "@/hooks/presentation/useDebouncedSave";
 import { usePresentationState } from "@/states/presentation-state";
-import { type TElement } from "platejs";
-import { useEditorRef } from "platejs/react";
-import React from "react";
 
 interface GifSearchControlsProps {
   element: TElement & RootImageType;

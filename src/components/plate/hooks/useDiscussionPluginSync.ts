@@ -1,14 +1,15 @@
 "use client";
 
-import {
-  type DiscussionUsersMap,
-  parseStoredDiscussions,
-  type StoredDiscussion,
-} from "@/lib/notes/discussions";
+import { type PlateEditor } from "platejs/react";
+import { useEffect } from "react";
+
 import { discussionPlugin } from "@/components/plate/plugins/discussion-kit";
 import { suggestionPlugin } from "@/components/plate/plugins/suggestion-kit";
-import { useEffect } from "react";
-import { type PlateEditor } from "platejs/react";
+import {
+  parseStoredDiscussions,
+  type DiscussionUsersMap,
+  type StoredDiscussion,
+} from "@/lib/notes/discussions";
 
 type UseDiscussionPluginSyncParams = {
   currentUserId?: string;
@@ -32,7 +33,11 @@ export function useDiscussionPluginSync({
       "discussions",
       parseStoredDiscussions(discussions ?? []),
     );
-    editor.setOption(discussionPlugin, "onDiscussionsChange", onDiscussionsChange);
+    editor.setOption(
+      discussionPlugin,
+      "onDiscussionsChange",
+      onDiscussionsChange,
+    );
     editor.setOption(discussionPlugin, "users", users ?? {});
     editor.setOption(suggestionPlugin, "currentUserId", currentUserId ?? "");
   }, [currentUserId, discussions, editor, onDiscussionsChange, users]);

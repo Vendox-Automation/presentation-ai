@@ -1,19 +1,28 @@
 "use client";
-import { cn } from "@/lib/utils";
+
 import { PlateElement, type PlateElementProps } from "platejs/react";
+
+import { cn } from "@/lib/utils";
 import { type TStatsGroupElement } from "../plugins/stats-plugin";
-import { columnSizeVariant, getAlignmentClasses } from "../utils";
+import {
+  columnSizeVariant,
+  getAlignmentClasses,
+  getDefaultColumnSize,
+} from "../utils";
 
 export default function StatsGroup(
   props: PlateElementProps<TStatsGroupElement>,
 ) {
-  const { columnSize = "sm", alignment = "left" } = props.element;
+  const { alignment = "left" } = props.element;
+  const columnSize =
+    props.element.columnSize ??
+    getDefaultColumnSize(props.element.children.length);
 
   return (
-    <PlateElement {...props} className="mb-4">
+    <PlateElement {...props} className="relative mb-4 w-full max-w-full">
       <div
         className={cn(
-          "max-w-full",
+          "w-full max-w-full min-w-0",
           columnSizeVariant({ columnSize }),
           getAlignmentClasses(alignment),
         )}

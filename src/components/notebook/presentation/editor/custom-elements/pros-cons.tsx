@@ -1,7 +1,8 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import { PlateElement, type PlateElementProps } from "platejs/react";
+
+import { cn } from "@/lib/utils";
 
 export default function ProsConsGroup(props: PlateElementProps) {
   const { alignment = "center" } = props.element;

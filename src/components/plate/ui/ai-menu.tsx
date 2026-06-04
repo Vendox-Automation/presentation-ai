@@ -1,8 +1,5 @@
 "use client";
 
-import * as React from "react";
-
-import { AILoadingLabel } from "@/components/ui/ai-loading-label";
 import {
   AIChatPlugin,
   AIPlugin,
@@ -29,19 +26,20 @@ import {
   X,
 } from "lucide-react";
 import {
+  isHotkey,
   KEYS,
   NodeApi,
   type NodeEntry,
   type SlateEditor,
-  isHotkey,
 } from "platejs";
 import {
-  type PlateEditor,
   useEditorPlugin,
   useEditorRef,
   useHotkeys,
   usePluginOption,
+  type PlateEditor,
 } from "platejs/react";
+import * as React from "react";
 
 import { Button } from "@/components/plate/ui/button";
 import {
@@ -55,8 +53,8 @@ import {
   PopoverAnchor,
   PopoverContent,
 } from "@/components/plate/ui/popover";
+import { AILoadingLabel } from "@/components/ui/ai-loading-label";
 import { cn } from "@/lib/utils";
-
 import { AIChatEditor } from "./ai-chat-editor";
 
 type EditorChatState =
@@ -586,7 +584,7 @@ const menuStateItems: Record<
   ],
 };
 
-export const AIMenuItems = ({
+const AIMenuItems = ({
   input,
   setInput,
   setValue,
@@ -678,7 +676,7 @@ export function AILoadingBar() {
       <AILoadingLabel
         label={status === "submitted" ? "Thinking..." : "Writing..."}
         icon={
-          <span className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+          <span className="size-4 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
         }
       />
       <Button
@@ -687,9 +685,9 @@ export function AILoadingBar() {
         className="flex items-center gap-1 text-xs"
         onClick={() => api.aiChat.stop()}
       >
-        <PauseIcon className="h-4 w-4" />
+        <PauseIcon className="size-4" />
         Stop
-        <kbd className="ml-1 rounded bg-border px-1 font-mono text-[10px] text-muted-foreground shadow-2xs">
+        <kbd className="ml-1 rounded bg-border px-1 font-mono text-[10px] text-muted-foreground shadow-xs">
           Esc
         </kbd>
       </Button>

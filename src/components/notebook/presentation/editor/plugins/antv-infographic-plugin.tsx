@@ -3,6 +3,8 @@
 import { type InfographicOptions } from "@antv/infographic";
 import { type TElement } from "platejs";
 import { createTPlatePlugin } from "platejs/react";
+
+import { type InfographicSlideLayout } from "@/lib/presentation/infographic-layout";
 import { AntvInfographic } from "../custom-elements/antv-infographic";
 import { ANTV_INFOGRAPHIC } from "../lib";
 
@@ -22,6 +24,7 @@ export type TAntvInfographicElement = TElement & {
   isLoading: boolean;
   sourceText?: string;
   generationPrompt?: string;
+  slideLayoutType?: InfographicSlideLayout;
   data?: Partial<InfographicOptions>;
   width?: number | string;
   align?: "center" | "left" | "right";

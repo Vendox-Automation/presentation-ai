@@ -1,15 +1,18 @@
 "use client";
 
+import type React from "react";
+import { createContext, use, useCallback, useState } from "react";
+
 import { type LayoutType } from "@/components/notebook/presentation/utils/parser";
 import { serializeSlidesToXml } from "@/components/notebook/presentation/utils/slide-serializer";
 import { usePresentationState } from "@/states/presentation-state";
-import type React from "react";
-import { createContext, useCallback, useContext, useState } from "react";
 import {
+  layoutMap,
   type ContentAlignment,
   type SlideUpdatePayload,
-  layoutMap,
 } from "./types";
+
+const getPresentationState = usePresentationState.getState;
 
 interface SlideEditorContextValue {
   // State
@@ -30,12 +33,10 @@ interface SlideEditorContextValue {
 
   // Derived state
   currentSlide:
-    | ReturnType<typeof usePresentationState.getState>["slides"][0]
+    | ReturnType<typeof getPresentationState>["slides"][0]
     | undefined;
   currentTheme: string;
-  currentThemeData: ReturnType<
-    typeof usePresentationState.getState
-  >["customThemeData"];
+  currentThemeData: ReturnType<typeof getPresentationState>["customThemeData"];
   currentLayout: LayoutType;
   currentWidth: "S" | "M" | "L";
   currentAlignment: ContentAlignment;
@@ -45,6 +46,7 @@ interface SlideEditorContextValue {
   updateSlide: (updates: SlideUpdatePayload) => void;
   handleImageEdit: () => void;
   handleLayoutChange: (idx: number) => void;
+  handleMagicPrompt: (prompt: string) => void;
   handleAiSubmit: () => void;
   handleAiKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
 }
@@ -52,7 +54,7 @@ interface SlideEditorContextValue {
 const SlideEditorContext = createContext<SlideEditorContextValue | null>(null);
 
 export function useSlideEditorContext() {
-  const context = useContext(SlideEditorContext);
+  const context = use(SlideEditorContext);
   if (!context) {
     throw new Error(
       "useSlideEditorContext must be used within SlideEditorProvider",
@@ -154,20 +156,33 @@ export function SlideEditorProvider({
     [updateSlide],
   );
 
-  const handleAiSubmit = useCallback(() => {
-    if (!aiInput.trim()) return;
-    const { slides } = usePresentationState.getState();
-    const slideToEdit = slides.find((s) => s.id === slideId);
-    if (!slideToEdit) return;
+  const handleMagicPrompt = useCallback(
+    (prompt: string) => {
+      const trimmedPrompt = prompt.trim();
+      if (!trimmedPrompt) return;
 
-    const slideXml = serializeSlidesToXml([slideToEdit], false);
-    setPendingAgentMessage({
-      message: aiInput.trim(),
-      slideContext: slideXml,
-    });
+      const { slides } = usePresentationState.getState();
+      const slideToEdit = slides.find((s) => s.id === slideId);
+      if (!slideToEdit) return;
+
+      const slideXml = serializeSlidesToXml([slideToEdit], false);
+      setCurrentSlideId(slideId);
+      setPendingAgentMessage({
+        message: trimmedPrompt,
+        slideContext: slideXml,
+      });
+      setActiveRightPanel("agent");
+    },
+    [setActiveRightPanel, setCurrentSlideId, setPendingAgentMessage, slideId],
+  );
+
+  const handleAiSubmit = useCallback(() => {
+    const trimmedInput = aiInput.trim();
+    if (!trimmedInput) return;
+
+    handleMagicPrompt(trimmedInput);
     setAiInput("");
-    setActiveRightPanel("agent");
-  }, [aiInput, slideId, setPendingAgentMessage, setActiveRightPanel]);
+  }, [aiInput, handleMagicPrompt]);
 
   const handleAiKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -202,6 +217,7 @@ export function SlideEditorProvider({
     updateSlide,
     handleImageEdit,
     handleLayoutChange,
+    handleMagicPrompt,
     handleAiSubmit,
     handleAiKeyDown,
   };

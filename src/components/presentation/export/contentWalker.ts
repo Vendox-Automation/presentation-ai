@@ -2,16 +2,19 @@
  * PlateJS Content Walker
  * Traverses PlateJS slide content to extract structured elements
  */
-import { type PlateNode } from "@/components/notebook/presentation/utils/parser";
 import { toPng } from "html-to-image";
 import { KEYS } from "platejs";
+
+import { type PlateNode } from "@/components/notebook/presentation/utils/parser";
 import { extractTextStyles } from "./cssVariableResolver";
+import { getEChartSvgDataUrl } from "./echartSvgExport";
 import {
   type BackgroundRectExportElement,
   type DecorExportElement,
   type ElementPosition,
   type ExportElement,
   type ImageExportElement,
+  type NativeShapeType,
   type ShapeExportElement,
   type TableCell,
   type TableExportElement,
@@ -311,6 +314,8 @@ function processTable(
       if (cellDOM && tableWidth > 0) {
         const tableRect = tableDOM.getBoundingClientRect();
         const cellRect = cellDOM.getBoundingClientRect();
+        const textStyleElement =
+          cellDOM.querySelector("h1,h2,h3,h4,h5,h6,p,span") ?? cellDOM;
 
         // Calculate relative position and size in pixels (source dimensions)
         // We will scale these in the converter
@@ -320,6 +325,7 @@ function processTable(
           width: cellRect.width,
           height: cellRect.height,
         };
+        cell.textStyles = extractTextStyles(textStyleElement);
       }
 
       cells.push(cell);
@@ -361,8 +367,10 @@ async function processImage(
     type: "image",
     url: url,
     alt: (node.caption as string) || (node.alt as string) || "",
+    imageSource: node.imageSource as ImageExportElement["imageSource"],
     position,
     sizing: "contain", // Default to contain for clarity
+    stockImageProvider: node.stockImageProvider as string | undefined,
   };
 }
 
@@ -389,8 +397,10 @@ async function processMediaEmbedImage(
     type: "image",
     url: url,
     alt: "Embedded image",
+    imageSource: node.imageSource as ImageExportElement["imageSource"],
     position,
     sizing: "contain",
+    stockImageProvider: node.stockImageProvider as string | undefined,
   };
 }
 
@@ -399,8 +409,8 @@ async function processMediaEmbedImage(
 // ============================================================================
 
 /**
- * Process Chart/AntV elements by converting them to images
- * Elements with type starting with 'chart' or 'antv' are rendered using html-to-image
+ * Process Chart/AntV elements for export.
+ * ECharts render in SVG mode, so prefer their SVG instead of a screenshot.
  */
 async function processChartElement(
   node: PlateNode,
@@ -422,6 +432,17 @@ async function processChartElement(
   );
 
   try {
+    const svgDataUrl = getEChartSvgDataUrl(domElement);
+    if (svgDataUrl) {
+      return {
+        type: "image",
+        url: svgDataUrl,
+        alt: `Chart: ${node.type}`,
+        position,
+        sizing: "contain",
+      };
+    }
+
     // Convert the chart element to a PNG data URL
     const dataUrl = await toPng(domElement as HTMLElement, {
       backgroundColor: "transparent",
@@ -729,7 +750,16 @@ async function scanShapeElements(
   // Find all elements with data-shape
   const shapeElements = Array.from(
     slideElement.querySelectorAll("[data-shape]"),
-  );
+  ).sort((a, b) => {
+    const aOrder = getTimelineShapeOrder(a);
+    const bOrder = getTimelineShapeOrder(b);
+
+    if (aOrder === null || bOrder === null) {
+      return 0;
+    }
+
+    return aOrder - bOrder;
+  });
 
   for (const shapeEl of shapeElements) {
     const shapeElement = createShapeElement(
@@ -749,15 +779,17 @@ function createShapeElement(
   slideElement: Element,
 ): ShapeExportElement | null {
   try {
-    const shapeType = element.getAttribute("data-shape") as
-      | "arrow"
-      | "pill"
-      | "parallelogram";
+    const shapeType = getNativeShapeType(element.getAttribute("data-shape"));
+    if (!shapeType) {
+      return null;
+    }
+
     const orientation =
       (element.getAttribute("data-orientation") as "horizontal" | "vertical") ||
       "horizontal";
 
     let fillColor = element.getAttribute("data-fill-color") ?? "#ffffff";
+    let textColor = element.getAttribute("data-text-color") ?? "";
 
     // Resolve CSS variables if present
     if (fillColor.includes("var(")) {
@@ -767,10 +799,28 @@ function createShapeElement(
       element.style.color = prevColor;
     }
 
-    const position = getElementPositionFromDOM(element, slideElement);
+    if (textColor.includes("var(")) {
+      const prevColor = element.style.color;
+      element.style.color = textColor;
+      textColor = window.getComputedStyle(element).color;
+      element.style.color = prevColor;
+    }
+
+    const position = getElementPositionFromDOM(
+      element,
+      slideElement,
+      shapeType === "ellipse",
+      "height",
+    );
+    position.centerAspectRatio = shapeType === "ellipse" ? true : undefined;
 
     const parentBlock = element.closest(".slate-blockWrapper");
-    if (parentBlock) {
+    if (
+      parentBlock &&
+      (shapeType === "arrow" ||
+        shapeType === "pill" ||
+        shapeType === "parallelogram")
+    ) {
       const parentRect = parentBlock.getBoundingClientRect();
       const slideRect = slideElement.getBoundingClientRect();
 
@@ -789,10 +839,44 @@ function createShapeElement(
       shapeType,
       orientation,
       fillColor: colorToHex(fillColor),
+      textContent: element.getAttribute("data-shape-text") ?? undefined,
+      textColor: textColor ? colorToHex(textColor) : undefined,
       position,
     };
   } catch (error) {
     console.error("Failed to create shape element:", error);
     return null;
   }
+}
+
+function getNativeShapeType(shapeType: string | null): NativeShapeType | null {
+  if (
+    shapeType === "arrow" ||
+    shapeType === "pill" ||
+    shapeType === "parallelogram" ||
+    shapeType === "rect" ||
+    shapeType === "ellipse"
+  ) {
+    return shapeType;
+  }
+
+  return null;
+}
+
+function getTimelineShapeOrder(element: Element): number | null {
+  const role = element.getAttribute("data-shape-role");
+
+  if (role === "timeline-rail") {
+    return 0;
+  }
+
+  if (role === "timeline-connector") {
+    return 1;
+  }
+
+  if (role === "timeline-marker") {
+    return 2;
+  }
+
+  return null;
 }

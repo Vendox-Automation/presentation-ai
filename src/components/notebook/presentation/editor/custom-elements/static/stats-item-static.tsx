@@ -1,7 +1,8 @@
-import { cn } from "@/lib/utils";
 import { Star } from "lucide-react";
 import { NodeApi, PathApi } from "platejs";
 import { SlateElement, type SlateElementProps } from "platejs/static";
+
+import { cn } from "@/lib/utils";
 import {
   type TStatsGroupElement,
   type TStatsItemElement,
@@ -27,14 +28,23 @@ export function StatsItemStatic(props: SlateElementProps<TStatsItemElement>) {
   const renderStatVisual = () => {
     const statValue = parseFloat(stat) || 0;
     const percentage = Math.min(Math.max(statValue, 0), 100);
+    const primaryColor = parentElement?.color || "var(--presentation-primary)";
+    const ringTrackColor =
+      "var(--presentation-card-background, var(--presentation-primary))";
+    const ringProgressColor =
+      parentElement?.color ||
+      "var(--presentation-smart-layout, var(--presentation-primary))";
 
     switch (statsType) {
       case "plain":
         return (
           <div
-            className="text-6xl font-bold text-primary"
+            className={cn(
+              "w-full min-w-0 text-6xl font-bold text-primary wrap-anywhere",
+              getAlignmentClasses(alignment),
+            )}
             style={{
-              color: parentElement?.color || "var(--presentation-primary)",
+              color: primaryColor,
             }}
           >
             {stat}
@@ -43,28 +53,22 @@ export function StatsItemStatic(props: SlateElementProps<TStatsItemElement>) {
 
       case "circle":
         return (
-          <div className="relative h-32 w-32">
+          <div className="relative size-32">
             <svg className="h-full w-full" viewBox="0 0 100 100">
-              {/* Base circle - primary color */}
               <circle
                 cx="50"
                 cy="50"
                 r="45"
                 fill="none"
-                stroke="currentColor"
+                stroke={ringTrackColor}
                 strokeWidth="8"
-                className="text-primary"
-                style={{
-                  color: parentElement?.color || "var(--presentation-primary)",
-                }}
               />
-              {/* Progress circle - secondary color */}
               <circle
                 cx="50"
                 cy="50"
                 r="45"
                 fill="none"
-                stroke="var(--presentation-secondary)"
+                stroke={ringProgressColor}
                 strokeWidth="8"
                 strokeDasharray={`${2 * Math.PI * 45}`}
                 strokeDashoffset={`${2 * Math.PI * 45 * (1 - percentage / 100)}`}
@@ -75,7 +79,7 @@ export function StatsItemStatic(props: SlateElementProps<TStatsItemElement>) {
               <span
                 className="text-2xl font-bold"
                 style={{
-                  color: parentElement?.color || "var(--presentation-primary)",
+                  color: ringProgressColor,
                 }}
               >
                 {stat}
@@ -86,52 +90,42 @@ export function StatsItemStatic(props: SlateElementProps<TStatsItemElement>) {
 
       case "circle-bold":
         return (
-          <div className="relative h-35 w-35">
+          <div className="relative size-35">
             <svg className="h-full w-full" viewBox="0 0 100 100">
-              {/* Outer bold circle - primary color */}
               <circle
                 cx="50"
                 cy="50"
                 r="40"
                 fill="none"
-                stroke="currentColor"
+                stroke={ringTrackColor}
                 strokeWidth="12"
-                className="text-primary"
-                style={{
-                  color: parentElement?.color || "var(--presentation-primary)",
-                }}
               />
-              {/* Progress circle - secondary color */}
               <circle
                 cx="50"
                 cy="50"
                 r="40"
                 fill="none"
-                stroke="var(--presentation-secondary)"
+                stroke={ringProgressColor}
                 strokeWidth="12"
                 strokeDasharray={`${2 * Math.PI * 40}`}
                 strokeDashoffset={`${2 * Math.PI * 40 * (1 - percentage / 100)}`}
                 transform="rotate(-90 50 50)"
               />
-              {/* Inner decorative circle */}
               <circle
                 cx="50"
                 cy="50"
                 r="30"
                 fill="none"
-                stroke="currentColor"
+                stroke={ringTrackColor}
                 strokeWidth="4"
-                className="text-primary opacity-40"
-                style={{
-                  color: parentElement?.color || "var(--presentation-primary)",
-                }}
+                opacity="0.4"
               />
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
               <span
                 className="text-2xl font-bold"
                 style={{
-                  color: parentElement?.color || "var(--presentation-primary)",
+                  color: ringProgressColor,
                 }}
               >
                 {stat}
@@ -202,11 +196,11 @@ export function StatsItemStatic(props: SlateElementProps<TStatsItemElement>) {
         const filledDots = Math.round((percentage / 100) * 100);
         return (
           <div className="flex flex-col gap-2">
-            <div className="grid h-32 w-32 grid-cols-10 gap-1">
+            <div className="grid size-32 grid-cols-10 gap-1">
               {Array.from({ length: 100 }).map((_, i) => (
                 <div
                   key={i}
-                  className="h-2 w-2 rounded-full"
+                  className="size-2 rounded-full"
                   style={{
                     backgroundColor:
                       i < filledDots
@@ -262,10 +256,11 @@ export function StatsItemStatic(props: SlateElementProps<TStatsItemElement>) {
   };
 
   return (
-    <div className={cn("grid grid-flow-row grid-cols-1 gap-4 p-6")}>
+    <div className={cn("grid min-w-0 grid-flow-row grid-cols-1 gap-4 p-6")}>
       <div
-        className="flex h-max w-full"
+        className="flex h-max w-full min-w-0"
         contentEditable={false}
+        data-decor="true"
         data-slate-void="true"
       >
         {renderStatVisual()}
@@ -277,5 +272,3 @@ export function StatsItemStatic(props: SlateElementProps<TStatsItemElement>) {
     </div>
   );
 }
-
-

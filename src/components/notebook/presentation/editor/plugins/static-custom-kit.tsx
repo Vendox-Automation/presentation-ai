@@ -1,37 +1,3 @@
-import { createTPlatePlugin } from "platejs/react";
-import {
-  ANTV_INFOGRAPHIC,
-  ARROW_LIST,
-  ARROW_LIST_ITEM,
-  BEFORE_AFTER_GROUP,
-  BEFORE_AFTER_SIDE,
-  BOX_GROUP,
-  BOX_ITEM,
-  BULLET_GROUP,
-  BULLET_ITEM,
-  BUTTON_ELEMENT,
-  COMPARE_GROUP,
-  COMPARE_SIDE,
-  CONS_ITEM,
-  CYCLE_GROUP,
-  CYCLE_ITEM,
-  ICON_ELEMENT,
-  ICON_LIST,
-  ICON_LIST_ITEM,
-  PROS_CONS_GROUP,
-  PROS_ITEM,
-  PYRAMID_GROUP,
-  PYRAMID_ITEM,
-  SEQUENCE_ARROW_GROUP,
-  SEQUENCE_ARROW_ITEM,
-  STAIRCASE_GROUP,
-  STAIR_ITEM,
-  STATS_GROUP,
-  STATS_ITEM,
-  TIMELINE_GROUP,
-  TIMELINE_ITEM,
-} from "../lib";
-
 import {
   BaseTableCellHeaderPlugin,
   BaseTableCellPlugin,
@@ -39,6 +5,8 @@ import {
   BaseTableRowPlugin,
 } from "@platejs/table";
 import { KEYS } from "platejs";
+import { createTPlatePlugin } from "platejs/react";
+
 import VisualizationItemElementStatic from "../custom-elements/legacy/visualization-item-static";
 import VisualizationListElementStatic from "../custom-elements/legacy/visualization-list-static";
 import AntvInfographicStatic from "../custom-elements/static/antv-infographic-static";
@@ -51,9 +19,14 @@ import BoxGroupStatic from "../custom-elements/static/box-static";
 import { BulletItemStatic } from "../custom-elements/static/bullet-item-static";
 import { BulletsElementStatic } from "../custom-elements/static/bullet-static";
 import ButtonStatic from "../custom-elements/static/button-static";
+import { CircularGridItemStatic } from "../custom-elements/static/circular-grid-item-static";
+import CircularGridStatic from "../custom-elements/static/circular-grid-static";
 import { CompareSideStatic } from "../custom-elements/static/compare-side-static";
 import CompareGroupStatic from "../custom-elements/static/compare-static";
+import { ConnectedCircleItemStatic } from "../custom-elements/static/connected-circle-item-static";
+import ConnectedCirclesStatic from "../custom-elements/static/connected-circles-static";
 import { ConsItemStatic } from "../custom-elements/static/cons-item-static";
+import { ContributorStatic } from "../custom-elements/static/contributor-static";
 import { CycleElementStatic } from "../custom-elements/static/cycle-element-static";
 import { CycleItemStatic } from "../custom-elements/static/cycle-item-static";
 import FlexBoxStatic from "../custom-elements/static/flex-box-static";
@@ -61,6 +34,7 @@ import { GeneratingLeafStatic } from "../custom-elements/static/generating-leaf-
 import { IconListItemStatic } from "../custom-elements/static/icon-list-item-static";
 import { IconListStatic } from "../custom-elements/static/icon-list-static";
 import { IconStatic } from "../custom-elements/static/icon-static";
+import { LabelStatic } from "../custom-elements/static/label-static";
 import { MediaEmbedElementStatic } from "../custom-elements/static/media-embed-element-static";
 import { PresentationImageElementStatic } from "../custom-elements/static/presentation-image-element-static";
 import {
@@ -69,6 +43,7 @@ import {
   PresentationTableElementStatic,
   PresentationTableRowElementStatic,
 } from "../custom-elements/static/presentation-table-static";
+import { PresentationTitleStatic } from "../custom-elements/static/presentation-title-static";
 import ProsConsGroupStatic from "../custom-elements/static/pros-cons-static";
 import { ProsItemStatic } from "../custom-elements/static/pros-item-static";
 import { PyramidItemStatic } from "../custom-elements/static/pyramid-item-static";
@@ -76,13 +51,65 @@ import PyramidStatic from "../custom-elements/static/pyramid-static";
 import { QuoteStatic } from "../custom-elements/static/quote-static";
 import { SequenceArrowItemStatic } from "../custom-elements/static/sequence-arrow-item-static";
 import SequenceArrowStatic from "../custom-elements/static/sequence-arrow-static";
+import { SlopeItemStatic } from "../custom-elements/static/slope-item-static";
+import SlopeStatic from "../custom-elements/static/slope-static";
+import { SnakeItemStatic } from "../custom-elements/static/snake-item-static";
+import SnakeStatic from "../custom-elements/static/snake-static";
 import { StairItemStatic } from "../custom-elements/static/staircase-item-static";
 import StaircaseStatic from "../custom-elements/static/staircase-static";
 import { StatsItemStatic } from "../custom-elements/static/stats-item-static";
 import StatsGroupStatic from "../custom-elements/static/stats-static";
+import StepsElementStatic from "../custom-elements/static/steps-element-static";
+import { StepsItemStatic } from "../custom-elements/static/steps-item-static";
 import { TimelineItemStatic } from "../custom-elements/static/timeline-item-static";
 import TimelineStatic from "../custom-elements/static/timeline-static";
-import { FLEX_BOX, QUOTE_ELEMENT } from "../lib";
+import {
+  ANTV_INFOGRAPHIC,
+  ARROW_LIST,
+  ARROW_LIST_ITEM,
+  BEFORE_AFTER_GROUP,
+  BEFORE_AFTER_SIDE,
+  BOX_GROUP,
+  BOX_ITEM,
+  BULLET_GROUP,
+  BULLET_ITEM,
+  BUTTON_ELEMENT,
+  CIRCULAR_GRID_GROUP,
+  CIRCULAR_GRID_ITEM,
+  COMPARE_GROUP,
+  COMPARE_SIDE,
+  CONNECTED_CIRCLES_GROUP,
+  CONNECTED_CIRCLES_ITEM,
+  CONS_ITEM,
+  CONTRIBUTOR_ELEMENT,
+  CYCLE_GROUP,
+  CYCLE_ITEM,
+  FLEX_BOX,
+  ICON_ELEMENT,
+  ICON_LIST,
+  ICON_LIST_ITEM,
+  LABEL_ELEMENT,
+  PRESENTATION_TITLE_ELEMENT,
+  PROS_CONS_GROUP,
+  PROS_ITEM,
+  PYRAMID_GROUP,
+  PYRAMID_ITEM,
+  QUOTE_ELEMENT,
+  SEQUENCE_ARROW_GROUP,
+  SEQUENCE_ARROW_ITEM,
+  SLOPE_GROUP,
+  SLOPE_ITEM,
+  SNAKE_GROUP,
+  SNAKE_ITEM,
+  STAIR_ITEM,
+  STAIRCASE_GROUP,
+  STATS_GROUP,
+  STATS_ITEM,
+  STEPS_GROUP,
+  STEPS_ITEM,
+  TIMELINE_GROUP,
+  TIMELINE_ITEM,
+} from "../lib";
 import {
   AreaChartStaticPlugin,
   BarChartStaticPlugin,
@@ -96,8 +123,8 @@ import {
   FunnelChartStaticPlugin,
   HeatmapChartStaticPlugin,
   HistogramChartStaticPlugin,
-  LineChartStaticPlugin,
   LinearGaugeStaticPlugin,
+  LineChartStaticPlugin,
   NightingaleChartStaticPlugin,
   OhlcChartStaticPlugin,
   PieChartStaticPlugin,
@@ -114,6 +141,7 @@ import {
   TreemapChartStaticPlugin,
   WaterfallChartStaticPlugin,
 } from "./chart-plugin";
+
 export const PresentationStaticCustomKit = [
   // Image
   createTPlatePlugin({
@@ -158,6 +186,38 @@ export const PresentationStaticCustomKit = [
     node: { isElement: true, component: CycleItemStatic },
   }),
   createTPlatePlugin({
+    key: SLOPE_GROUP,
+    node: { isElement: true, component: SlopeStatic },
+  }),
+  createTPlatePlugin({
+    key: SLOPE_ITEM,
+    node: { isElement: true, component: SlopeItemStatic },
+  }),
+  createTPlatePlugin({
+    key: CONNECTED_CIRCLES_GROUP,
+    node: { isElement: true, component: ConnectedCirclesStatic },
+  }),
+  createTPlatePlugin({
+    key: CONNECTED_CIRCLES_ITEM,
+    node: { isElement: true, component: ConnectedCircleItemStatic },
+  }),
+  createTPlatePlugin({
+    key: CIRCULAR_GRID_GROUP,
+    node: { isElement: true, component: CircularGridStatic },
+  }),
+  createTPlatePlugin({
+    key: CIRCULAR_GRID_ITEM,
+    node: { isElement: true, component: CircularGridItemStatic },
+  }),
+  createTPlatePlugin({
+    key: SNAKE_GROUP,
+    node: { isElement: true, component: SnakeStatic },
+  }),
+  createTPlatePlugin({
+    key: SNAKE_ITEM,
+    node: { isElement: true, component: SnakeItemStatic },
+  }),
+  createTPlatePlugin({
     key: ICON_ELEMENT,
     node: { isElement: true, component: IconStatic },
   }),
@@ -184,6 +244,14 @@ export const PresentationStaticCustomKit = [
   createTPlatePlugin({
     key: TIMELINE_ITEM,
     node: { isElement: true, component: TimelineItemStatic },
+  }),
+  createTPlatePlugin({
+    key: STEPS_GROUP,
+    node: { isElement: true, component: StepsElementStatic },
+  }),
+  createTPlatePlugin({
+    key: STEPS_ITEM,
+    node: { isElement: true, component: StepsItemStatic },
   }),
   // Box
   createTPlatePlugin({
@@ -247,6 +315,18 @@ export const PresentationStaticCustomKit = [
   createTPlatePlugin({
     key: BUTTON_ELEMENT,
     node: { isElement: true, component: ButtonStatic },
+  }),
+  createTPlatePlugin({
+    key: PRESENTATION_TITLE_ELEMENT,
+    node: { isElement: true, component: PresentationTitleStatic },
+  }),
+  createTPlatePlugin({
+    key: LABEL_ELEMENT,
+    node: { isElement: true, component: LabelStatic },
+  }),
+  createTPlatePlugin({
+    key: CONTRIBUTOR_ELEMENT,
+    node: { isElement: true, component: ContributorStatic },
   }),
   // FlexBox
   createTPlatePlugin({
@@ -318,5 +398,3 @@ export const PresentationStaticCustomKit = [
     node: { isElement: true, isVoid: true, component: AntvInfographicStatic },
   }),
 ];
-
-

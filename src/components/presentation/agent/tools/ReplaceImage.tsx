@@ -1,5 +1,8 @@
 "use client";
 
+import { ImageIcon, Loader2, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,22 +11,24 @@ import {
   executeToolAction,
   getSlidesToUpdate,
 } from "@/hooks/presentation/agentTools";
-import { ImageIcon, Loader2, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
 
 type Scope = "all" | undefined;
 
 export function PresentationReplaceImageCall({
   imageUrl,
   imagePrompt,
+  imageSource,
   scope,
   slideIds,
+  stockImageProvider,
   loading,
 }: {
   imageUrl?: string;
   imagePrompt?: string;
+  imageSource?: "ai" | "stock" | "gif";
   scope?: Scope;
   slideIds?: string[];
+  stockImageProvider?: "unsplash" | "pixabay" | "google";
   loading?: boolean;
 }) {
   const [url, setUrl] = useState(imageUrl ?? "");
@@ -36,27 +41,22 @@ export function PresentationReplaceImageCall({
   );
 
   const isImageUrl = useMemo(() => {
-    if (!url) {
+    if (!url) return false;
+    try {
+      return /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
+    } catch {
       return false;
     }
-
-    return /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
   }, [url]);
 
   useEffect(() => {
-    if (!imageUrl && !imagePrompt) {
-      return;
-    }
-
+    if (!imageUrl && !imagePrompt) return;
     setUrl(imageUrl ?? "");
     setPrompt(imagePrompt ?? "");
   }, [imageUrl, imagePrompt]);
 
   const apply = () => {
-    if (!url && !prompt) {
-      return;
-    }
-
+    if (!url && !prompt) return;
     try {
       executeToolAction({
         action: "replace_image",
@@ -64,6 +64,8 @@ export function PresentationReplaceImageCall({
         slideIds: scope === "all" ? undefined : targetSlides,
         ...(url ? { imageUrl: url } : {}),
         ...(prompt ? { imagePrompt: prompt } : {}),
+        ...(imageSource ? { imageSource } : {}),
+        ...(stockImageProvider ? { stockImageProvider } : {}),
       });
     } catch (error) {
       console.error("Error replacing image:", error);
@@ -74,7 +76,8 @@ export function PresentationReplaceImageCall({
 
   const slideCount = targetSlides?.length ?? 0;
 
-  if (!imageUrl && !imagePrompt && !url && !prompt) {
+  // Show loading state when no values are available (AI still filling args)
+  if (!imageUrl && !imagePrompt && !url && !prompt)
     return (
       <div className="w-full rounded-lg border bg-card p-3">
         <div className="flex items-center gap-2">
@@ -85,7 +88,6 @@ export function PresentationReplaceImageCall({
         </div>
       </div>
     );
-  }
 
   if (isEditing) {
     return (
@@ -113,19 +115,18 @@ export function PresentationReplaceImageCall({
             <Label className="text-xs">Image URL</Label>
             <Input
               value={url}
-              onChange={(event) => setUrl(event.target.value || "")}
+              onChange={(e) => setUrl(e.target.value || "")}
               placeholder="https://example.com/image.jpg"
               className="h-9"
             />
           </div>
-
           <div className="space-y-1.5">
             <Label className="text-xs">Or Generate with Prompt</Label>
             <Textarea
               value={prompt}
-              onChange={(event) => setPrompt(event.target.value || "")}
+              onChange={(e) => setPrompt(e.target.value || "")}
               placeholder="A modern abstract background..."
-              className="min-h-[60px] resize-none"
+              className="min-h-15 resize-none"
             />
           </div>
         </div>
@@ -154,6 +155,7 @@ export function PresentationReplaceImageCall({
 
   return (
     <button
+      type="button"
       onClick={() => setIsEditing(true)}
       disabled={loading}
       className="w-full rounded-lg border bg-card p-4 text-left transition-colors hover:bg-accent/50 disabled:opacity-60"
@@ -170,20 +172,20 @@ export function PresentationReplaceImageCall({
             </div>
             {url ? (
               <div className="mt-1 flex items-center gap-2">
-                {isImageUrl ? (
-                  // biome-ignore lint/performance/noImgElement: Dynamic preview in tool message
+                {isImageUrl && (
+                  // biome-ignore lint/performance/noImgElement: We can't use Image component
                   <img
-                    src={url}
+                    src={url || "/placeholder.svg"}
                     alt="Preview"
                     className="h-8 w-8 rounded object-cover"
                   />
-                ) : null}
-                <span className="line-clamp-1 text-xs text-muted-foreground">
+                )}
+                <span className="line-clamp-1 text-xs text-ellipsis text-muted-foreground">
                   {url}
                 </span>
               </div>
             ) : prompt ? (
-              <p className="mt-1 line-clamp-1 max-w-full text-xs text-muted-foreground">
+              <p className="mt-1 line-clamp-1 max-w-full text-xs text-ellipsis text-muted-foreground">
                 Generated: {prompt}
               </p>
             ) : (

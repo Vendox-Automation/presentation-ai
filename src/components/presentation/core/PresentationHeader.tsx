@@ -1,6 +1,8 @@
 "use client";
-import { Brain } from "@/components/ui/icons";
-import { usePresentationState } from "@/states/presentation-state";
+
+import { Bot, Palette } from "lucide-react";
+import * as motion from "motion/react-client";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -8,13 +10,15 @@ import { useEffect, useState } from "react";
 // Import our new components
 import { updatePresentationTitle } from "@/app/_actions/notebook/presentation/presentationActions";
 import AllweoneText from "@/components/globals/allweone-logo";
+import { ExportButton } from "@/components/presentation/buttons/ExportButton";
 import { PresentButton } from "@/components/presentation/buttons/PresentButton";
 import { ShareButton } from "@/components/presentation/buttons/ShareButton";
 import { PresentationMenu } from "@/components/presentation/controls/PresentationMenu";
+import { PresentationSavingIndicator } from "@/components/presentation/core/PresentationSavingIndicator";
 import { Button } from "@/components/ui/button";
+import { Brain } from "@/components/ui/icons";
 import { Input } from "@/components/ui/input";
-import { Bot, Palette } from "lucide-react";
-import * as motion from "motion/react-client";
+import { usePresentationState } from "@/states/presentation-state";
 
 interface PresentationHeaderProps {
   title?: string;
@@ -34,14 +38,20 @@ export default function PresentationHeader({ title }: PresentationHeaderProps) {
     (s) => s.setActiveRightPanel,
   );
 
-  const [presentationTitle, setPresentationTitle] =
-    useState<string>("Presentation");
+  const { status } = useSession();
+
+  const [presentationTitle, setPresentationTitle] = useState<string>(
+    "Presentation",
+  );
   const pathname = usePathname();
 
   const isPresentationPage =
     (pathname.startsWith("/presentation/") ||
       pathname.startsWith("/share/presentation/")) &&
     !pathname.includes("generate");
+
+  const isLoggedOut = status === "unauthenticated";
+  const showBrand = isLoggedOut;
 
   // Update title when it changes in the state
   useEffect(() => {
@@ -89,61 +99,94 @@ export default function PresentationHeader({ title }: PresentationHeaderProps) {
     >
       {/* Left section with breadcrumb navigation */}
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        <Link
-          href="/presentations"
-          className="text-muted-foreground hover:text-foreground"
-        >
-          <Brain className="h-5 w-5"></Brain>
-        </Link>
-        {isPresentationPage && <PresentationMenu readOnly={isReadOnly} />}
-        <Input
-          type="text"
-          id="presentation-title-input"
-          value={presentationTitle}
-          onChange={(e) => setPresentationTitle(e.target.value)}
-          disabled={isReadOnly}
-          onBlur={async () => {
-            if (isReadOnly) {
-              return;
-            }
-            if (
-              presentationTitle &&
-              currentPresentationTitle !== presentationTitle &&
-              currentPresentationId
-            ) {
-              try {
-                await updatePresentationTitle(
-                  currentPresentationId,
-                  presentationTitle,
-                );
-              } catch {
-                setPresentationTitle(currentPresentationTitle || "");
+        {showBrand ? (
+          <Link href="/">
+            <AllweoneText className="h-8 w-28" />
+          </Link>
+        ) : (
+          <Link
+            href="/presentations"
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <Brain className="h-5 w-5"></Brain>
+          </Link>
+        )}
+        {isPresentationPage && !isLoggedOut && (
+          <PresentationMenu readOnly={isReadOnly} />
+        )}
+        {isLoggedOut ? (
+          <span className="truncate text-sm font-medium text-foreground sm:hidden">
+            {presentationTitle}
+          </span>
+        ) : (
+          <Input
+            type="text"
+            id="presentation-title-input"
+            value={presentationTitle}
+            onChange={(e) => setPresentationTitle(e.target.value)}
+            disabled={isReadOnly}
+            onBlur={async () => {
+              if (isReadOnly) {
+                return;
               }
-            }
-          }}
-          className="line-clamp-1 h-auto min-w-0 flex-1 cursor-text rounded-xs border-none bg-transparent p-0 font-medium text-ellipsis shadow-none outline-hidden sm:max-w-96"
-          style={{
-            appearance: "none",
-          }}
-        />
+              if (
+                presentationTitle &&
+                currentPresentationTitle !== presentationTitle &&
+                currentPresentationId
+              ) {
+                try {
+                  await updatePresentationTitle(
+                    currentPresentationId,
+                    presentationTitle,
+                  );
+                } catch {
+                  setPresentationTitle(currentPresentationTitle || "");
+                }
+              }
+            }}
+            className="line-clamp-1 h-auto min-w-0 flex-1 cursor-text rounded-xs border-none bg-transparent p-0 font-medium text-ellipsis shadow-none outline-none sm:max-w-96"
+            style={{
+              appearance: "none",
+            }}
+          />
+        )}
       </div>
+
+      {isLoggedOut ? (
+        <div className="pointer-events-none absolute top-1/2 left-1/2 w-[min(60vw,40rem)] -translate-x-1/2 -translate-y-1/2 px-3 text-center">
+          <span className="line-clamp-1 text-lg font-medium text-foreground">
+            {presentationTitle}
+          </span>
+        </div>
+      ) : null}
 
       {/* Right section with actions */}
       <div className="scrollbar-hide flex max-w-[56vw] shrink-0 items-center gap-2 overflow-x-auto md:max-w-none md:overflow-visible">
+        {/* Saving indicator - Placed right before Theme button */}
+        {isPresentationPage && !isPresenting && !isReadOnly && (
+          <PresentationSavingIndicator />
+        )}
+
         {/* Theme button - Only in presentation page, not outline or present mode */}
         {isPresentationPage && !isPresenting && !isReadOnly && (
           <Button
             variant="ghost"
             className="h-9 gap-1.5"
-            title="Theme"
             onClick={() => setActiveRightPanel("theme")}
           >
             <Palette className="size-4" />
-            <span className="hidden sm:inline">Theme</span>
+            <span className="sr-only">
+              Theme
+            </span>
+            <span className="hidden sm:inline">
+              Theme
+            </span>
           </Button>
         )}
 
         {/* Export button - Only in presentation page, not outline or present mode */}
+        {isPresentationPage && !isPresenting && !isReadOnly && <ExportButton />}
+
         {/* Share button - Only in presentation page, not outline */}
         {isPresentationPage && !isPresenting && !isReadOnly && <ShareButton />}
 
@@ -153,20 +196,25 @@ export default function PresentationHeader({ title }: PresentationHeaderProps) {
             variant={activeRightPanel === "agent" ? "default" : "outline"}
             size="sm"
             onClick={() => {
-              setActiveRightPanel(activeRightPanel === "agent" ? null : "agent");
+              setActiveRightPanel(
+                activeRightPanel === "agent" ? null : "agent",
+              );
             }}
             className="gap-2"
           >
             <Bot className="h-4 w-4" />
-            <span className="hidden sm:inline">Agent</span>
+            <span className="sr-only">
+              Agent
+            </span>
+            <span className="hidden sm:inline">
+              Agent
+            </span>
           </Button>
         )}
 
         {/* Present button - Only in presentation page, not outline */}
         {isPresentationPage && <PresentButton />}
 
-        {/* User profile dropdown - Keep this on all pages */}
-        {/* {!isPresenting && <SideBarDropdown />} */}
       </div>
     </header>
   );

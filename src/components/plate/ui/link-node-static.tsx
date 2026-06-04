@@ -1,5 +1,5 @@
 import { type TLinkElement } from "platejs";
-import { type SlateElementProps, SlateElement } from "platejs/static";
+import { SlateElement, type SlateElementProps } from "platejs/static";
 
 export function LinkElementStatic(props: SlateElementProps<TLinkElement>) {
   return (
@@ -12,5 +12,3 @@ export function LinkElementStatic(props: SlateElementProps<TLinkElement>) {
     </SlateElement>
   );
 }
-
-

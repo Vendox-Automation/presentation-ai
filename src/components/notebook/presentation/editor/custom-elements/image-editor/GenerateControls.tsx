@@ -1,11 +1,13 @@
 "use client";
 
+import Image from "next/image";
+import { type TElement } from "platejs";
+import { useEditorRef } from "platejs/react";
+
 import { type Image as GeneratedImage } from "@/app/_actions/apps/image-studio/fetch";
 import { SharedGenerateControls } from "@/components/presentation/shared/SharedGenerateControls";
 import { useDebouncedSave } from "@/hooks/presentation/useDebouncedSave";
 import { usePresentationState } from "@/states/presentation-state";
-import { type TElement } from "platejs";
-import { useEditorRef } from "platejs/react";
 import { type RootImage as RootImageType } from "../../../utils/parser";
 import { ActionButtons } from "./ActionButtons";
 import { ImagePreview } from "./ImagePreview";
@@ -111,7 +113,7 @@ export function GenerateControls({
 
       <div className="flex flex-col gap-2">
         <div className="flex justify-center">
-          <div className="relative flex size-90 items-center justify-center overflow-hidden rounded-md border bg-muted shadow-xs">
+          <div className="relative flex size-90 items-center justify-center overflow-hidden rounded-md border bg-muted shadow">
             {imageDimensions ? (
               <ImagePreview
                 element={element}
@@ -128,13 +130,17 @@ export function GenerateControls({
                 onCropSettingsChange={() => {}}
                 hideControls={true}
               />
-            ) : (
-              // biome-ignore lint/performance/noImgElement: This is necessary to support different types of thing
-              <img
+            ) : element.url ? (
+              <Image
+                unoptimized
+                width={400}
+                height={300}
                 src={element.url}
                 alt="Preview"
                 className="h-full w-full object-cover"
               />
+            ) : (
+              <div className="h-full w-full bg-muted" />
             )}
           </div>
         </div>

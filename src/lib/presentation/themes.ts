@@ -52,7 +52,7 @@ export interface ThemeColors {
 
 export type ThemeColorsKeys = keyof ThemeColors;
 
-interface ThemeFonts {
+export interface ThemeFonts {
   heading: string;
   body: string;
   headingWeight?: number;
@@ -65,13 +65,13 @@ interface ThemeTransitions {
   default: string;
 }
 
-interface ThemeShadows {
+export interface ThemeShadows {
   card: string;
   button: string;
   slide: string;
 }
 
-interface ThemeBorderRadius {
+export interface ThemeBorderRadius {
   card: string;
   slide: string;
   button: string;
@@ -112,20 +112,6 @@ export interface ThemeProperties {
 }
 
 export type Themes = keyof typeof themes;
-
-// ============ Helper Functions ============
-
-export function isLightTheme(theme: ThemeProperties): boolean {
-  return theme.mode === "light";
-}
-
-export function isDarkTheme(theme: ThemeProperties): boolean {
-  return theme.mode === "dark";
-}
-
-export function getThemesByMode(mode: ThemeMode): ThemeProperties[] {
-  return Object.values(themes).filter((t) => t.mode === mode);
-}
 
 // ============ Themes ============
 
@@ -218,39 +204,27 @@ export const themes: { [key in ThemeName]: ThemeProperties } = {
 
   // ==================== CORNFLOWER / INDIGO ====================
   cornflower: {
+    mode: "dark",
+    fonts: { body: "Raleway", heading: "Prata" },
+    colors: {
+      text: "#CFCBBF",
+      accent: "#F4E883",
+      heading: "#AE8625",
+      primary: "#D2AC47",
+      background: "#1B1C1D",
+      smartLayout: "#AE8625",
+      cardBackground: "#1B1C1D",
+    },
+    shadows: {
+      card: "0 1px 3px rgba(0,0,0,0.05)",
+      slide: "0 2px 4px rgba(0,0,0,0.04)",
+      button: "0 1px 2px rgba(0,0,0,0.03)",
+    },
+    background: { type: "solid", override: "#0a0a0a" },
+    transitions: { default: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)" },
+    borderRadius: { card: "0.5rem", slide: "0.5rem", button: "0.375rem" },
     name: "Cornflower",
     description: "Professional and bold",
-    mode: "light",
-    colors: {
-      primary: "#4F46E5",
-      accent: "#818CF8",
-      background: "#F8FAFC",
-      text: "#334155",
-      heading: "#4F46E5",
-      smartLayout: "#4F46E5",
-      cardBackground: "#FFFFFF",
-    },
-    fonts: { heading: "Poppins", body: "Source Sans Pro" },
-    borderRadius: {
-      card: "1rem",
-      slide: "1.25rem",
-      button: "0.25rem",
-    },
-    transitions: { default: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)" },
-    shadows: {
-      card: "0 4px 6px rgba(79,70,229,0.08), 0 10px 20px rgba(79,70,229,0.12)",
-      button: "0 4px 14px rgba(79,70,229,0.3)",
-      slide: "0 10px 40px rgba(79,70,229,0.15), 0 2px 8px rgba(0,0,0,0.05)",
-    },
-    background: {
-      type: "radial",
-      override: `
-        radial-gradient(circle at 10% 10%, #4F46E515 0%, transparent 30%),
-        radial-gradient(circle at 90% 20%, #818CF815 0%, transparent 40%),
-        radial-gradient(circle at 50% 80%, #312E8110 0%, transparent 50%),
-        #F8FAFC
-      `,
-    },
   },
 
   indigo: {
@@ -1564,6 +1538,7 @@ export function setThemeVariables(
 
   element.style.setProperty("--presentation-primary", colors.primary);
   element.style.setProperty("--presentation-accent", colors.accent);
+  element.style.setProperty("--presentation-secondary", colors.accent);
   element.style.setProperty("--presentation-background", colors.background);
   element.style.setProperty("--presentation-text", colors.text);
   element.style.setProperty("--presentation-heading", colors.heading);

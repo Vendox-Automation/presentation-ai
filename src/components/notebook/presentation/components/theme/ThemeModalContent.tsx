@@ -1,5 +1,7 @@
 "use client";
 
+import { X } from "lucide-react";
+
 import { ThemeCardSkeleton } from "@/components/notebook/presentation/components/theme/ThemeCardSkeleton";
 import { ThemeCard } from "@/components/presentation/edit-panel/sections/theme/ThemeCard";
 import { Button } from "@/components/ui/button";
@@ -9,7 +11,12 @@ import {
   themes as builtInThemes,
   type ThemeProperties,
 } from "@/lib/presentation/themes";
-import { X } from "lucide-react";
+
+const THEME_SKELETON_KEYS = [
+  "theme-skeleton-1",
+  "theme-skeleton-2",
+  "theme-skeleton-3",
+] as const;
 
 interface CustomTheme {
   id: string;
@@ -33,9 +40,7 @@ interface ThemeModalContentProps {
   selectedThemeId: string | null;
   onPreviewTheme: (id: string, theme: ThemeProperties) => void;
   userThemes: CustomTheme[];
-  publicThemes: CustomTheme[];
   isLoadingUserThemes: boolean;
-  isLoadingPublicThemes: boolean;
   onApplyTheme: () => void;
   onClose: () => void;
 }
@@ -50,21 +55,23 @@ export function ThemeModalContent({
 
   onPreviewTheme,
   userThemes,
-  publicThemes,
   isLoadingUserThemes,
-  isLoadingPublicThemes,
   onApplyTheme,
   onClose,
 }: ThemeModalContentProps) {
   const hasUserThemes = userThemes.length > 0;
-  const hasPublicThemes = publicThemes.length > 0;
 
   return (
-    <div className="flex h-full max-h-[85vh] w-full flex-col overflow-hidden border-border bg-background lg:w-[40%] lg:border-r">
+    <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden border-border bg-background lg:basis-[40%] lg:border-r">
       <div className="flex shrink-0 items-center justify-between border-b border-border px-2">
         <h2 className="p-4 text-lg font-semibold">Themes</h2>
         <div className="flex items-center gap-2">
-          <Button size="icon" variant="ghost" onClick={onClose}>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={onClose}
+            aria-label="Close theme modal"
+          >
             <X className="size-4" />
           </Button>
         </div>
@@ -88,14 +95,14 @@ export function ThemeModalContent({
               value="explore"
               className="rounded-none border-b-2 border-transparent px-0 py-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
             >
-              Explore
+              My themes
             </TabsTrigger>
           </TabsList>
         </div>
 
-        <ScrollArea className="max-h-[calc(85vh-4rem)] flex-1">
-          <TabsContent value="allweone-themes" className="m-0 p-4">
-            <div className="grid grid-cols-2 gap-3 xl:grid-cols-2">
+        <ScrollArea className="min-h-0 flex-1 overflow-hidden">
+          <TabsContent value="allweone-themes" className="m-0 p-4 pb-6">
+            <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 xl:grid-cols-2">
               {Object.entries(builtInThemes).map(([key, theme]) => (
                 <div key={key} className="h-44">
                   <ThemeCard
@@ -112,21 +119,20 @@ export function ThemeModalContent({
             </div>
           </TabsContent>
 
-          <TabsContent value="explore" className="m-0 p-4">
+          <TabsContent value="explore" className="m-0 p-4 pb-6">
             <div className="space-y-6">
-              {/* User Themes */}
               <div className="space-y-3">
                 <h3 className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
-                  Your Themes
+                  My Themes
                 </h3>
                 {isLoadingUserThemes ? (
-                  <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
-                    {[1, 2, 3].map((i) => (
-                      <ThemeCardSkeleton key={`skeleton-user-${i}`} />
+                  <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 xl:grid-cols-3">
+                    {THEME_SKELETON_KEYS.map((key) => (
+                      <ThemeCardSkeleton key={`user-${key}`} />
                     ))}
                   </div>
                 ) : hasUserThemes ? (
-                  <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 xl:grid-cols-3">
                     {userThemes.map((item) => (
                       <div key={item.id} className="h-44">
                         <ThemeCard
@@ -152,53 +158,13 @@ export function ThemeModalContent({
                   </div>
                 )}
               </div>
-
-              {/* Public Themes */}
-              <div className="space-y-3">
-                <h3 className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
-                  Public Themes
-                </h3>
-                {isLoadingPublicThemes ? (
-                  <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
-                    {[1, 2, 3].map((i) => (
-                      <ThemeCardSkeleton key={`skeleton-public-${i}`} />
-                    ))}
-                  </div>
-                ) : hasPublicThemes ? (
-                  <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
-                    {publicThemes.map((item) => (
-                      <div key={item.id} className="h-44">
-                        <ThemeCard
-                          themeId={item.id}
-                          theme={item.themeData}
-                          isSelected={selectedThemeId === item.id}
-                          isFavorite={item.isFavorite}
-                          likeCount={item.likeCount}
-                          isLiked={item.isLiked}
-                          showLikeButton={true}
-                          isOwner={false}
-                          isPublic={true}
-                          onSelect={() =>
-                            onPreviewTheme(item.id, item.themeData)
-                          }
-                          showInfo={true}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="py-4 text-sm text-muted-foreground italic">
-                    No public themes available.
-                  </div>
-                )}
-              </div>
             </div>
           </TabsContent>
         </ScrollArea>
       </Tabs>
 
       {/* Apply Button */}
-      <div className="shrink-0 border-t border-border p-4">
+      <div className="sticky bottom-0 z-10 shrink-0 border-t border-border bg-background/95 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur supports-backdrop-filter:bg-background/80">
         <Button
           onClick={onApplyTheme}
           className="w-full"

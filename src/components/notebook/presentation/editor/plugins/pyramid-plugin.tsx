@@ -1,6 +1,7 @@
 // plugins/pyramid-plugin.ts
 import { type TElement } from "platejs";
 import { createTPlatePlugin } from "platejs/react";
+
 import Pyramid from "../custom-elements/pyramid";
 import { PyramidItem } from "../custom-elements/pyramid-item";
 import { PYRAMID_GROUP, PYRAMID_ITEM } from "../lib";
@@ -22,6 +23,7 @@ export const PyramidItemPlugin = createTPlatePlugin({
   key: PYRAMID_ITEM,
   node: {
     isElement: true,
+    isStrictSiblings: true,
     component: PyramidItem,
   },
 });
@@ -32,9 +34,12 @@ export interface TPyramidGroupElement extends TElement {
   totalChildren?: number; // Store the count on the pyramid element
   isFunnel?: boolean;
   alignment?: "left" | "center" | "right";
+  variant?: "default" | "inside";
 }
 
 export interface TPyramidItemElement extends TElement {
   type: typeof PYRAMID_ITEM;
   alignment?: "left" | "center" | "right";
+  variant?: "default" | "inside";
+  icon?: string;
 }

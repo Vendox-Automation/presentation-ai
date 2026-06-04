@@ -14,26 +14,28 @@ export function ThemeTabs() {
     <div className="px-2">
       <div className="flex gap-1 rounded-lg bg-muted p-1">
         <button
+          type="button"
           onClick={() => handleTabChange("standard")}
           className={cn(
             "flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors",
             tab === "standard"
-              ? "bg-background text-foreground shadow-xs"
+              ? "bg-background text-foreground shadow"
               : "text-muted-foreground hover:text-foreground",
           )}
         >
           ALLWEONE
         </button>
         <button
+          type="button"
           onClick={() => handleTabChange("public")}
           className={cn(
             "flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors",
             tab === "public"
-              ? "bg-background text-foreground shadow-xs"
+              ? "bg-background text-foreground shadow"
               : "text-muted-foreground hover:text-foreground",
           )}
         >
-          Explore
+          My themes
         </button>
       </div>
     </div>

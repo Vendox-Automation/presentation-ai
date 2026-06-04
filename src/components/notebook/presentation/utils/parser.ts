@@ -1,32 +1,119 @@
 import { ColumnItemPlugin, ColumnPlugin } from "@platejs/layout/react";
-import { nanoid } from "nanoid";
 import {
+  KEYS,
   type Descendant,
   type TColumnElement,
   type TColumnGroupElement,
+  type TElement,
+  type TTableCellElement,
+  type TTableElement,
+  type TTableRowElement,
   type TText,
 } from "platejs";
+
+import { type PresentationStockImageProvider } from "@/states/presentation-state";
+import {
+  ANTV_INFOGRAPHIC,
+  AREA_CHART_ELEMENT,
+  BAR_CHART_ELEMENT,
+  BOX_PLOT_CHART_ELEMENT,
+  BUBBLE_CHART_ELEMENT,
+  CANDLESTICK_CHART_ELEMENT,
+  CHORD_CHART_ELEMENT,
+  CIRCULAR_GRID_GROUP,
+  CIRCULAR_GRID_ITEM,
+  COMPOSED_CHART_ELEMENT,
+  CONE_FUNNEL_CHART_ELEMENT,
+  CONNECTED_CIRCLES_GROUP,
+  CONNECTED_CIRCLES_ITEM,
+  CONTRIBUTOR_ELEMENT,
+  DONUT_CHART_ELEMENT,
+  FUNNEL_CHART_ELEMENT,
+  HEATMAP_CHART_ELEMENT,
+  HISTOGRAM_CHART_ELEMENT,
+  LABEL_ELEMENT,
+  LINE_CHART_ELEMENT,
+  LINEAR_GAUGE_ELEMENT,
+  NIGHTINGALE_CHART_ELEMENT,
+  OHLC_CHART_ELEMENT,
+  PIE_CHART_ELEMENT,
+  PRESENTATION_TITLE_ELEMENT,
+  PYRAMID_CHART_ELEMENT,
+  QUOTE_ELEMENT,
+  RADAR_CHART_ELEMENT,
+  RADIAL_BAR_CHART_ELEMENT,
+  RADIAL_COLUMN_CHART_ELEMENT,
+  RADIAL_GAUGE_ELEMENT,
+  RANGE_AREA_CHART_ELEMENT,
+  RANGE_BAR_CHART_ELEMENT,
+  SANKEY_CHART_ELEMENT,
+  SCATTER_CHART_ELEMENT,
+  SLOPE_GROUP,
+  SLOPE_ITEM,
+  SNAKE_GROUP,
+  SNAKE_ITEM,
+  SUNBURST_CHART_ELEMENT,
+  TREEMAP_CHART_ELEMENT,
+  WATERFALL_CHART_ELEMENT,
+  type TContributorElement,
+  type TLabelElement,
+  type TPresentationTitleElement,
+} from "../editor/lib";
+import { type TAntvInfographicElement } from "../editor/plugins/antv-infographic-plugin";
 import {
   type TArrowListElement,
   type TArrowListItemElement,
 } from "../editor/plugins/arrow-plugin";
 import {
+  type TBeforeAfterGroupElement,
+  type TBeforeAfterSideElement,
+} from "../editor/plugins/before-after-plugin";
+import {
+  type TBoxGroupElement,
+  type TBoxItemElement,
+} from "../editor/plugins/box-plugin";
+import {
   type TBulletGroupElement,
   type TBulletItemElement,
 } from "../editor/plugins/bullet-plugin";
+import { type TButtonElement } from "../editor/plugins/button-plugin";
+import {
+  type TCompareGroupElement,
+  type TCompareSideElement,
+} from "../editor/plugins/compare-plugin";
 import {
   type TCycleGroupElement,
   type TCycleItemElement,
 } from "../editor/plugins/cycle-plugin";
+import {
+  type TCircularGridGroupElement,
+  type TCircularGridItemElement,
+  type TConnectedCirclesGroupElement,
+  type TConnectedCirclesItemElement,
+  type TSlopeGroupElement,
+  type TSlopeItemElement,
+  type TSnakeGroupElement,
+  type TSnakeItemElement,
+} from "../editor/plugins/diagram-components-plugin";
 import {
   type TIconListElement,
   type TIconListItemElement,
 } from "../editor/plugins/icon-list-plugin";
 import { type TIconElement } from "../editor/plugins/icon-plugin";
 import {
+  type TConsItemElement,
+  type TProsConsGroupElement,
+  type TProsItemElement,
+} from "../editor/plugins/pros-cons-plugin";
+import {
   type TPyramidGroupElement,
   type TPyramidItemElement,
 } from "../editor/plugins/pyramid-plugin";
+import { type TQuoteElement } from "../editor/plugins/quote-plugin";
+import {
+  type TSequenceArrowGroupElement,
+  type TSequenceArrowItemElement,
+} from "../editor/plugins/sequence-arrow-plugin";
 import {
   type TStairGroupElement,
   type TStairItemElement,
@@ -36,50 +123,13 @@ import {
   type TStatsItemElement,
 } from "../editor/plugins/stats-plugin";
 import {
+  type TStepsGroupElement,
+  type TStepsItemElement,
+} from "../editor/plugins/steps-plugin";
+import {
   type TTimelineGroupElement,
   type TTimelineItemElement,
 } from "../editor/plugins/timeline-plugin";
-
-import {
-  type TTableCellElement,
-  type TTableElement,
-  type TTableRowElement,
-} from "platejs";
-import {
-  AREA_CHART_ELEMENT,
-  BAR_CHART_ELEMENT,
-  BOX_PLOT_CHART_ELEMENT,
-  CANDLESTICK_CHART_ELEMENT,
-  LINE_CHART_ELEMENT,
-  OHLC_CHART_ELEMENT,
-  PIE_CHART_ELEMENT,
-  QUOTE_ELEMENT,
-  RADAR_CHART_ELEMENT,
-  SCATTER_CHART_ELEMENT,
-} from "../editor/lib";
-import {
-  type TBeforeAfterGroupElement,
-  type TBeforeAfterSideElement,
-} from "../editor/plugins/before-after-plugin";
-import {
-  type TBoxGroupElement,
-  type TBoxItemElement,
-} from "../editor/plugins/box-plugin";
-import { type TButtonElement } from "../editor/plugins/button-plugin";
-import {
-  type TCompareGroupElement,
-  type TCompareSideElement,
-} from "../editor/plugins/compare-plugin";
-import {
-  type TConsItemElement,
-  type TProsConsGroupElement,
-  type TProsItemElement,
-} from "../editor/plugins/pros-cons-plugin";
-import { type TQuoteElement } from "../editor/plugins/quote-plugin";
-import {
-  type TSequenceArrowGroupElement,
-  type TSequenceArrowItemElement,
-} from "../editor/plugins/sequence-arrow-plugin";
 import {
   type GeneratingText,
   type HeadingElement,
@@ -91,6 +141,7 @@ import {
 
 // Union type for all possible Plate elements
 export type PlateNode =
+  | TElement
   | ParagraphElement
   | HeadingElement
   | ImageElement
@@ -103,10 +154,20 @@ export type PlateNode =
   | TIconElement
   | TCycleGroupElement
   | TCycleItemElement
+  | TSlopeGroupElement
+  | TSlopeItemElement
+  | TConnectedCirclesGroupElement
+  | TConnectedCirclesItemElement
+  | TCircularGridGroupElement
+  | TCircularGridItemElement
+  | TSnakeGroupElement
+  | TSnakeItemElement
   | TStairItemElement
   | TStairGroupElement
   | TPyramidGroupElement
   | TPyramidItemElement
+  | TStepsGroupElement
+  | TStepsItemElement
   | TArrowListElement
   | TArrowListItemElement
   | TTimelineGroupElement
@@ -124,24 +185,31 @@ export type PlateNode =
   | TSequenceArrowGroupElement
   | TSequenceArrowItemElement
   | TButtonElement
+  | TContributorElement
+  | TLabelElement
+  | TPresentationTitleElement
   | TTableElement
   | TTableRowElement
   | TTableCellElement
-  | TQuoteElement;
+  | TQuoteElement
+  | TAntvInfographicElement;
 
 export type LayoutType = "left" | "right" | "vertical" | "background" | "none";
 export type RootImage = {
   query: string;
   url?: string;
   embedType?: string;
-  imageSource?: "generate" | "search" | "gif";
+  imageSource?: "generate" | "search" | "gif" | "upload";
+  stockImageProvider?: PresentationStockImageProvider;
   cropSettings?: ImageCropSettings;
   layoutType?: LayoutType;
   size?: { w?: string; h?: number };
+  isQueryStreaming?: boolean;
   // Chart support
   chartType?: string;
   chartData?: unknown;
   chartOptions?: Record<string, unknown>;
+  paletteDropMutable?: boolean;
 };
 
 export type PlateSlide = {
@@ -187,6 +255,292 @@ function isTextNode(node: XMLNode | XMLTextNode): node is XMLTextNode {
 
 function isElementNode(node: XMLNode | XMLTextNode): node is XMLNode {
   return "tag" in node;
+}
+
+function hashStableText(input: string): string {
+  let hash = 0;
+
+  for (let index = 0; index < input.length; index += 1) {
+    hash = (hash << 5) - hash + input.charCodeAt(index);
+    hash |= 0;
+  }
+
+  return Math.abs(hash).toString(36);
+}
+
+const DETERMINISTIC_ID_ALPHABET =
+  "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+
+function createDeterministicRandomId(seed: string, length = 21): string {
+  let state = 0x811c9dc5;
+
+  for (let index = 0; index < seed.length; index += 1) {
+    state ^= seed.charCodeAt(index);
+    state = Math.imul(state, 0x01000193);
+  }
+
+  let id = "";
+  for (let index = 0; index < length; index += 1) {
+    state += 0x6d2b79f5;
+    let next = state;
+    next = Math.imul(next ^ (next >>> 15), next | 1);
+    next ^= next + Math.imul(next ^ (next >>> 7), next | 61);
+    const randomValue = ((next ^ (next >>> 14)) >>> 0) / 4294967296;
+    id +=
+      DETERMINISTIC_ID_ALPHABET[
+        Math.floor(randomValue * DETERMINISTIC_ID_ALPHABET.length)
+      ];
+  }
+
+  return id;
+}
+
+function unescapeXmlText(text: string): string {
+  return text
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&gt;/g, ">")
+    .replace(/&lt;/g, "<")
+    .replace(/&amp;/g, "&");
+}
+
+const CHART_XML_TYPE_TO_ELEMENT: Record<string, string> = {
+  pie: PIE_CHART_ELEMENT,
+  bar: BAR_CHART_ELEMENT,
+  area: AREA_CHART_ELEMENT,
+  radar: RADAR_CHART_ELEMENT,
+  scatter: SCATTER_CHART_ELEMENT,
+  line: LINE_CHART_ELEMENT,
+  "radial-bar": RADIAL_BAR_CHART_ELEMENT,
+  composed: COMPOSED_CHART_ELEMENT,
+  treemap: TREEMAP_CHART_ELEMENT,
+  bubble: BUBBLE_CHART_ELEMENT,
+  donut: DONUT_CHART_ELEMENT,
+  histogram: HISTOGRAM_CHART_ELEMENT,
+  heatmap: HEATMAP_CHART_ELEMENT,
+  "range-bar": RANGE_BAR_CHART_ELEMENT,
+  "range-area": RANGE_AREA_CHART_ELEMENT,
+  waterfall: WATERFALL_CHART_ELEMENT,
+  "box-plot": BOX_PLOT_CHART_ELEMENT,
+  boxplot: BOX_PLOT_CHART_ELEMENT,
+  candlestick: CANDLESTICK_CHART_ELEMENT,
+  ohlc: OHLC_CHART_ELEMENT,
+  nightingale: NIGHTINGALE_CHART_ELEMENT,
+  "radial-column": RADIAL_COLUMN_CHART_ELEMENT,
+  sunburst: SUNBURST_CHART_ELEMENT,
+  sankey: SANKEY_CHART_ELEMENT,
+  chord: CHORD_CHART_ELEMENT,
+  funnel: FUNNEL_CHART_ELEMENT,
+  "cone-funnel": CONE_FUNNEL_CHART_ELEMENT,
+  pyramid: PYRAMID_CHART_ELEMENT,
+  "radial-gauge": RADIAL_GAUGE_ELEMENT,
+  "linear-gauge": LINEAR_GAUGE_ELEMENT,
+};
+
+function getChartElementType(chartType: string): string {
+  const normalizedChartType = chartType.trim().toLowerCase();
+  return (
+    CHART_XML_TYPE_TO_ELEMENT[normalizedChartType] ??
+    (normalizedChartType.startsWith("chart-")
+      ? normalizedChartType
+      : BAR_CHART_ELEMENT)
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isElementRecord(value: unknown): value is TElement {
+  return (
+    isRecord(value) &&
+    typeof value.type === "string" &&
+    Array.isArray(value.children)
+  );
+}
+
+function parseJsonPayload(text: string): unknown | undefined {
+  const trimmedText = unescapeXmlText(text).trim();
+  if (!trimmedText) return undefined;
+
+  try {
+    return JSON.parse(trimmedText) as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
+function parsePrimitiveXmlValue(value: string): string | number {
+  const trimmedValue = value.trim();
+  const numericText = trimmedValue.endsWith("%")
+    ? trimmedValue.slice(0, -1)
+    : trimmedValue;
+  const numericValue = Number(numericText);
+
+  return numericText !== "" && Number.isFinite(numericValue)
+    ? numericValue
+    : trimmedValue;
+}
+
+function splitMarkdownTableRow(line: string): string[] {
+  const trimmedLine = line.trim().replace(/^\|/, "").replace(/\|$/, "");
+  const cells: string[] = [];
+  let currentCell = "";
+  let isEscaped = false;
+
+  for (const character of trimmedLine) {
+    if (isEscaped) {
+      currentCell += character;
+      isEscaped = false;
+      continue;
+    }
+
+    if (character === "\\") {
+      isEscaped = true;
+      continue;
+    }
+
+    if (character === "|") {
+      cells.push(currentCell.trim());
+      currentCell = "";
+      continue;
+    }
+
+    currentCell += character;
+  }
+
+  cells.push(currentCell.trim());
+
+  return cells;
+}
+
+function isMarkdownSeparatorRow(line: string): boolean {
+  const cells = splitMarkdownTableRow(line);
+
+  return (
+    cells.length > 0 && cells.every((cell) => /^:?-{3,}:?$/.test(cell.trim()))
+  );
+}
+
+function parseMarkdownTableRows(
+  text: string,
+): Array<Record<string, string | number>> {
+  const lines = unescapeXmlText(text)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const separatorIndex = lines.findIndex(isMarkdownSeparatorRow);
+
+  if (separatorIndex <= 0) {
+    return [];
+  }
+
+  const headerLine = lines[separatorIndex - 1];
+  if (!headerLine) {
+    return [];
+  }
+
+  const headers = splitMarkdownTableRow(headerLine).filter(Boolean);
+  if (headers.length === 0) {
+    return [];
+  }
+
+  return lines.slice(separatorIndex + 1).flatMap((line) => {
+    if (!line.includes("|") || line.startsWith("<")) {
+      return [];
+    }
+
+    const cells = splitMarkdownTableRow(line);
+    if (cells.length === 0) {
+      return [];
+    }
+
+    const row: Record<string, string | number> = {};
+    headers.forEach((header, index) => {
+      const cell = cells[index];
+      if (cell !== undefined && cell !== "") {
+        row[header] = parsePrimitiveXmlValue(cell);
+      }
+    });
+
+    return Object.keys(row).length > 0 ? [row] : [];
+  });
+}
+
+function parseBooleanAttribute(value: string | undefined): boolean | undefined {
+  if (value === undefined) return undefined;
+  if (value === "true" || value === "1") return true;
+  if (value === "false" || value === "0") return false;
+  return undefined;
+}
+
+function parseOrientationAttribute(
+  value: string | undefined,
+): "vertical" | "horizontal" | undefined {
+  if (value === "vertical" || value === "horizontal") return value;
+  return undefined;
+}
+
+function parseSidednessAttribute(
+  value: string | undefined,
+): "single" | "double" | undefined {
+  if (value === "single" || value === "double") return value;
+  return undefined;
+}
+
+function parseAlignmentAttribute(
+  value: string | undefined,
+): "left" | "center" | "right" | undefined {
+  if (value === "left" || value === "center" || value === "right") {
+    return value;
+  }
+
+  return undefined;
+}
+
+function parsePresentationTitleVariant(
+  value: string | undefined,
+): TPresentationTitleElement["variant"] {
+  if (value === "display" || value === "humongous" || value === "title") {
+    return value;
+  }
+
+  return "title";
+}
+
+function isAntvInfographicSyntax(text: string): boolean {
+  const lines = text
+    .trim()
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length < 2) {
+    return false;
+  }
+
+  return /^infographic\s+\S+/i.test(lines[0] ?? "") && lines[1] === "theme";
+}
+
+function extractLegacyInfographicFencePrompts(text: string): string[] {
+  const prompts: string[] = [];
+  const fencePattern = /```[ \t]*infographic[^\n]*(?:\n)?([\s\S]*?)(```|$)/gi;
+  let match = fencePattern.exec(text);
+
+  while (match !== null) {
+    const prompt = unescapeXmlText(match[1] ?? "").trim();
+
+    if (!prompt || match[2] !== "```") {
+      match = fencePattern.exec(text);
+      continue;
+    }
+
+    prompts.push(prompt);
+
+    match = fencePattern.exec(text);
+  }
+
+  return prompts;
 }
 
 /**
@@ -379,7 +733,8 @@ export class SlideParser {
           partialSection.includes("<TIMELINE>") ||
           partialSection.includes("<P>") ||
           partialSection.includes("<ICON") ||
-          partialSection.includes("<IMG")
+          partialSection.includes("<IMG") ||
+          partialSection.includes("<INFOGRAPHIC")
         ) {
           this.completedSections.push(partialSection + "</SECTION>");
         }
@@ -458,7 +813,7 @@ export class SlideParser {
 
     if (!sectionNode) {
       return {
-        id: nanoid(),
+        id: createDeterministicRandomId(`slide:${sectionString || "empty"}`),
         content: [],
         layoutType: undefined,
         alignment: "center",
@@ -474,7 +829,7 @@ export class SlideParser {
       if (this.sectionIdMap.has(sectionIdentifier)) {
         slideId = this.sectionIdMap.get(sectionIdentifier)!;
       } else {
-        slideId = nanoid();
+        slideId = createDeterministicRandomId(`slide:${sectionIdentifier}`);
         this.sectionIdMap.set(sectionIdentifier, slideId);
       }
     }
@@ -501,83 +856,33 @@ export class SlideParser {
       isImageSlideAttr === "true" || isImageSlideAttr === "1";
 
     const plateElements: PlateNode[] = [];
-    let rootImage:
-      | { query: string; url?: string; layoutType?: LayoutType }
-      | undefined;
+    let rootImage: RootImage | undefined;
 
     for (const child of sectionNode.children) {
+      if (isTextNode(child)) {
+        rootImage ??= this.createRootImageFromTagContent(
+          child.text,
+          layoutType,
+        );
+
+        const infographicElements = this.createLegacyInfographicsFromText(
+          child.text,
+          slideId,
+          layoutType,
+        );
+        plateElements.push(...infographicElements);
+        continue;
+      }
+
       if (!isElementNode(child)) continue;
 
       if (child.tag.toUpperCase() === "IMG") {
-        if (child.originalTagContent) {
-          // First try to get URL from parsed attributes
-          let url = child.attributes.url ?? child.attributes.src ?? "";
-
-          // If not found, extract URL from originalTagContent (handles streaming cases)
-          if (!url) {
-            // Try url= first, then src=
-            for (const urlAttr of ["url=", "src="]) {
-              const urlStart = child.originalTagContent.indexOf(urlAttr);
-              if (urlStart !== -1) {
-                const afterUrl = child.originalTagContent.substring(
-                  urlStart + urlAttr.length,
-                );
-                if (afterUrl.length > 0) {
-                  const quoteChar = afterUrl[0];
-                  if (quoteChar === '"' || quoteChar === "'") {
-                    const closingQuoteIdx = afterUrl.indexOf(quoteChar, 1);
-                    if (closingQuoteIdx !== -1) {
-                      url = afterUrl.substring(1, closingQuoteIdx);
-                      break;
-                    }
-                  }
-                }
-              }
-            }
-          }
-
-          const queryStart = child.originalTagContent.indexOf("query=");
-          let isCompleteQuery = false;
-
-          if (queryStart !== -1) {
-            const afterQuery = child.originalTagContent.substring(
-              queryStart + 6,
-            );
-            if (afterQuery.length > 0) {
-              const quoteChar = afterQuery[0];
-              if (quoteChar === '"' || quoteChar === "'") {
-                const closingQuoteIdx = afterQuery.indexOf(quoteChar, 1);
-
-                isCompleteQuery = closingQuoteIdx !== -1;
-
-                if (isCompleteQuery) {
-                  const extractedQuery = afterQuery.substring(
-                    1,
-                    closingQuoteIdx,
-                  );
-
-                  if (
-                    extractedQuery &&
-                    extractedQuery.trim().length > 0 &&
-                    !rootImage
-                  ) {
-                    rootImage = {
-                      query: extractedQuery,
-                      layoutType,
-                      ...(url ? { url } : {}),
-                    };
-                  }
-                }
-              }
-            }
-          } else if (url && !rootImage) {
-            // If there's a URL but no query, still create the rootImage with just the URL
-            rootImage = {
-              query: "",
-              layoutType,
-              url,
-            };
-          }
+        rootImage ??= this.parseRootImageFromNode(child, layoutType);
+        if (!rootImage && child.originalTagContent) {
+          rootImage = this.createRootImageFromTagContent(
+            child.originalTagContent,
+            layoutType,
+          );
         }
         continue;
       }
@@ -585,13 +890,21 @@ export class SlideParser {
       if (child.tag.toUpperCase() === "DIV") {
         for (const divChild of child.children) {
           if (!isElementNode(divChild)) continue;
-          const processedElement = this.processTopLevelNode(divChild);
+          const processedElement = this.processTopLevelNode(
+            divChild,
+            slideId,
+            layoutType,
+          );
           if (processedElement) {
             plateElements.push(processedElement);
           }
         }
       } else {
-        const processedElement = this.processTopLevelNode(child);
+        const processedElement = this.processTopLevelNode(
+          child,
+          slideId,
+          layoutType,
+        );
         if (processedElement) {
           plateElements.push(processedElement);
         }
@@ -600,7 +913,7 @@ export class SlideParser {
 
     return {
       id: slideId,
-      content: plateElements,
+      content: this.withStableElementIds(plateElements, slideId),
       ...(rootImage ? { rootImage } : {}),
       ...(layoutType ? { layoutType: layoutType } : {}),
       ...(isImageSlide ? { isImageSlide: true } : {}),
@@ -608,10 +921,380 @@ export class SlideParser {
     };
   };
 
+  private createStableElementId(
+    slideId: string,
+    path: readonly number[],
+    type: string,
+  ): string {
+    return createDeterministicRandomId(
+      `element:${slideId}:${path.join(".")}:${type}`,
+    );
+  }
+
+  private withStableElementIds<TNode extends PlateNode>(
+    nodes: TNode[],
+    slideId: string,
+  ): TNode[] {
+    const addIds = (node: Descendant, path: number[]): Descendant => {
+      if (!isElementRecord(node)) {
+        return node;
+      }
+
+      const nextChildren = node.children.map((child, childIndex) =>
+        addIds(child, [...path, childIndex]),
+      );
+      const existingId =
+        isRecord(node) && typeof node.id === "string" ? node.id.trim() : "";
+
+      return {
+        ...node,
+        id: existingId || this.createStableElementId(slideId, path, node.type),
+        children: nextChildren,
+      } as Descendant;
+    };
+
+    return nodes.map((node, index) => addIds(node, [index]) as TNode);
+  }
+
+  private extractAttributeFromTagContent(
+    tagContent: string,
+    attributeName: string,
+  ): { value: string; isComplete: boolean } | null {
+    const attributeStart = tagContent.indexOf(`${attributeName}=`);
+    if (attributeStart === -1) {
+      return null;
+    }
+
+    const afterAttribute = tagContent.substring(
+      attributeStart + attributeName.length + 1,
+    );
+    if (afterAttribute.length === 0) {
+      return null;
+    }
+
+    const quoteChar = afterAttribute[0];
+    if (quoteChar !== '"' && quoteChar !== "'") {
+      const nextSpaceIndex = afterAttribute.search(/\s/);
+      const value =
+        nextSpaceIndex === -1
+          ? afterAttribute
+          : afterAttribute.substring(0, nextSpaceIndex);
+      return {
+        value,
+        isComplete: nextSpaceIndex !== -1 || tagContent.includes(">"),
+      };
+    }
+
+    const closingQuoteIdx = afterAttribute.indexOf(quoteChar, 1);
+    if (closingQuoteIdx !== -1) {
+      return {
+        value: afterAttribute.substring(1, closingQuoteIdx),
+        isComplete: true,
+      };
+    }
+
+    const rawValue = afterAttribute.substring(1);
+    const nextTagIndex = rawValue.indexOf("<");
+    return {
+      value:
+        nextTagIndex === -1 ? rawValue : rawValue.substring(0, nextTagIndex),
+      isComplete: false,
+    };
+  }
+
+  private createRootImageFromTagContent(
+    tagContent: string,
+    layoutType: LayoutType | undefined,
+  ): RootImage | undefined {
+    if (!tagContent.includes("<IMG")) {
+      return undefined;
+    }
+
+    const urlAttribute =
+      this.extractAttributeFromTagContent(tagContent, "url") ??
+      this.extractAttributeFromTagContent(tagContent, "src");
+    const completeUrl =
+      urlAttribute?.isComplete && urlAttribute.value.trim().length > 0
+        ? urlAttribute.value
+        : "";
+
+    const queryAttribute = this.extractAttributeFromTagContent(
+      tagContent,
+      "query",
+    );
+    const query = queryAttribute?.value.trim() ?? "";
+    const imageSourceAttribute = this.extractAttributeFromTagContent(
+      tagContent,
+      "imageSource",
+    );
+    const stockImageProviderAttribute = this.extractAttributeFromTagContent(
+      tagContent,
+      "stockImageProvider",
+    );
+
+    if (query.length > 0) {
+      return {
+        query: queryAttribute?.value ?? "",
+        layoutType,
+        ...(completeUrl ? { url: completeUrl } : {}),
+        ...(completeUrl ? { imageSource: "search" as const } : {}),
+        ...(imageSourceAttribute?.isComplete
+          ? {
+              imageSource:
+                imageSourceAttribute.value as RootImage["imageSource"],
+            }
+          : {}),
+        ...(stockImageProviderAttribute?.isComplete
+          ? {
+              stockImageProvider:
+                stockImageProviderAttribute.value as PresentationStockImageProvider,
+            }
+          : {}),
+        ...(queryAttribute?.isComplete ? {} : { isQueryStreaming: true }),
+      };
+    }
+
+    if (completeUrl) {
+      return {
+        query: "",
+        layoutType,
+        url: completeUrl,
+        imageSource: "search",
+      };
+    }
+
+    return undefined;
+  }
+
+  private getFirstChildByTag(
+    node: XMLNode,
+    tagName: string,
+  ): XMLNode | undefined {
+    const normalizedTagName = tagName.toUpperCase();
+    return node.children.find(
+      (child) =>
+        isElementNode(child) && child.tag.toUpperCase() === normalizedTagName,
+    ) as XMLNode | undefined;
+  }
+
+  private parseJsonChild(node: XMLNode, tagName: string): unknown | undefined {
+    const child = this.getFirstChildByTag(node, tagName);
+    if (!child) return undefined;
+
+    return parseJsonPayload(this.getTextContent(child));
+  }
+
+  private parseChartDataRows(node: XMLNode): unknown[] {
+    return parseMarkdownTableRows(this.getDirectTextContent(node));
+  }
+
+  private getOptionsFromAttributes(
+    node: XMLNode,
+    excludedKeys: readonly string[],
+  ): Record<string, unknown> {
+    const excludedKeySet = new Set(excludedKeys);
+    const options: Record<string, unknown> = {};
+
+    for (const [key, value] of Object.entries(node.attributes)) {
+      if (!excludedKeySet.has(key)) {
+        options[key] = value;
+      }
+    }
+
+    return options;
+  }
+
+  private parseRootImageFromNode(
+    node: XMLNode,
+    layoutType: LayoutType | undefined,
+  ): RootImage | undefined {
+    const query = node.attributes.query ?? "";
+    const url = node.attributes.url ?? node.attributes.src ?? "";
+    const chartType = node.attributes.charttype
+      ? getChartElementType(node.attributes.charttype)
+      : undefined;
+    const chartData = this.parseChartDataRows(node);
+    const chartOptions = this.parseJsonChild(node, "OPTIONS");
+    const cropSettings = this.parseJsonChild(node, "CROP");
+    const width = node.attributes.width;
+    const height = node.attributes.height
+      ? Number.parseFloat(node.attributes.height)
+      : undefined;
+    const imageLayoutType =
+      (node.attributes.layoutType as LayoutType | undefined) ?? layoutType;
+
+    if (!query && !url && !chartType) {
+      return undefined;
+    }
+
+    return {
+      query,
+      ...(imageLayoutType ? { layoutType: imageLayoutType } : {}),
+      ...(url ? { url, imageSource: "search" as const } : {}),
+      ...(node.attributes.embedType
+        ? { embedType: node.attributes.embedType }
+        : {}),
+      ...(node.attributes.imageSource
+        ? {
+            imageSource: node.attributes
+              .imageSource as RootImage["imageSource"],
+          }
+        : {}),
+      ...(node.attributes.stockImageProvider
+        ? {
+            stockImageProvider: node.attributes
+              .stockImageProvider as PresentationStockImageProvider,
+          }
+        : {}),
+      ...(width || height !== undefined
+        ? {
+            size: {
+              ...(width ? { w: width } : {}),
+              ...(height !== undefined ? { h: height } : {}),
+            },
+          }
+        : {}),
+      ...(isRecord(cropSettings)
+        ? { cropSettings: cropSettings as unknown as RootImage["cropSettings"] }
+        : {}),
+      ...(chartType ? { chartType } : {}),
+      ...(chartType ? { chartData } : {}),
+      ...(isRecord(chartOptions)
+        ? { chartOptions }
+        : chartType
+          ? {
+              chartOptions: this.getOptionsFromAttributes(node, [
+                "query",
+                "url",
+                "src",
+                "layoutType",
+                "width",
+                "height",
+                "charttype",
+              ]),
+            }
+          : {}),
+      ...(node.attributes.paletteDropMutable !== undefined
+        ? {
+            paletteDropMutable:
+              parseBooleanAttribute(node.attributes.paletteDropMutable) ??
+              false,
+          }
+        : {}),
+    };
+  }
+
+  private createInfographicFromPrompt(
+    prompt: string,
+    idSeed: string,
+    layoutType?: LayoutType,
+  ): TAntvInfographicElement | null {
+    const trimmedPrompt = prompt.trim();
+
+    if (!trimmedPrompt) {
+      return null;
+    }
+
+    const isGeneratedSyntax = isAntvInfographicSyntax(trimmedPrompt);
+    const stableKey = hashStableText(`${idSeed}:${trimmedPrompt}`);
+
+    return {
+      type: ANTV_INFOGRAPHIC,
+      id: `infographic-${stableKey}`,
+      generationPrompt: trimmedPrompt,
+      ...(layoutType ? { slideLayoutType: layoutType } : {}),
+      isLoading: !isGeneratedSyntax,
+      syntax: isGeneratedSyntax ? trimmedPrompt : "",
+      children: [{ text: "" } as TText],
+    };
+  }
+
+  private createInfographic(
+    node: XMLNode,
+    slideId: string,
+    layoutType?: LayoutType,
+  ): PlateNode | null {
+    const prompt =
+      node.attributes.prompt ??
+      node.attributes.query ??
+      this.getTextContent(this.getFirstChildByTag(node, "PROMPT") ?? node);
+    const syntax = this.getFirstChildByTag(node, "SYNTAX");
+    const source = this.getFirstChildByTag(node, "SOURCE");
+    const data = this.parseJsonChild(node, "DATA");
+    const syntaxText = syntax ? this.getTextContent(syntax).trim() : "";
+    const promptText = unescapeXmlText(prompt).trim();
+    const content = syntaxText || promptText;
+    const stableKey = hashStableText(
+      `${slideId}:${node.originalTagContent ?? ""}:${content}`,
+    );
+
+    if (!content) {
+      return null;
+    }
+
+    const parsedIsLoading = parseBooleanAttribute(node.attributes.isLoading);
+    const isGeneratedSyntax = syntaxText
+      ? isAntvInfographicSyntax(syntaxText)
+      : isAntvInfographicSyntax(promptText);
+    const width = node.attributes.width
+      ? Number.parseFloat(node.attributes.width)
+      : undefined;
+
+    return {
+      type: ANTV_INFOGRAPHIC,
+      id: node.attributes.id ?? `infographic-${stableKey}`,
+      generationPrompt: promptText || content,
+      ...(source ? { sourceText: this.getTextContent(source).trim() } : {}),
+      ...(node.attributes.slideLayoutType
+        ? { slideLayoutType: node.attributes.slideLayoutType as LayoutType }
+        : layoutType
+          ? { slideLayoutType: layoutType }
+          : {}),
+      ...(width !== undefined && !Number.isNaN(width)
+        ? { width }
+        : node.attributes.width
+          ? { width: node.attributes.width }
+          : {}),
+      ...(node.attributes.align === "left" ||
+      node.attributes.align === "center" ||
+      node.attributes.align === "right"
+        ? { align: node.attributes.align }
+        : {}),
+      ...(isRecord(data)
+        ? { data: data as TAntvInfographicElement["data"] }
+        : {}),
+      isLoading: parsedIsLoading ?? !isGeneratedSyntax,
+      syntax: syntaxText || (isGeneratedSyntax ? promptText : ""),
+      children: [{ text: "" } as TText],
+    } as TAntvInfographicElement;
+  }
+
+  private createLegacyInfographicsFromText(
+    text: string,
+    slideId: string,
+    layoutType?: LayoutType,
+  ): TAntvInfographicElement[] {
+    return extractLegacyInfographicFencePrompts(text).flatMap(
+      (prompt, index) => {
+        const infographic = this.createInfographicFromPrompt(
+          prompt,
+          `${slideId}:legacy:${index}`,
+          layoutType,
+        );
+
+        return infographic ? [infographic] : [];
+      },
+    );
+  }
+
   /**
    * Process a top-level node in the SECTION
    */
-  private processTopLevelNode(node: XMLNode): PlateNode | null {
+  private processTopLevelNode(
+    node: XMLNode,
+    slideId: string,
+    layoutType?: LayoutType,
+  ): PlateNode | null {
     const tag = node.tag.toUpperCase();
 
     switch (tag) {
@@ -625,10 +1308,28 @@ export class SlideParser {
           tag.toLowerCase() as "h1" | "h2" | "h3" | "h4" | "h5" | "h6",
           node,
         );
+      case "TITLE":
+      case "PRESENTATION-TITLE":
+      case "PRESENTATION_TITLE":
+        return this.createPresentationTitle(node);
+      case "LABEL":
+        return this.createLabel(node);
+      case "CONTRIBUTOR":
+        return this.createContributor(node);
+      case "BLOCKQUOTE":
+        return this.createBlockquote(node);
+      case "CALLOUT":
+        return this.createCallout(node);
+      case "CODE":
+      case "CODE-BLOCK":
+      case "CODE_BLOCK":
+        return this.createCodeBlock(node);
       case "P":
         return this.createParagraph(node);
       case "IMG":
         return this.createImage(node);
+      case "INFOGRAPHIC":
+        return this.createInfographic(node, slideId, layoutType);
       case "COLUMNS":
         return this.createColumns(node);
       case "BULLETS":
@@ -645,6 +1346,8 @@ export class SlideParser {
         return this.createArrowList(node);
       case "BOXES":
         return this.createBoxes(node);
+      case "STEPS":
+        return this.createSteps(node);
       case "COMPARE":
         return this.createCompare(node);
       case "BEFORE-AFTER":
@@ -653,6 +1356,8 @@ export class SlideParser {
       case "PROS-CONS":
       case "PROSCONS":
         return this.createProsCons(node);
+      case "ARROW-SEQUENCE":
+      case "ARROW_SEQUENCE":
       case "ARROW-VERTICAL":
       case "ARROW_VERTICAL":
       case "VERTICAL-ARROWS":
@@ -670,6 +1375,16 @@ export class SlideParser {
         return this.createStats(node);
       case "QUOTE":
         return this.createQuote(node);
+      case "SLOPE":
+        return this.createSlope(node);
+      case "CONNECTED-CIRCLES":
+      case "CONNECTED_CIRCLES":
+        return this.createConnectedCircles(node);
+      case "CIRCULAR-GRID":
+      case "CIRCULAR_GRID":
+        return this.createCircularGrid(node);
+      case "SNAKE":
+        return this.createSnake(node);
       default:
         console.warn(`Unknown top-level tag: ${tag}`);
         return null;
@@ -771,7 +1486,7 @@ export class SlideParser {
       if (tagStart === -1) {
         const remainingText = xml.substring(currentIndex);
         if (remainingText) {
-          parentNode.children.push({ text: remainingText });
+          parentNode.children.push({ text: unescapeXmlText(remainingText) });
         }
         break;
       }
@@ -780,7 +1495,7 @@ export class SlideParser {
       if (tagStart > currentIndex) {
         const textContent = xml.substring(currentIndex, tagStart);
         if (textContent) {
-          parentNode.children.push({ text: textContent });
+          parentNode.children.push({ text: unescapeXmlText(textContent) });
         }
       }
 
@@ -790,7 +1505,7 @@ export class SlideParser {
       if (tagEnd === -1) {
         const remainingText = xml.substring(tagStart);
         if (remainingText) {
-          parentNode.children.push({ text: remainingText });
+          parentNode.children.push({ text: unescapeXmlText(remainingText) });
         }
         break;
       }
@@ -877,7 +1592,7 @@ export class SlideParser {
           }
         }
 
-        attributes[attrName] = attrValue;
+        attributes[attrName] = unescapeXmlText(attrValue);
       }
 
       // Create new node
@@ -994,6 +1709,7 @@ export class SlideParser {
       ...node.attributes,
       url: url,
       query: query,
+      ...(url ? { imageSource: "search" as const } : {}),
       children: [{ text: "" } as TText],
     } as ImageElement;
   }
@@ -1009,8 +1725,8 @@ export class SlideParser {
         const columnItem: TColumnElement = {
           type: ColumnItemPlugin.key,
           ...child.attributes,
+          width: child.attributes.width ?? "",
           children: this.processNodes(child.children) as Descendant[],
-          width: "M",
         };
         columnItems.push(columnItem);
       }
@@ -1062,9 +1778,11 @@ export class SlideParser {
 
     for (const child of node.children) {
       if (isElementNode(child) && child.tag.toUpperCase() === "DIV") {
+        const icon = this.extractIconValue(child);
         const bulletItem: TBulletItemElement = {
           type: "bullet",
           ...child.attributes,
+          ...(icon ? { icon } : {}),
           children: this.processNodes(child.children) as Descendant[],
         };
         bulletItems.push(bulletItem);
@@ -1107,6 +1825,9 @@ export class SlideParser {
           type: "icon-item",
           ...child.attributes,
           ...(icon ? { icon } : {}),
+          ...(child.attributes.prompt
+            ? { prompt: child.attributes.prompt }
+            : {}),
           children,
         };
         iconItems.push(iconItem);
@@ -1116,13 +1837,19 @@ export class SlideParser {
     return {
       type: "icons",
       ...node.attributes,
+      ...(node.attributes.mediaSize
+        ? { mediaSize: Number.parseFloat(node.attributes.mediaSize) }
+        : {}),
       children: iconItems,
     } as TIconListElement;
   }
 
   private extractIconValue(node: XMLNode): string {
     const rawValue =
-      node.attributes.icon ?? node.attributes.name ?? node.attributes.query ?? "";
+      node.attributes.icon ??
+      node.attributes.name ??
+      node.attributes.query ??
+      "";
 
     if (!rawValue) return "";
 
@@ -1163,9 +1890,11 @@ export class SlideParser {
 
     for (const child of node.children) {
       if (isElementNode(child) && child.tag.toUpperCase() === "DIV") {
+        const icon = this.extractIconValue(child);
         const cycleItem: TCycleItemElement = {
           type: "cycle-item",
           ...child.attributes,
+          ...(icon ? { icon } : {}),
           children: this.processNodes(child.children) as Descendant[],
         };
         cycleItems.push(cycleItem);
@@ -1187,9 +1916,11 @@ export class SlideParser {
 
     for (const child of node.children) {
       if (isElementNode(child) && child.tag.toUpperCase() === "DIV") {
+        const icon = this.extractIconValue(child);
         const stairItem: TStairItemElement = {
           type: "stair-item",
           ...child.attributes,
+          ...(icon ? { icon } : {}),
           children: this.processNodes(child.children) as Descendant[],
         };
         stairItems.push(stairItem);
@@ -1204,6 +1935,32 @@ export class SlideParser {
   }
 
   /**
+   * Create a steps layout element
+   */
+  private createSteps(node: XMLNode): TStepsGroupElement {
+    const stepsItems: TStepsItemElement[] = [];
+
+    for (const child of node.children) {
+      if (isElementNode(child) && child.tag.toUpperCase() === "DIV") {
+        const icon = this.extractIconValue(child);
+        const stepsItem: TStepsItemElement = {
+          type: "steps-item",
+          ...child.attributes,
+          ...(icon ? { icon } : {}),
+          children: this.processNodes(child.children) as Descendant[],
+        };
+        stepsItems.push(stepsItem);
+      }
+    }
+
+    return {
+      type: "steps",
+      ...node.attributes,
+      children: stepsItems,
+    } as TStepsGroupElement;
+  }
+
+  /**
    * Create an arrows layout element
    */
   private createArrowList(node: XMLNode): TArrowListElement {
@@ -1211,6 +1968,7 @@ export class SlideParser {
 
     for (const child of node.children) {
       if (isElementNode(child) && child.tag.toUpperCase() === "DIV") {
+        const icon = this.extractIconValue(child);
         const itemChildren: Descendant[] = [];
 
         for (const divChild of child.children) {
@@ -1235,6 +1993,7 @@ export class SlideParser {
           arrowItems.push({
             type: "arrow-item",
             ...child.attributes,
+            ...(icon ? { icon } : {}),
             children: itemChildren,
           } as TArrowListItemElement);
         }
@@ -1259,9 +2018,11 @@ export class SlideParser {
 
     for (const child of node.children) {
       if (isElementNode(child) && child.tag.toUpperCase() === "DIV") {
+        const icon = this.extractIconValue(child);
         const pyramidItem: TPyramidItemElement = {
           type: "pyramid-item",
           ...child.attributes,
+          ...(icon ? { icon } : {}),
           children: this.processNodes(child.children) as Descendant[],
         };
         pyramidItems.push(pyramidItem);
@@ -1540,9 +2301,22 @@ export class SlideParser {
    */
   private createTimeline(node: XMLNode): TTimelineGroupElement {
     const timelineItems: TTimelineItemElement[] = [];
+    const orientation =
+      parseOrientationAttribute(node.attributes.orientation) ?? "vertical";
+    const sidedness =
+      parseSidednessAttribute(node.attributes.sidedness) ?? "single";
+    const numbered = parseBooleanAttribute(node.attributes.numbered) ?? true;
+    const showLine = parseBooleanAttribute(node.attributes.showLine) ?? true;
+    const alignment = parseAlignmentAttribute(node.attributes.alignment);
+    const variant =
+      node.attributes.variant === "boxes" ||
+      node.attributes.variant === "default"
+        ? node.attributes.variant
+        : undefined;
 
     for (const child of node.children) {
       if (isElementNode(child) && child.tag.toUpperCase() === "DIV") {
+        const icon = this.extractIconValue(child);
         const itemChildren: Descendant[] = [];
 
         for (const divChild of child.children) {
@@ -1567,6 +2341,7 @@ export class SlideParser {
           timelineItems.push({
             type: "timeline-item",
             ...child.attributes,
+            ...(icon ? { icon } : {}),
             children: itemChildren,
           } as TTimelineItemElement);
         }
@@ -1576,6 +2351,12 @@ export class SlideParser {
     return {
       type: "timeline",
       ...node.attributes,
+      orientation,
+      sidedness,
+      numbered,
+      showLine,
+      ...(alignment ? { alignment } : {}),
+      ...(variant ? { variant } : {}),
       children:
         timelineItems.length > 0
           ? timelineItems
@@ -1588,104 +2369,100 @@ export class SlideParser {
    */
   private createChart(node: XMLNode): PlateNode {
     const chartType = (node.attributes.charttype || "bar").toLowerCase();
-
-    const dataNodes = node.children.filter(
-      (child) => isElementNode(child) && child.tag.toUpperCase() === "DATA",
-    ) as XMLNode[];
-
-    let parsedData: unknown[] | null = null;
-
-    if (dataNodes.length > 0) {
-      if (chartType === "scatter") {
-        const points: Array<{ x: number; y: number }> = [];
-        for (const d of dataNodes) {
-          const xNode = d.children.find(
-            (c) => isElementNode(c) && c.tag.toUpperCase() === "X",
-          ) as XMLNode | undefined;
-          const yNode = d.children.find(
-            (c) => isElementNode(c) && c.tag.toUpperCase() === "Y",
-          ) as XMLNode | undefined;
-          const xAttr = d.attributes.x;
-          const yAttr = d.attributes.y;
-          const x = parseFloat(
-            this.getTextContent(
-              xNode || ({ children: [] } as unknown as XMLNode),
-            ).trim() ||
-              xAttr ||
-              "0",
-          );
-          const y = parseFloat(
-            this.getTextContent(
-              yNode || ({ children: [] } as unknown as XMLNode),
-            ).trim() ||
-              yAttr ||
-              "0",
-          );
-          points.push({
-            x: Number.isNaN(x) ? 0 : x,
-            y: Number.isNaN(y) ? 0 : y,
-          });
-        }
-        parsedData = points;
-      } else {
-        const rows: Array<{ label: string; value: number }> = [];
-        for (const d of dataNodes) {
-          const labelNode = d.children.find(
-            (c) => isElementNode(c) && c.tag.toUpperCase() === "LABEL",
-          ) as XMLNode | undefined;
-          const valueNode = d.children.find(
-            (c) => isElementNode(c) && c.tag.toUpperCase() === "VALUE",
-          ) as XMLNode | undefined;
-          const labelAttr = d.attributes.label ?? d.attributes.name ?? "";
-          const valueAttr = d.attributes.value ?? "";
-          const label = (
-            this.getTextContent(
-              labelNode || ({ children: [] } as unknown as XMLNode),
-            ).trim() ||
-            labelAttr ||
-            ""
-          ).toString();
-          const valueParsed = parseFloat(
-            (
-              this.getTextContent(
-                valueNode || ({ children: [] } as unknown as XMLNode),
-              ).trim() ||
-              valueAttr ||
-              "0"
-            ).toString(),
-          );
-          rows.push({
-            label,
-            value: Number.isNaN(valueParsed) ? 0 : valueParsed,
-          });
-        }
-        parsedData = rows;
-      }
-    }
-
-    if (parsedData === null) parsedData = [];
-
-    const typeMap: Record<string, string> = {
-      pie: PIE_CHART_ELEMENT,
-      bar: BAR_CHART_ELEMENT,
-      area: AREA_CHART_ELEMENT,
-      radar: RADAR_CHART_ELEMENT,
-      scatter: SCATTER_CHART_ELEMENT,
-      line: LINE_CHART_ELEMENT,
-      candlestick: CANDLESTICK_CHART_ELEMENT,
-      ohlc: OHLC_CHART_ELEMENT,
-      "box-plot": BOX_PLOT_CHART_ELEMENT,
-      boxplot: BOX_PLOT_CHART_ELEMENT,
-    };
-
-    const elementType = typeMap[chartType] || BAR_CHART_ELEMENT;
+    const options = this.parseJsonChild(node, "OPTIONS");
+    const parsedData = this.parseChartDataRows(node);
+    const elementType = getChartElementType(chartType);
+    const attributeOptions = this.getOptionsFromAttributes(node, ["charttype"]);
+    const structuredOptions = isRecord(options) ? options : {};
 
     return {
       type: elementType,
-      ...node.attributes,
+      ...attributeOptions,
+      ...structuredOptions,
       data: parsedData,
       children: [{ text: "" } as TText],
     } as PlateNode;
+  }
+
+  private createPresentationTitle(node: XMLNode): TPresentationTitleElement {
+    const alignment = parseAlignmentAttribute(node.attributes.alignment);
+    const variant = parsePresentationTitleVariant(node.attributes.variant);
+    const children = this.getTextDescendants(node);
+
+    return {
+      type: PRESENTATION_TITLE_ELEMENT,
+      ...node.attributes,
+      ...(alignment ? { alignment } : {}),
+      variant,
+      children,
+    } as TPresentationTitleElement;
+  }
+
+  private createLabel(node: XMLNode): TLabelElement {
+    const alignment = parseAlignmentAttribute(node.attributes.alignment);
+    const children = this.getTextDescendants(node);
+
+    return {
+      type: LABEL_ELEMENT,
+      ...node.attributes,
+      ...(alignment ? { alignment } : {}),
+      children,
+    } as TLabelElement;
+  }
+
+  private createContributor(_node: XMLNode): TContributorElement {
+    return {
+      type: CONTRIBUTOR_ELEMENT,
+      children: [{ text: "" } as TText],
+    } as TContributorElement;
+  }
+
+  private createBlockquote(node: XMLNode): TElement {
+    return {
+      type: KEYS.blockquote,
+      ...node.attributes,
+      children: this.getTextDescendants(node),
+    } as TElement;
+  }
+
+  private createCallout(node: XMLNode): TElement {
+    const alignment = parseAlignmentAttribute(node.attributes.alignment);
+    const children = this.processNodes(node.children) as Descendant[];
+    const fallbackText = this.getTextContent(node).trim();
+    const finalChildren =
+      children.length > 0
+        ? children
+        : ([
+            {
+              type: KEYS.p,
+              children: [{ text: fallbackText } as TText],
+            },
+          ] as unknown as Descendant[]);
+
+    return {
+      type: KEYS.callout,
+      ...node.attributes,
+      ...(alignment ? { alignment } : {}),
+      children: finalChildren,
+    } as TElement;
+  }
+
+  private createCodeBlock(node: XMLNode): TElement {
+    const code = this.getTextContent(node).replace(/^\n+|\n+$/g, "");
+    const lines = code.split(/\r?\n/);
+    const language = node.attributes.language ?? node.attributes.lang;
+
+    return {
+      type: KEYS.codeBlock,
+      ...(language ? { lang: language } : {}),
+      children: lines.map(
+        (line) =>
+          ({
+            type: KEYS.codeLine,
+            children: [{ text: line } as TText],
+          }) as TElement,
+      ),
+    } as TElement;
   }
 
   /**
@@ -1706,6 +2483,7 @@ export class SlideParser {
       sizeAttr === "sm" || sizeAttr === "md" || sizeAttr === "lg"
         ? (sizeAttr as "sm" | "md" | "lg")
         : undefined;
+    const alignment = parseAlignmentAttribute(node.attributes.alignment);
 
     const children = this.processNodes(node.children) as Descendant[];
     const fallback = this.getTextContent(node).trim() || "";
@@ -1719,6 +2497,7 @@ export class SlideParser {
       ...node.attributes,
       ...(variant ? { variant } : {}),
       ...(size ? { size } : {}),
+      ...(alignment ? { alignment } : {}),
       children: finalChildren,
     } as unknown as PlateNode;
   }
@@ -1812,6 +2591,13 @@ export class SlideParser {
     return text;
   }
 
+  private getDirectTextContent(node: XMLNode): string {
+    return node.children
+      .filter(isTextNode)
+      .map((child) => child.text)
+      .join("\n");
+  }
+
   /**
    * Process a list of XMLNodes into Plate elements
    */
@@ -1878,10 +2664,28 @@ export class SlideParser {
           tag.toLowerCase() as "h1" | "h2" | "h3" | "h4" | "h5" | "h6",
           node,
         );
+      case "TITLE":
+      case "PRESENTATION-TITLE":
+      case "PRESENTATION_TITLE":
+        return this.createPresentationTitle(node);
+      case "LABEL":
+        return this.createLabel(node);
+      case "CONTRIBUTOR":
+        return this.createContributor(node);
+      case "BLOCKQUOTE":
+        return this.createBlockquote(node);
+      case "CALLOUT":
+        return this.createCallout(node);
+      case "CODE":
+      case "CODE-BLOCK":
+      case "CODE_BLOCK":
+        return this.createCodeBlock(node);
       case "P":
         return this.createParagraph(node);
       case "IMG":
         return this.createImage(node);
+      case "INFOGRAPHIC":
+        return this.createInfographic(node, "nested");
       case "COLUMNS":
         return this.createColumns(node);
       case "DIV":
@@ -1898,16 +2702,49 @@ export class SlideParser {
         return this.createChart(node);
       case "ARROWS":
         return this.createArrowList(node);
+      case "BOXES":
+        return this.createBoxes(node);
+      case "COMPARE":
+        return this.createCompare(node);
+      case "BEFORE-AFTER":
+      case "BEFOREAFTER":
+        return this.createBeforeAfter(node);
+      case "PROS-CONS":
+      case "PROSCONS":
+        return this.createProsCons(node);
       case "LI":
         return this.createListItemsFromLiNodes([node])[0] ?? null;
       case "PYRAMID":
         return this.createPyramid(node);
+      case "STEPS":
+        return this.createSteps(node);
       case "TIMELINE":
         return this.createTimeline(node);
+      case "STATS":
+        return this.createStats(node);
+      case "ARROW-SEQUENCE":
+      case "ARROW_SEQUENCE":
+      case "ARROW-VERTICAL":
+      case "ARROW_VERTICAL":
+      case "VERTICAL-ARROWS":
+      case "VERTICAL_ARROWS":
+        return this.createArrowVertical(node);
       case "ICON":
         return null;
       case "BUTTON":
         return this.createButton(node);
+      case "QUOTE":
+        return this.createQuote(node);
+      case "SLOPE":
+        return this.createSlope(node);
+      case "CONNECTED-CIRCLES":
+      case "CONNECTED_CIRCLES":
+        return this.createConnectedCircles(node);
+      case "CIRCULAR-GRID":
+      case "CIRCULAR_GRID":
+        return this.createCircularGrid(node);
+      case "SNAKE":
+        return this.createSnake(node);
       default:
         if (node.children.length > 0) {
           const children = this.processNodes(node.children);
@@ -1946,7 +2783,7 @@ export class SlideParser {
 
     return {
       type: QUOTE_ELEMENT,
-      id: nanoid(),
+      ...node.attributes,
       variant,
       author,
       children,
@@ -1991,6 +2828,144 @@ export class SlideParser {
     }
 
     return items;
+  }
+
+  /**
+   * Create a slope layout element
+   */
+  private createSlope(node: XMLNode): TSlopeGroupElement {
+    const slopeItems: TSlopeItemElement[] = [];
+
+    for (const child of node.children) {
+      if (isElementNode(child) && child.tag.toUpperCase() === "DIV") {
+        const icon = this.extractIconValue(child);
+
+        // Slope items can ONLY hold headings of very small levels (e.g. H4) and NO description.
+        // We extract text content and wrap it in a single h4 element, discarding any other tags.
+        let textContent = "";
+        for (const gc of child.children) {
+          if (isTextNode(gc)) {
+            textContent += gc.text;
+          } else if (isElementNode(gc)) {
+            const gcTag = gc.tag.toUpperCase();
+            if (["H1", "H2", "H3", "H4", "H5", "H6", "P"].includes(gcTag)) {
+              textContent += this.getTextContent(gc);
+            }
+          }
+        }
+
+        const titleText = textContent.trim();
+        const headingNode: HeadingElement = {
+          type: "h4",
+          children: [
+            {
+              text: titleText,
+              ...(this.shouldHaveGeneratingMark(titleText)
+                ? { generating: true }
+                : {}),
+            } as TText,
+          ],
+        } as HeadingElement;
+
+        const slopeItem: TSlopeItemElement = {
+          type: SLOPE_ITEM,
+          ...child.attributes,
+          ...(icon ? { icon } : {}),
+          children: [headingNode],
+        };
+        slopeItems.push(slopeItem);
+      }
+    }
+
+    return {
+      type: SLOPE_GROUP,
+      ...node.attributes,
+      children: slopeItems,
+    } as TSlopeGroupElement;
+  }
+
+  /**
+   * Create a connected circles layout element
+   */
+  private createConnectedCircles(node: XMLNode): TConnectedCirclesGroupElement {
+    const connectedCirclesItems: TConnectedCirclesItemElement[] = [];
+
+    for (const child of node.children) {
+      if (isElementNode(child) && child.tag.toUpperCase() === "DIV") {
+        const itemChildren = this.processNodes(child.children) as Descendant[];
+        const connectedCirclesItem: TConnectedCirclesItemElement = {
+          type: CONNECTED_CIRCLES_ITEM,
+          ...child.attributes,
+          children:
+            itemChildren.length > 0 ? itemChildren : [{ text: "" } as TText],
+        };
+        connectedCirclesItems.push(connectedCirclesItem);
+      }
+    }
+
+    return {
+      type: CONNECTED_CIRCLES_GROUP,
+      ...node.attributes,
+      children: connectedCirclesItems,
+    } as TConnectedCirclesGroupElement;
+  }
+
+  /**
+   * Create a circular grid layout element
+   */
+  private createCircularGrid(node: XMLNode): TCircularGridGroupElement {
+    const circularGridItems: TCircularGridItemElement[] = [];
+
+    for (const child of node.children) {
+      if (isElementNode(child) && child.tag.toUpperCase() === "DIV") {
+        const itemChildren = this.processNodes(child.children) as Descendant[];
+        const circularGridItem: TCircularGridItemElement = {
+          type: CIRCULAR_GRID_ITEM,
+          ...child.attributes,
+          children:
+            itemChildren.length > 0 ? itemChildren : [{ text: "" } as TText],
+        };
+        circularGridItems.push(circularGridItem);
+      }
+    }
+
+    const centerText =
+      node.attributes.centertext ||
+      node.attributes.centerText ||
+      "Smart Diagram";
+
+    return {
+      type: CIRCULAR_GRID_GROUP,
+      centerText,
+      ...node.attributes,
+      children: circularGridItems,
+    } as TCircularGridGroupElement;
+  }
+
+  /**
+   * Create a snake layout element
+   */
+  private createSnake(node: XMLNode): TSnakeGroupElement {
+    const snakeItems: TSnakeItemElement[] = [];
+
+    for (const child of node.children) {
+      if (isElementNode(child) && child.tag.toUpperCase() === "DIV") {
+        const itemChildren = this.processNodes(child.children) as Descendant[];
+        const snakeItem: TSnakeItemElement = {
+          type: SNAKE_ITEM,
+          ...child.attributes,
+          children:
+            itemChildren.length > 0 ? itemChildren : [{ text: "" } as TText],
+        };
+        snakeItems.push(snakeItem);
+      }
+    }
+
+    return {
+      type: SNAKE_GROUP,
+      ...node.attributes,
+      children: snakeItems,
+    } as TSnakeGroupElement;
   }
 }
 

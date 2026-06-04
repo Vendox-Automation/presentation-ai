@@ -1,7 +1,8 @@
 "use client";
 
-import { usePresentationState } from "@/states/presentation-state";
 import { useCallback } from "react";
+
+import { usePresentationState } from "@/states/presentation-state";
 import { type SlideUpdate } from "../types";
 
 export function useUpdateAllSlides() {

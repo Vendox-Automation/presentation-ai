@@ -1,10 +1,11 @@
 "use client";
 
+import { Star, X } from "lucide-react";
+
 import { CreateThemeModal } from "@/components/notebook/presentation/components/theme/create-theme/CreateThemeModal";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { usePresentationState } from "@/states/presentation-state";
-import { Star, X } from "lucide-react";
 import { useThemePanelState } from "./theme-panel-state";
 
 export function ThemePanelHeader() {
@@ -23,27 +24,28 @@ export function ThemePanelHeader() {
         New Theme
       </Button>
       <div className="flex items-center gap-2">
-        <button
-          onClick={() => setShowFavorites(!showFavorites)}
+        <CreateThemeModal />
+        <Button
+          type="button"
+          variant="ghost"
           className={cn(
-            "rounded-lg p-2 transition-colors",
+            "size-8! rounded-full p-0",
             showFavorites
-              ? "bg-yellow-100 dark:bg-yellow-900"
-              : "hover:bg-muted",
+              ? "bg-yellow-100 text-yellow-600 hover:bg-yellow-100 dark:bg-yellow-900/40 dark:text-yellow-400"
+              : "text-foreground",
           )}
-          title="Favorites"
+          onClick={() => setShowFavorites(!showFavorites)}
+          aria-pressed={showFavorites}
+          aria-label="Favorite themes"
+          title="Favorite themes"
         >
           <Star
             className={cn(
-              "h-4 w-4",
-              showFavorites
-                ? "fill-yellow-500 text-yellow-500"
-                : "text-foreground",
+              "size-4!",
+              showFavorites && "fill-yellow-500 text-yellow-500",
             )}
           />
-        </button>
-
-        <CreateThemeModal />
+        </Button>
         <Button
           variant="ghost"
           className="size-8! rounded-full p-0"

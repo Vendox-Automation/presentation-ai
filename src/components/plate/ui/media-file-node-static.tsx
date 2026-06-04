@@ -1,7 +1,6 @@
-import { type TFileElement } from "platejs";
-import { type SlateElementProps, SlateElement } from "platejs/static";
-
 import { FileUp } from "lucide-react";
+import { type TFileElement } from "platejs";
+import { SlateElement, type SlateElementProps } from "platejs/static";
 
 export function FileElementStatic(props: SlateElementProps<TFileElement>) {
   const { name, url } = props.element;
@@ -9,7 +8,7 @@ export function FileElementStatic(props: SlateElementProps<TFileElement>) {
   return (
     <SlateElement className="my-px rounded-sm" {...props}>
       <a
-        className="group relative m-0 flex cursor-pointer items-center rounded px-0.5 py-[3px] hover:bg-muted"
+        className="group relative m-0 flex cursor-pointer items-center rounded px-0.5 py-0.75 hover:bg-muted"
         contentEditable={false}
         download={name}
         href={url}
@@ -26,5 +25,3 @@ export function FileElementStatic(props: SlateElementProps<TFileElement>) {
     </SlateElement>
   );
 }
-
-

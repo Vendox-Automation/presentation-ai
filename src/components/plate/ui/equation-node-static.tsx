@@ -1,8 +1,7 @@
-import { type TEquationElement } from "platejs";
-import { type SlateElementProps, SlateElement } from "platejs/static";
-
 import { getEquationHtml } from "@platejs/math";
 import { RadicalIcon } from "lucide-react";
+import { type TEquationElement } from "platejs";
+import { SlateElement, type SlateElementProps } from "platejs/static";
 
 import { cn } from "@/lib/utils";
 
@@ -99,5 +98,3 @@ export function InlineEquationElementStatic(
     </SlateElement>
   );
 }
-
-

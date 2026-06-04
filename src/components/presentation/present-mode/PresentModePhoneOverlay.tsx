@@ -1,10 +1,11 @@
 "use client";
 
+import { useRef, type PointerEvent as ReactPointerEvent } from "react";
+import { createPortal } from "react-dom";
+
 import { type PlateSlide } from "@/components/notebook/presentation/utils/parser";
 import { cn } from "@/lib/utils";
 import { usePresentationState } from "@/states/presentation-state";
-import { type PointerEvent as ReactPointerEvent, useRef } from "react";
-import { createPortal } from "react-dom";
 
 interface PresentModePhoneOverlayProps {
   isPhoneViewport: boolean;
@@ -61,10 +62,12 @@ export function PresentModePhoneOverlay({
   );
   const nextSlide = usePresentationState((s) => s.nextSlide);
   const previousSlide = usePresentationState((s) => s.previousSlide);
+  const setShouldShowExitHeader = usePresentationState(
+    (s) => s.setShouldShowExitHeader,
+  );
   const gestureRef = useRef<PointerGesture | null>(null);
   const shouldShowForViewport =
     isPhoneViewport || isPhoneFormattedSlide(currentSlide);
-  const useRotatedControls = isPhoneViewport;
 
   if (!isPresenting || !shouldShowForViewport || slideIds.length <= 1) {
     return null;
@@ -87,30 +90,6 @@ export function PresentModePhoneOverlay({
     }
 
     const bounds = event.currentTarget.getBoundingClientRect();
-    if (useRotatedControls) {
-      // With -90deg rotation, phone top -> landscape RIGHT, phone bottom -> landscape LEFT.
-      // Tap landscape RIGHT (screen top) -> next, tap landscape LEFT (screen bottom) -> previous.
-      const navigationZone = event.currentTarget.dataset.navigationZone;
-      if (navigationZone === "bottom") {
-        previousSlide();
-        return;
-      }
-
-      if (navigationZone === "top") {
-        nextSlide();
-        return;
-      }
-
-      const tapY = event.clientY - bounds.top;
-      if (tapY >= bounds.height / 2) {
-        previousSlide();
-        return;
-      }
-
-      nextSlide();
-      return;
-    }
-
     const tapX = event.clientX - bounds.left;
     if (tapX >= bounds.width / 2) {
       nextSlide();
@@ -122,6 +101,8 @@ export function PresentModePhoneOverlay({
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!event.isPrimary) return;
+
+    setShouldShowExitHeader(false);
 
     event.currentTarget.setPointerCapture(event.pointerId);
     gestureRef.current = {
@@ -154,23 +135,6 @@ export function PresentModePhoneOverlay({
     gestureRef.current = null;
 
     if (
-      useRotatedControls &&
-      Math.abs(deltaY) >= SWIPE_DISTANCE_THRESHOLD &&
-      Math.abs(deltaY) > Math.abs(deltaX)
-    ) {
-      // With -90deg rotation: swipe up (screen) = swipe right (landscape) = next,
-      // swipe down (screen) = swipe left (landscape) = previous.
-      if (deltaY > 0) {
-        previousSlide();
-        return;
-      }
-
-      nextSlide();
-      return;
-    }
-
-    if (
-      !useRotatedControls &&
       Math.abs(deltaX) >= SWIPE_DISTANCE_THRESHOLD &&
       Math.abs(deltaX) > Math.abs(deltaY)
     ) {
@@ -187,29 +151,16 @@ export function PresentModePhoneOverlay({
   };
 
   return createPortal(
-    <div className="pointer-events-none fixed inset-0 z-1000">
-      {useRotatedControls ? (
-        <>
-          <div
-            className="pointer-events-auto absolute inset-x-0 top-0 z-2147483646 h-[24%] select-none touch-pan-x"
-            data-navigation-zone="top"
-            onPointerDown={handlePointerDown}
-            onPointerUp={handlePointerUp}
-            onPointerCancel={handlePointerCancel}
-            aria-label="Phone presentation previous slide zone"
-            role="button"
-          />
-          <div
-            className="pointer-events-auto absolute inset-x-0 bottom-0 z-2147483646 h-[24%] select-none touch-pan-x"
-            data-navigation-zone="bottom"
-            onPointerDown={handlePointerDown}
-            onPointerUp={handlePointerUp}
-            onPointerCancel={handlePointerCancel}
-            aria-label="Phone presentation next slide zone"
-            role="button"
-          />
-        </>
-      ) : (
+    <>
+      {/* Top area to toggle header */}
+      <button
+        type="button"
+        className="pointer-events-auto fixed inset-x-0 top-0 z-999 h-20"
+        onClick={() => setShouldShowExitHeader(true)}
+        aria-label="Show presentation exit controls"
+      />
+      {/* Navigator area */}
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 top-20 z-1000">
         <div
           className={cn(
             "pointer-events-auto absolute inset-0 z-2147483646 select-none",
@@ -218,9 +169,14 @@ export function PresentModePhoneOverlay({
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerCancel}
-        />
-      )}
-    </div>,
+          aria-label="Phone presentation navigation overlay"
+          role="application"
+        >
+          <div className="absolute inset-y-0 left-0 w-1/2" />
+          <div className="absolute inset-y-0 right-0 w-1/2" />
+        </div>
+      </div>
+    </>,
     document.body,
   );
 }

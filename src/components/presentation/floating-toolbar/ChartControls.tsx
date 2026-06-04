@@ -1,5 +1,6 @@
 "use client";
 
+import { Settings, Table2 } from "lucide-react";
 import * as React from "react";
 
 import { ChartDataEditorDialog } from "@/components/notebook/presentation/editor/custom-elements/chart-data-editor-dialog";
@@ -25,8 +26,17 @@ import {
   ToolbarMenuGroup,
 } from "@/components/plate/ui/toolbar";
 import { Input } from "@/components/ui/input";
-import { Settings, Table2 } from "lucide-react";
 import { useToolbarContext } from "./ToolbarContext";
+
+const orientationSupportedCharts: string[] = [
+  BAR_CHART_ELEMENT,
+  RANGE_BAR_CHART_ELEMENT,
+  FUNNEL_CHART_ELEMENT,
+  CONE_FUNNEL_CHART_ELEMENT,
+  PYRAMID_CHART_ELEMENT,
+  LINEAR_GAUGE_ELEMENT,
+  BOX_PLOT_CHART_ELEMENT,
+];
 
 export function ChartControls() {
   const [chartDataEditorOpen, setChartDataEditorOpen] = React.useState(false);
@@ -108,15 +118,7 @@ export function ChartControls() {
   const supportsScatterShape = elementType === "chart-scatter";
 
   // Charts that support orientation (vertical/horizontal)
-  const orientationSupportedCharts: string[] = [
-    BAR_CHART_ELEMENT,
-    RANGE_BAR_CHART_ELEMENT,
-    FUNNEL_CHART_ELEMENT,
-    CONE_FUNNEL_CHART_ELEMENT,
-    PYRAMID_CHART_ELEMENT,
-    LINEAR_GAUGE_ELEMENT,
-    BOX_PLOT_CHART_ELEMENT,
-  ];
+
   const supportsChartOrientation =
     orientationSupportedCharts.includes(elementType);
 
@@ -146,7 +148,7 @@ export function ChartControls() {
             size="sm"
             className="gap-1"
           >
-            <Table2 className="h-4 w-4" />
+            <Table2 className="size-4" />
             <span>Edit Data</span>
           </ToolbarButton>
         </ToolbarGroup>
@@ -355,7 +357,7 @@ export function ChartControls() {
           size="sm"
           className="gap-1"
         >
-          <Settings className="h-4 w-4" />
+          <Settings className="size-4" />
           <span>Edit Chart</span>
         </ToolbarButton>
       </ToolbarGroup>
@@ -371,6 +373,8 @@ export function ChartControls() {
         isComposedChart={isComposedChart}
         seriesChartTypes={seriesChartTypes}
         onSeriesChartTypesChange={handleSeriesChartTypesUpdate}
+        previewChartType={elementType}
+        chartOptions={(element ?? {}) as Record<string, unknown>}
       />
     </>
   );

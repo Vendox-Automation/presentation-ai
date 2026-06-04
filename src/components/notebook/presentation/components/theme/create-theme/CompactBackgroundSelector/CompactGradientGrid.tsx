@@ -1,4 +1,5 @@
 import React from "react";
+
 import { type LinearPreset } from "./types";
 import { loadGradients, toLinearFromJson } from "./utils";
 
@@ -51,7 +52,7 @@ export function CompactGradientGrid({
           aria-label={`Gradient preset ${i + 1}`}
           title={p.css}
         >
-          <div className="absolute inset-0 rounded-lg ring-1 ring-black/5 ring-inset" />
+          <div className="absolute inset-0 rounded-lg ring ring-black/5 ring-inset" />
         </button>
       ))}
     </div>

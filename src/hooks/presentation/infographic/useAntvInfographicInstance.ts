@@ -1,292 +1,181 @@
 "use client";
 
-import { Infographic } from "@antv/infographic";
+import {
+  BrushSelect,
+  ClickSelect,
+  DblClickEditText,
+  DragCanvas,
+  DragElement,
+  HotkeyHistory,
+  Infographic,
+  ResetViewBox,
+  ResizeElement,
+  SelectHighlight,
+  ZoomWheel,
+  type IInteraction,
+  type IPlugin,
+} from "@antv/infographic";
 import { useEffect, useRef, type RefObject } from "react";
 
-export function useAntvInfographicInstance(
-  containerRef: RefObject<HTMLDivElement | null>,
-  editBarContainerRef?: RefObject<HTMLElement | null>,
-) {
+import { registerLucideIconLoader } from "./infographic-icon-loader";
+import {
+  InfographicSelectionPlugin,
+  type InfographicSelectionPayload,
+} from "./InfographicSelectionPlugin";
+
+registerLucideIconLoader();
+
+type InfographicEditorInstance = {
+  editor?: {
+    interaction?: {
+      clearSelection?: () => void;
+    };
+  };
+};
+
+type InfographicInstanceParams = {
+  containerRef: RefObject<HTMLDivElement | null>;
+  editable?: boolean;
+  onSelectionChange?: (payload: InfographicSelectionPayload) => void;
+};
+
+const INLINE_TEXT_EDITOR_CLASS = "infographic-inline-text-editor";
+const INLINE_TEXT_SHORTCUT_KEYS = new Set(["a", "c", "v", "x"]);
+
+const isNativeInlineTextShortcut = (event: KeyboardEvent) =>
+  (event.ctrlKey || event.metaKey) &&
+  !event.altKey &&
+  !event.shiftKey &&
+  INLINE_TEXT_SHORTCUT_KEYS.has(event.key.toLowerCase());
+
+const getEventElement = (target: EventTarget | null) => {
+  if (target instanceof Element) return target;
+  if (target instanceof Node) return target.parentElement;
+  return null;
+};
+
+const getInfographicInlineTextEditor = (
+  target: EventTarget | null,
+  container: HTMLElement,
+) => {
+  const element = getEventElement(target);
+  const inlineTextEditor = element?.closest<HTMLElement>(
+    `.${INLINE_TEXT_EDITOR_CLASS}`,
+  );
+  if (!inlineTextEditor) return null;
+  if (!inlineTextEditor.isContentEditable) return null;
+  if (!container.contains(inlineTextEditor)) return null;
+
+  return inlineTextEditor;
+};
+
+export function useAntvInfographicInstance({
+  containerRef,
+  editable = true,
+  onSelectionChange,
+}: InfographicInstanceParams) {
   const infographicRef = useRef<Infographic | null>(null);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    const editBarContainer = editBarContainerRef?.current ?? null;
+
+    const plugins: IPlugin[] = editable
+      ? [new ResizeElement(), new ResetViewBox()]
+      : [];
+
+    if (editable && onSelectionChange) {
+      plugins.unshift(new InfographicSelectionPlugin(onSelectionChange));
+    }
 
     const instance = new Infographic({
       container,
       width: "100%",
       height: "100%",
-      editable: true,
-      // interactions: [
-      //   new DblClickEditText(),
-      //   new BrushSelect(),
-      //   new ClickSelect(),
-      //   new DragElement(),
-      //   new HotkeyHistory(),
-      // ],
+      editable,
+      plugins,
+      interactions: editable
+        ? ([
+            new DragCanvas({ trigger: ["Space"] }),
+            new DblClickEditText(),
+            new BrushSelect(),
+            new ClickSelect(),
+            new DragElement(),
+            new HotkeyHistory(),
+            new ZoomWheel(),
+            new SelectHighlight(),
+          ] satisfies IInteraction[])
+        : [],
     });
 
     infographicRef.current = instance;
 
     const getSvg = () => container.querySelector("svg");
-    const getEditBar = () =>
-      (editBarContainer ?? container).querySelector(
-        '[data-element-type="infographic-component"]',
-      ) as HTMLElement | null;
 
     const handleDocumentClick = (event: MouseEvent) => {
       const target = event.target as Node | null;
       if (!target) return;
 
       const svg = getSvg();
-      const editBar = getEditBar();
       if (!svg) return;
-      const inSvg = svg.contains(target);
-      const inEditBar = !!editBar && editBar.contains(target);
-      const inPopover =
-        target instanceof Element &&
-        !!target.closest(".infographic-edit-popover");
-      const inFloatingToolbar =
-        target instanceof Element &&
-        !!target.closest(".antv-infographic-toolbar-floating");
 
-      if (!inSvg && !inEditBar && !inPopover && !inFloatingToolbar) {
+      const inInfographicContainer = container.contains(target);
+      const inToolbarOrPanel =
+        target instanceof Element &&
+        (!!target.closest(".antv-infographic-toolbar-floating") ||
+          !!target.closest(".antv-infographic-template-panel") ||
+          !!target.closest(".icon-picker-panel") ||
+          !!target.closest(".presentation-right-panel") ||
+          // Radix UI portals for dropdowns, popovers, color pickers
+          !!target.closest("[data-radix-popper-content-wrapper]") ||
+          !!target.closest("[role='dialog']") ||
+          !!target.closest("[data-slot='tooltip-content']"));
+
+      if (!inInfographicContainer && !inToolbarOrPanel) {
         (
-          instance as unknown as { editor?: any }
-        )?.editor?.interaction?.clearSelection?.();
-      } else {
-        requestAnchorCapture();
+          instance as unknown as InfographicEditorInstance
+        ).editor?.interaction?.clearSelection?.();
       }
     };
 
-    document.addEventListener("click", handleDocumentClick, true);
+    // Use bubble phase so toolbar's stopPropagation can prevent this
+    document.addEventListener("click", handleDocumentClick);
 
-    type EditBarAnchor = {
-      bar: HTMLElement;
-      boundsEl: SVGGraphicsElement;
-      offsetX: number;
-      offsetY: number;
-      slideId?: string;
-      index?: number;
-    };
+    const handleInlineTextEditorShortcut = (event: KeyboardEvent) => {
+      if (!isNativeInlineTextShortcut(event)) return;
 
-    let rafId: number | null = null;
-    let anchorRafId: number | null = null;
-    const anchorRef = { current: null as EditBarAnchor | null };
-
-    const isEditBarElement = (node: HTMLElement) => {
-      if (node.classList.contains("infographic-edit-popover__content")) {
-        return false;
-      }
-      return Boolean(node.querySelector(".infographic-edit-popover"));
-    };
-
-    const isVisibleEditBar = (node: HTMLElement) => {
-      const style = window.getComputedStyle(node);
-      return (
-        style.visibility !== "hidden" &&
-        style.display !== "none" &&
-        node.isConnected
+      const inlineTextEditor = getInfographicInlineTextEditor(
+        event.target,
+        container,
       );
+      if (!inlineTextEditor) return;
+
+      event.stopPropagation();
+      event.stopImmediatePropagation();
     };
 
-    const getSlideContainer = (node: HTMLElement | null) => {
-      if (!node) return null;
-      const className = Array.from(node.classList).find((value) =>
-        value.startsWith("slide-container-"),
+    const handleInlineTextEditorClipboard = (event: ClipboardEvent) => {
+      const inlineTextEditor = getInfographicInlineTextEditor(
+        event.target,
+        container,
       );
-      if (className) {
-        return document.querySelector<HTMLElement>(`.${className}`) ?? null;
-      }
-      return node.closest<HTMLElement>('[class*="slide-container-"]');
+      if (!inlineTextEditor) return;
+
+      event.stopPropagation();
+      event.stopImmediatePropagation();
     };
 
-    const getInfographicMeta = () => {
-      const host = (editBarContainer ?? container) as HTMLElement;
-      const slideContainer = getSlideContainer(host);
-      const slideClass = slideContainer
-        ? Array.from(slideContainer.classList).find((value) =>
-            value.startsWith("slide-container-"),
-          )
-        : undefined;
-      const slideId = slideClass
-        ? slideClass.replace("slide-container-", "")
-        : undefined;
-
-      let index = -1;
-      if (slideClass) {
-        const items = Array.from(
-          document.querySelectorAll<HTMLElement>(
-            `.${slideClass} .infographic-content`,
-          ),
-        );
-        index = items.indexOf(host);
-        if (index >= 0) {
-          host.dataset.infographicIndex = String(index);
-          if (slideId) host.dataset.infographicSlideId = slideId;
-        }
-      }
-
-      return { host, slideId, index };
-    };
-
-    const getSelectionBoundsElement = () => {
-      const svg = getSvg();
-      if (!svg) return null;
-
-      const dashed = svg.querySelector<SVGRectElement>(
-        'rect[stroke-dasharray="4 2"]',
-      );
-      if (dashed) return dashed;
-
-      const transient = svg.querySelector<SVGGElement>(
-        'g[data-element-type="transient-container"]',
-      );
-      if (!transient) return null;
-
-      const combined = transient.querySelector<SVGRectElement>(
-        'rect[stroke="#3384F5"][stroke-width="2"]',
-      );
-      if (combined) return combined;
-
-      return transient.querySelector<SVGRectElement>('rect[stroke="#3384F5"]');
-    };
-
-    const findActiveEditBar = () => {
-      const candidates = Array.from(
-        document.querySelectorAll<HTMLElement>(
-          '[data-element-type="infographic-component"]',
-        ),
-      ).filter(isEditBarElement);
-      if (!candidates.length) return null;
-
-      const visible = candidates.filter(isVisibleEditBar);
-      const list = visible.length ? visible : candidates;
-      if (!list.length) return null;
-
-      const { host, slideId, index } = getInfographicMeta();
-      if (slideId && index >= 0) {
-        const match = list.find(
-          (bar) =>
-            bar.dataset.infographicSlideId === slideId &&
-            bar.dataset.infographicIndex === String(index),
-        );
-        if (match) return match;
-      }
-
-      const hostRect = host.getBoundingClientRect();
-      const hostCenterX = hostRect.left + hostRect.width / 2;
-      const hostCenterY = hostRect.top + hostRect.height / 2;
-      const ranked = list
-        .map((bar) => {
-          const rect = bar.getBoundingClientRect();
-          const dx = rect.left + rect.width / 2 - hostCenterX;
-          const dy = rect.top + rect.height / 2 - hostCenterY;
-          return { bar, distance: dx * dx + dy * dy };
-        })
-        .sort((a, b) => a.distance - b.distance);
-
-      return ranked[0]?.bar ?? null;
-    };
-
-    const getScrollContainer = () =>
-      container.closest(".presentation-slides") ??
-      document.querySelector<HTMLElement>(".presentation-slides");
-
-    const captureAnchor = () => {
-      const bar = findActiveEditBar();
-      const boundsEl = getSelectionBoundsElement();
-      if (!bar || !boundsEl || !isVisibleEditBar(bar)) {
-        anchorRef.current = null;
-        return;
-      }
-
-      const barRect = bar.getBoundingClientRect();
-      const boundsRect = boundsEl.getBoundingClientRect();
-      const { slideId, index } = getInfographicMeta();
-      if (slideId) bar.dataset.infographicSlideId = slideId;
-      if (index >= 0) bar.dataset.infographicIndex = String(index);
-
-      anchorRef.current = {
-        bar,
-        boundsEl,
-        offsetX: barRect.left - boundsRect.left,
-        offsetY: barRect.top - boundsRect.top,
-        slideId: slideId ?? undefined,
-        index: index >= 0 ? index : undefined,
-      };
-    };
-
-    const requestAnchorCapture = () => {
-      if (anchorRafId !== null) return;
-      anchorRafId = window.requestAnimationFrame(() => {
-        anchorRafId = window.requestAnimationFrame(() => {
-          anchorRafId = null;
-          captureAnchor();
-        });
-      });
-    };
-
-    const syncEditBarPosition = () => {
-      rafId = null;
-      const { slideId, index } = getInfographicMeta();
-      let anchor = anchorRef.current;
-      if (
-        anchor &&
-        ((slideId && anchor.slideId && anchor.slideId !== slideId) ||
-          (index >= 0 && anchor.index !== undefined && anchor.index !== index))
-      ) {
-        anchorRef.current = null;
-        anchor = null;
-      }
-
-      if (!anchor || !anchor.boundsEl.isConnected || !anchor.bar.isConnected) {
-        captureAnchor();
-        anchor = anchorRef.current;
-      }
-      if (!anchor) return;
-
-      const boundsRect = anchor.boundsEl.getBoundingClientRect();
-      if (!Number.isFinite(boundsRect.left) || !Number.isFinite(boundsRect.top))
-        return;
-
-      anchor.bar.style.left = `${boundsRect.left + anchor.offsetX}px`;
-      anchor.bar.style.top = `${boundsRect.top + anchor.offsetY}px`;
-    };
-
-    const requestSync = () => {
-      if (rafId !== null) return;
-      rafId = window.requestAnimationFrame(syncEditBarPosition);
-    };
-
-    const scrollContainer = getScrollContainer();
-    const handleScroll = () => requestSync();
-    const handleResize = () => {
-      requestAnchorCapture();
-      requestSync();
-    };
-
-    scrollContainer?.addEventListener("scroll", handleScroll, {
-      passive: true,
-    });
-    window.addEventListener("resize", handleResize);
-    container.addEventListener("pointerup", requestAnchorCapture, true);
-    container.addEventListener("keyup", requestAnchorCapture, true);
+    container.addEventListener("keydown", handleInlineTextEditorShortcut);
+    container.addEventListener("copy", handleInlineTextEditorClipboard);
+    container.addEventListener("cut", handleInlineTextEditorClipboard);
+    container.addEventListener("paste", handleInlineTextEditorClipboard);
 
     return () => {
-      document.removeEventListener("click", handleDocumentClick, true);
-      scrollContainer?.removeEventListener("scroll", handleScroll);
-      window.removeEventListener("resize", handleResize);
-      container.removeEventListener("pointerup", requestAnchorCapture, true);
-      container.removeEventListener("keyup", requestAnchorCapture, true);
-      if (rafId !== null) {
-        window.cancelAnimationFrame(rafId);
-      }
-      if (anchorRafId !== null) {
-        window.cancelAnimationFrame(anchorRafId);
-      }
+      document.removeEventListener("click", handleDocumentClick);
+      container.removeEventListener("keydown", handleInlineTextEditorShortcut);
+      container.removeEventListener("copy", handleInlineTextEditorClipboard);
+      container.removeEventListener("cut", handleInlineTextEditorClipboard);
+      container.removeEventListener("paste", handleInlineTextEditorClipboard);
 
       try {
         instance.destroy();
@@ -295,7 +184,7 @@ export function useAntvInfographicInstance(
       }
       infographicRef.current = null;
     };
-  }, [containerRef]);
+  }, [containerRef, onSelectionChange, editable]);
 
   return infographicRef;
 }

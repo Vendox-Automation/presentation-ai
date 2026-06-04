@@ -4,17 +4,16 @@ import { DndPlugin } from "@platejs/dnd";
 import { expandListItemsWithChildren } from "@platejs/list";
 import { BlockSelectionPlugin } from "@platejs/selection/react";
 import { GripHorizontal, GripVertical } from "lucide-react";
+import { motion } from "motion/react";
 import {
-  type TElement,
   getContainerTypes,
   isType,
   KEYS,
+  nanoid,
   PathApi,
+  type TElement,
 } from "platejs";
 import {
-  type PlateEditor,
-  type PlateElementProps,
-  type RenderNodeWrapper,
   MemoizedChildren,
   useEditorRef,
   useEditorSelector,
@@ -23,14 +22,24 @@ import {
   usePath,
   usePluginOption,
   useSelected,
+  type PlateEditor,
+  type PlateElementProps,
+  type RenderNodeWrapper,
 } from "platejs/react";
 import * as React from "react";
 
 import { useDraggable } from "@/components/notebook/presentation/editor/dnd/hooks/useDraggable";
 import { useDropLine } from "@/components/notebook/presentation/editor/dnd/hooks/useDropLine";
+import { type CanDropCallback } from "@/components/notebook/presentation/editor/dnd/hooks/useDropNode";
 import {
   BLOCKS,
+  BUTTON_ELEMENT,
+  COLUMN_GROUP,
   getGridClassForElement,
+  getGridStyleForElement,
+  isLayoutChildType,
+  LABEL_ELEMENT,
+  QUOTE_ELEMENT,
 } from "@/components/notebook/presentation/editor/lib";
 import { useIsTouchDevice } from "@/components/plate/hooks/use-is-touch-device";
 import { Button } from "@/components/plate/ui/button";
@@ -42,12 +51,33 @@ import {
 import { cn } from "@/lib/utils";
 
 // Configuration constants
-const UNDRAGGABLE_KEYS = [KEYS.tr, KEYS.td];
+const UNDRAGGABLE_KEYS = [KEYS.tr, KEYS.td, KEYS.codeLine];
+
+const NON_DRAGGABLE_DESCENDANT_CONTAINER_TYPES: readonly string[] = [
+  KEYS.callout,
+  KEYS.codeBlock,
+  KEYS.blockquote,
+  QUOTE_ELEMENT,
+  BUTTON_ELEMENT,
+  LABEL_ELEMENT,
+];
 
 // Elements that should have horizontal orientation
 
 // Elements that can only drop within same parent (sibling-only drops)
 const SIBLING_ONLY_DROP_ELEMENTS = ["column", "table-row", "list-item"];
+const GUTTER_HIDE_DELAY_MS = 300;
+const VERTICAL_GUTTER_SAFE_ZONE_PX = 40;
+const HORIZONTAL_GUTTER_SAFE_ZONE_PX = 28;
+
+type PointerCoordinates = {
+  clientX: number;
+  clientY: number;
+};
+
+type ElementWithRenderToken = TElement & {
+  lastUpdate?: number | string;
+};
 
 // Helper function to determine element orientation
 
@@ -56,16 +86,52 @@ const requiresSiblingOnlyDrop = (elementType: string): boolean => {
   return SIBLING_ONLY_DROP_ELEMENTS.includes(elementType);
 };
 
+function isElementWithStringType(
+  node: unknown,
+): node is TElement & { type: string } {
+  return (
+    typeof node === "object" &&
+    node !== null &&
+    "type" in node &&
+    typeof node.type === "string"
+  );
+}
+
+function hasNonDraggableContainerAncestor(
+  editor: PlateEditor,
+  path: number[],
+): boolean {
+  let ancestorPath = PathApi.parent(path);
+
+  while (ancestorPath.length > 0) {
+    const ancestorEntry = editor.api.node({ at: ancestorPath });
+    const ancestorNode = ancestorEntry?.[0];
+
+    if (
+      isElementWithStringType(ancestorNode) &&
+      NON_DRAGGABLE_DESCENDANT_CONTAINER_TYPES.includes(ancestorNode.type)
+    ) {
+      return true;
+    }
+
+    ancestorPath = PathApi.parent(ancestorPath);
+  }
+
+  return false;
+}
+
 export const BlockDraggable: RenderNodeWrapper = (props) => {
   const { editor, element, path } = props;
-
-  if (!props) return;
-
-  // biome-ignore lint/correctness/useHookAtTopLevel: We don't need to calculate anything when props are not available
   const enabled = React.useMemo(() => {
     if (!path) return false;
 
-    if (!editor.api.isBlock(element)) return false;
+    if (
+      !editor.api.isBlock(element) &&
+      element.type !== BUTTON_ELEMENT &&
+      element.type !== LABEL_ELEMENT
+    ) {
+      return false;
+    }
 
     // Inline elements like links should never receive block drag wrappers.
     if (editor.api.isInline(element)) return false;
@@ -73,9 +139,11 @@ export const BlockDraggable: RenderNodeWrapper = (props) => {
     // Check if element is undraggable
     if (isType(editor, element, UNDRAGGABLE_KEYS)) return false;
 
-    // Enable dragging for elements at different depths
+    if (hasNonDraggableContainerAncestor(editor, path)) return false;
+
+    // Enable dragging for top-level blocks and explicit layout children.
     if (path.length === 1) return true;
-    if (path.length === 2) return true;
+    if (path.length === 2) return isLayoutChildType(element.type);
 
     if (path.length === 3) {
       const isInColumn = editor.api.some({
@@ -96,104 +164,237 @@ export const BlockDraggable: RenderNodeWrapper = (props) => {
     return false;
   }, [editor, element, path]);
 
-  if (!enabled) return;
-
-  // eslint-disable-next-line react/display-name
-  return (props) => <Draggable {...props} />;
+  return enabled
+    ? (draggableProps) => <Draggable {...draggableProps} />
+    : ({ children }) => <>{children}</>;
 };
 
-export function Draggable(props: PlateElementProps) {
+function Draggable(props: PlateElementProps) {
   const { children, editor, element, path } = props;
+  const pathKey = path.join(".");
+
+  React.useEffect(() => {
+    if (typeof element.id === "string" && element.id) return;
+
+    editor.tf.setNodes({ id: nanoid() }, { at: path });
+  }, [editor, element.id, path, pathKey]);
 
   // Determine if this element can create columns when dropped on sides
   // Root level elements (path.length === 1) can create columns
   const canCreateColumns = path.length === 1;
+  const isChildOfColumnItem = React.useMemo(() => {
+    if (!path || path.length === 0) return false;
+    try {
+      const parentNode = editor.api.node({ at: PathApi.parent(path) });
+      return parentNode?.[0]?.type === "column";
+    } catch {
+      return false;
+    }
+  }, [editor, path]);
+
+  // Orientation is for UI styling and freeform drop-axis detection.
+  // path.length === 2 means elements inside a layout block like bullet/cycle - show horizontal grip
+  const orientation: "horizontal" | "vertical" =
+    path.length === 2 && !isChildOfColumnItem ? "horizontal" : "vertical";
+  const canDropNode = React.useCallback<CanDropCallback>(
+    ({ dragEntry, dropEntry }) => {
+      const dragElementType = dragEntry[0].type;
+
+      // Check if this element requires sibling-only drops
+      if (requiresSiblingOnlyDrop(dragElementType)) {
+        const dragParentPath = PathApi.parent(dragEntry[1]);
+        const dropParentPath = PathApi.parent(dropEntry[1]);
+
+        // First check: Direct siblings (same parent)
+        if (PathApi.equals(dragParentPath, dropParentPath)) {
+          return true;
+        }
+
+        // Second check: Check if drop target is a child of a valid sibling
+        // We need to traverse up the drop entry's ancestors to see if any of them
+        // are siblings of the drag entry
+        let currentDropPath = dropEntry[1];
+
+        while (currentDropPath.length > 0) {
+          const currentParentPath = PathApi.parent(currentDropPath);
+
+          // If we found a path where the parent matches our drag element's parent,
+          // then the drop target is within a valid sibling
+          if (PathApi.equals(dragParentPath, currentParentPath)) {
+            // Additional check: make sure the sibling element is the same type as drag element
+            // This ensures we're dropping within a column if we're dragging a column, etc.
+            const siblingPath = currentDropPath;
+            const siblingEntry = editor.api.node({ at: siblingPath });
+
+            if (siblingEntry && siblingEntry[0].type === dragElementType) {
+              return true;
+            }
+          }
+
+          // Move up one level
+          currentDropPath = PathApi.parent(currentDropPath);
+        }
+
+        // If no valid sibling relationship found, disallow the drop
+        return false;
+      }
+
+      // Default behavior: allow drops anywhere
+      return true;
+    },
+    [editor],
+  );
   const { isAboutToDrag, isDragging, nodeRef, previewRef, handleRef } =
     useDraggable({
       element,
       canCreateColumns,
+      orientation,
       onDropHandler: () => {
         resetPreview();
         return undefined;
       },
-      canDropNode: ({ dragEntry, dropEntry }) => {
-        const dragElementType = dragEntry[0].type;
-        const dragPath = dragEntry[1];
-        const dropPath = dropEntry[1];
-
-        // ROOT ELEMENT RESTRICTION:
-        // If dragging a root-level element (path.length === 1),
-        // it can only drop at root level OR inside a Column element
-        if (dragPath.length === 1 && dropPath.length > 1) {
-          // Check if the drop target is inside a Column
-          const isInsideColumn = editor.api.some({
-            at: dropPath,
-            match: { type: editor.getType(KEYS.column) },
-          });
-
-          // Only allow drop inside Column, not inside other containers like bullet/cycle
-          if (!isInsideColumn) {
-            return false;
-          }
-        }
-
-        // Check if this element requires sibling-only drops
-        if (requiresSiblingOnlyDrop(dragElementType)) {
-          const dragParentPath = PathApi.parent(dragEntry[1]);
-          const dropParentPath = PathApi.parent(dropEntry[1]);
-
-          // First check: Direct siblings (same parent)
-          if (PathApi.equals(dragParentPath, dropParentPath)) {
-            return true;
-          }
-
-          // Second check: Check if drop target is a child of a valid sibling
-          // We need to traverse up the drop entry's ancestors to see if any of them
-          // are siblings of the drag entry
-          let currentDropPath = dropEntry[1];
-
-          while (currentDropPath.length > 0) {
-            const currentParentPath = PathApi.parent(currentDropPath);
-
-            // If we found a path where the parent matches our drag element's parent,
-            // then the drop target is within a valid sibling
-            if (PathApi.equals(dragParentPath, currentParentPath)) {
-              // Additional check: make sure the sibling element is the same type as drag element
-              // This ensures we're dropping within a column if we're dragging a column, etc.
-              const siblingPath = currentDropPath;
-              const siblingEntry = editor.api.node({ at: siblingPath });
-
-              if (siblingEntry && siblingEntry[0].type === dragElementType) {
-                return true;
-              }
-            }
-
-            // Move up one level
-            currentDropPath = PathApi.parent(currentDropPath);
-          }
-
-          // If no valid sibling relationship found, disallow the drop
-          return false;
-        }
-
-        // Default behavior: allow drops anywhere
-        return true;
-      },
+      canDropNode,
     });
 
-  const isInColumn = path.length === 3;
+  const isInColumn = path.length === 3 || isChildOfColumnItem;
   const isInTable = path.length === 4;
+  const isContentHeightElement =
+    element.type === QUOTE_ELEMENT || element.type === COLUMN_GROUP;
+  const elementRenderToken = (element as ElementWithRenderToken).lastUpdate;
+  const childrenRenderKey = `${String(element.id ?? element.type)}:${path.join(
+    ".",
+  )}:${String(elementRenderToken ?? "")}`;
   const showHoverBorder = React.useMemo(
     () => BLOCKS.some((block) => block.type === element.type),
     [element.type],
   );
 
-  // Orientation is for UI styling (horizontal/vertical grip handle display)
-  // path.length === 2 means elements inside a layout block like bullet/cycle - show horizontal grip
-  const orientation: "horizontal" | "vertical" =
-    path.length === 2 ? "horizontal" : "vertical";
-
   const [previewTop, setPreviewTop] = React.useState(0);
+  const [isGutterActive, setIsGutterActive] = React.useState(false);
+  const gutterHideTimeoutRef = React.useRef<number | null>(null);
+  const pointerTrackerCleanupRef = React.useRef<(() => void) | null>(null);
+  const pointerTrackerStateRef = React.useRef<{
+    isAboutToDrag: boolean;
+    isDragging: boolean;
+    isPointerInGutterSafeZone: (coordinates: PointerCoordinates) => boolean;
+    keepGutterOpen: () => void;
+    scheduleHideGutter: () => void;
+  } | null>(null);
+
+  const clearGutterHideTimeout = React.useCallback(() => {
+    if (gutterHideTimeoutRef.current !== null) {
+      window.clearTimeout(gutterHideTimeoutRef.current);
+      gutterHideTimeoutRef.current = null;
+    }
+  }, []);
+
+  const stopPointerTracking = React.useCallback(() => {
+    pointerTrackerCleanupRef.current?.();
+    pointerTrackerCleanupRef.current = null;
+  }, []);
+
+  const startPointerTracking = React.useCallback(() => {
+    if (pointerTrackerCleanupRef.current !== null) {
+      return;
+    }
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const trackerState = pointerTrackerStateRef.current;
+
+      if (!trackerState) return;
+
+      if (
+        trackerState.isAboutToDrag ||
+        trackerState.isDragging ||
+        trackerState.isPointerInGutterSafeZone(event)
+      ) {
+        trackerState.keepGutterOpen();
+        return;
+      }
+
+      trackerState.scheduleHideGutter();
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerdown", handlePointerMove);
+    pointerTrackerCleanupRef.current = () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerdown", handlePointerMove);
+    };
+  }, []);
+
+  const keepGutterOpen = React.useCallback(() => {
+    clearGutterHideTimeout();
+    setIsGutterActive(true);
+  }, [clearGutterHideTimeout]);
+
+  const showGutter = React.useCallback(() => {
+    keepGutterOpen();
+    startPointerTracking();
+  }, [keepGutterOpen, startPointerTracking]);
+
+  const isPointerInGutterSafeZone = React.useCallback(
+    ({ clientX, clientY }: PointerCoordinates) => {
+      const wrapper = nodeRef.current;
+
+      if (!wrapper) return false;
+
+      const rect = wrapper.getBoundingClientRect();
+
+      if (orientation === "horizontal") {
+        return (
+          clientX >= rect.left &&
+          clientX <= rect.right &&
+          clientY >= rect.top - HORIZONTAL_GUTTER_SAFE_ZONE_PX &&
+          clientY <= rect.bottom
+        );
+      }
+
+      return (
+        clientX >= rect.left - VERTICAL_GUTTER_SAFE_ZONE_PX &&
+        clientX <= rect.right &&
+        clientY >= rect.top &&
+        clientY <= rect.bottom
+      );
+    },
+    [nodeRef, orientation],
+  );
+
+  const scheduleHideGutter = React.useCallback(() => {
+    clearGutterHideTimeout();
+    gutterHideTimeoutRef.current = window.setTimeout(() => {
+      setIsGutterActive(false);
+      gutterHideTimeoutRef.current = null;
+      stopPointerTracking();
+    }, GUTTER_HIDE_DELAY_MS);
+  }, [clearGutterHideTimeout, stopPointerTracking]);
+
+  const hideGutter = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (isPointerInGutterSafeZone(event.nativeEvent)) {
+        return;
+      }
+
+      scheduleHideGutter();
+    },
+    [isPointerInGutterSafeZone, scheduleHideGutter],
+  );
+
+  React.useEffect(() => {
+    pointerTrackerStateRef.current = {
+      isAboutToDrag,
+      isDragging,
+      isPointerInGutterSafeZone,
+      keepGutterOpen,
+      scheduleHideGutter,
+    };
+  }, [
+    isAboutToDrag,
+    isDragging,
+    isPointerInGutterSafeZone,
+    keepGutterOpen,
+    scheduleHideGutter,
+  ]);
 
   const resetPreview = () => {
     if (previewRef.current) {
@@ -215,36 +416,59 @@ export function Draggable(props: PlateElementProps) {
     }
   }, [isAboutToDrag, previewRef]);
 
+  React.useEffect(() => {
+    return () => {
+      clearGutterHideTimeout();
+      stopPointerTracking();
+    };
+  }, [clearGutterHideTimeout, stopPointerTracking]);
+
   return (
     <div
       data-dnd-wrapper="true"
       className={cn(
-        path?.length === 1 && "px-4 md:px-16",
+        path?.length === 1 && "px-4 md:px-8",
         // path?.length === 2 && "pl-8",
         getGridClassForElement(
           editor as unknown as PlateEditor,
           element as unknown as TElement,
         ),
       )}
+      style={getGridStyleForElement(
+        editor as unknown as PlateEditor,
+        element as unknown as TElement,
+      )}
       ref={nodeRef}
+      onPointerEnter={showGutter}
+      onPointerLeave={hideGutter}
     >
       <div
         className={cn(
-          "relative h-full",
+          "relative overflow-visible",
+          isContentHeightElement ? "h-fit" : "h-full",
           isDragging && "opacity-50",
           showHoverBorder &&
-            "after:pointer-events-none after:absolute after:-inset-1 hover:after:border hover:after:border-blue-400",
+            "after:pointer-events-none after:absolute after:-inset-1",
+          showHoverBorder &&
+            (isGutterActive || isAboutToDrag || isDragging
+              ? "after:border after:border-blue-400"
+              : "hover:after:border hover:after:border-blue-400"),
           getContainerTypes(editor).includes(element.type)
             ? "group/container"
             : "group",
         )}
       >
         {!isInTable && !editor.dom.readOnly && (
-          <Gutter orientation={orientation}>
+          <Gutter
+            active={isGutterActive || isAboutToDrag || isDragging}
+            orientation={orientation}
+            onPointerEnter={showGutter}
+            onPointerLeave={hideGutter}
+          >
             <div
               className={cn(
                 "slate-blockToolbarWrapper",
-                "flex",
+                "pointer-events-auto flex",
                 orientation === "horizontal"
                   ? "h-6 w-full justify-center"
                   : "h-[1.5em]",
@@ -257,7 +481,7 @@ export function Draggable(props: PlateElementProps) {
                 ]) &&
                   orientation === "vertical" &&
                   "h-[1.3em]",
-                isInColumn && orientation === "vertical" && "h-4",
+                isInColumn && orientation === "vertical" && "",
               )}
             >
               <div
@@ -272,9 +496,14 @@ export function Draggable(props: PlateElementProps) {
                   ref={handleRef}
                   variant="ghost"
                   className={cn(
-                    "bg-background/50 p-0",
-                    orientation === "horizontal" ? "h-5 w-6" : "h-6 w-5",
+                    "relative border-0 bg-transparent p-0 shadow-none",
+                    "hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 active:bg-transparent",
+                    orientation === "horizontal"
+                      ? "-mb-1.5 h-5 w-8"
+                      : "-mr-1.5 h-8 w-5",
                   )}
+                  onFocus={showGutter}
+                  onPointerDown={showGutter}
                   data-plate-prevent-deselect
                 >
                   <DragHandle
@@ -298,14 +527,19 @@ export function Draggable(props: PlateElementProps) {
         />
 
         <div
-          className="slate-blockWrapper h-full"
+          className={cn(
+            "slate-blockWrapper",
+            isContentHeightElement ? "h-fit" : "h-full",
+          )}
           onContextMenu={(event) =>
             editor
               .getApi(BlockSelectionPlugin)
               .blockSelection.addOnContextMenu({ element, event })
           }
         >
-          <MemoizedChildren>{children}</MemoizedChildren>
+          <MemoizedChildren key={childrenRenderKey}>
+            {children}
+          </MemoizedChildren>
           <DropLine />
         </div>
       </div>
@@ -314,11 +548,15 @@ export function Draggable(props: PlateElementProps) {
 }
 
 function Gutter({
+  active = false,
   children,
   className,
   orientation = "vertical",
   ...props
-}: React.ComponentProps<"div"> & { orientation?: "horizontal" | "vertical" }) {
+}: React.ComponentProps<"div"> & {
+  active?: boolean;
+  orientation?: "horizontal" | "vertical";
+}) {
   const editor = useEditorRef();
   const element = useElement();
   const path = usePath();
@@ -355,14 +593,23 @@ function Gutter({
   }, [isEditorFocused, path]);
 
   const isNodeType = (keys: string[] | string) => isType(editor, element, keys);
-  const isInColumn = path.length === 3;
+  const isChildOfColumnItem = React.useMemo(() => {
+    if (!path || path.length === 0) return false;
+    try {
+      const parentNode = editor.api.node({ at: PathApi.parent(path) });
+      return parentNode?.[0]?.type === "column";
+    } catch {
+      return false;
+    }
+  }, [editor, path]);
+  const isInColumn = path.length === 3 || isChildOfColumnItem;
 
   return (
     <div
       {...props}
       className={cn(
         "slate-gutterLeft",
-        "absolute z-50 flex cursor-text",
+        "pointer-events-none absolute z-999999 flex cursor-text transition-opacity duration-100",
         // On touch devices, show when editor is focused and selection is within this element
         // On desktop, show on hover
         isTouchDevice
@@ -381,11 +628,13 @@ function Gutter({
         isSelectionAreaVisible && "hidden",
         // On desktop, hide when not selected (unless hovering)
         !isTouchDevice && !selected && "opacity-0",
+        active && !isSelectionAreaVisible && "opacity-100 sm:opacity-100",
         // Vertical orientation specific styles
+        orientation === "vertical" && "w-8 justify-end",
         orientation === "vertical" && [
           isNodeType(KEYS.h1) && "pb-1 text-[1.875em]",
           isNodeType(KEYS.h2) && "pb-1 text-[1.5em]",
-          isNodeType(KEYS.h3) && "pt-[2px] pb-1 text-[1.25em]",
+          isNodeType(KEYS.h3) && "pt-0.5 pb-1 text-[1.25em]",
           isNodeType([KEYS.h4, KEYS.h5]) && "pt-1 pb-0 text-[1.1em]",
           isNodeType(KEYS.h6) && "pb-0",
           isNodeType(KEYS.p) && "pt-1 pb-0",
@@ -399,7 +648,7 @@ function Gutter({
             KEYS.column,
           ]) && "py-0",
           isNodeType([KEYS.placeholder, KEYS.table]) && "pt-3 pb-0",
-          isInColumn && "mt-2 h-4 pt-0",
+          isInColumn && "items-center",
         ],
         className,
       )}
@@ -564,7 +813,7 @@ const DragHandle = React.memo(function DragHandle({
     <Tooltip delayDuration={1000}>
       <TooltipTrigger asChild>
         <div
-          className="flex size-full touch-none items-center justify-center"
+          className="relative flex size-full touch-none items-center justify-center"
           onMouseDown={handleMouseDown}
           onMouseUp={handleMouseUp}
           onMouseEnter={handleMouseEnter}
@@ -573,17 +822,27 @@ const DragHandle = React.memo(function DragHandle({
           role="button"
           data-plate-prevent-deselect
         >
-          {orientation === "horizontal" ? (
-            <GripHorizontal
-              className="text-muted-foreground"
-              data-ppt-ignore="true"
-            />
-          ) : (
-            <GripVertical
-              className="text-muted-foreground"
-              data-ppt-ignore="true"
-            />
-          )}
+          <span
+            className={cn(
+              "pointer-events-none absolute flex items-center justify-center rounded-md",
+              "text-muted-foreground/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.45)]",
+              orientation === "horizontal"
+                ? "bottom-0 left-1/2 h-4 w-7 -translate-x-1/2"
+                : "top-1/2 right-0 h-7 w-4 -translate-y-1/2",
+            )}
+          >
+            {orientation === "horizontal" ? (
+              <GripHorizontal
+                className="size-4 text-current"
+                data-ppt-ignore="true"
+              />
+            ) : (
+              <GripVertical
+                className="size-4 text-current"
+                data-ppt-ignore="true"
+              />
+            )}
+          </span>
         </div>
       </TooltipTrigger>
       <TooltipContent>Hold and drag to move, or click to edit</TooltipContent>
@@ -593,18 +852,21 @@ const DragHandle = React.memo(function DragHandle({
 
 const DropLine = React.memo(function DropLine({
   className,
-  ...props
-}: React.ComponentProps<"div">) {
+}: {
+  className?: string;
+}) {
   const { dropLine } = useDropLine();
 
   if (!dropLine) return null;
 
   return (
-    <div
-      {...props}
+    <motion.div
+      layout="position"
+      layoutId="presentation-dnd-drop-line"
+      transition={{ layout: { duration: 0.16, ease: "easeOut" } }}
       className={cn(
         "slate-dropLine",
-        "absolute opacity-100 transition-opacity",
+        "absolute rounded-full opacity-100 transition-opacity",
         "bg-blue-500",
         // Horizontal line styles for vertical drops
         (dropLine === "top" || dropLine === "bottom") && "inset-x-0 h-0.5",

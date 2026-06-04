@@ -1,4 +1,8 @@
+// components/export-ppt-button.tsx
 "use client";
+
+import { Download, Loader2 } from "lucide-react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -13,92 +17,105 @@ import {
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/components/ui/use-toast";
+import { raiseError } from "@/lib/raise-error";
 import { usePresentationState } from "@/states/presentation-state";
-import { Download, Loader2 } from "lucide-react";
-import { useRef, useState } from "react";
-import { downloadBlob, exportPresentationToPptx, scanAllSlides } from "../export";
-import { SaveStatus } from "./SaveStatus";
+import { scanAllSlides } from "../export/domSlideScanner";
+import { exportPresentationToPptx } from "../export/domToPptxConverter";
+
+const EXPORT_SUCCESS_TOAST_DURATION_MS = 10000;
+const FALLBACK_DOWNLOAD_LINK_TTL_MS = 60000;
+
+function startDownload(blob: Blob, fileName: string) {
+  const downloadUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = downloadUrl;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  window.setTimeout(() => {
+    URL.revokeObjectURL(downloadUrl);
+  }, FALLBACK_DOWNLOAD_LINK_TTL_MS);
+
+  return downloadUrl;
+}
 
 export function ExportButton() {
-  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+    const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
-  const exportResultRef = useRef<{ blob: Blob; fileName: string } | null>(null);
-
-  const handleDownload = () => {
-    if (!exportResultRef.current) {
-      return;
-    }
-
-    downloadBlob(
-      exportResultRef.current.blob,
-      exportResultRef.current.fileName,
-    );
-  };
 
   const handleExport = async () => {
     try {
       setIsExporting(true);
-      exportResultRef.current = null;
 
+      // Get all slide IDs
       const { slides, currentPresentationTitle } =
         usePresentationState.getState();
+      const slideIds = slides.map((slide) => slide.id);
 
-      if (slides.length === 0) {
-        throw new Error("No slides to export");
+      if (slideIds.length === 0) {
+        raiseError(new Error("No slides to export"));
       }
 
+      // Show single toast with loader
       const { update, dismiss } = toast({
         title: "Exporting Presentation",
         description: (
           <div className="flex items-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span>Scanning slides...</span>
+            <Loader2 className="size-4 animate-spin" />
+            <span>{"Scanning slides..."}</span>
           </div>
         ),
-        duration: Infinity,
+        duration: Infinity, // Keep open until we dismiss
       });
 
+      // Scan all slides in the DOM (now parallel)
       const scanResults = await scanAllSlides(slides);
 
       if (scanResults.length === 0) {
-        throw new Error(
-          "Failed to scan slides. Please ensure all slides are visible on the page.",
+        raiseError(
+          new Error(
+            "Failed to scan slides. Please ensure all slides are visible on the page.",
+          ),
         );
       }
 
       update({
         description: (
           <div className="flex items-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span>Generating PowerPoint...</span>
+            <Loader2 className="size-4 animate-spin" />
+            <span>{"Generating PowerPoint..."}</span>
           </div>
         ),
       });
 
-      exportResultRef.current = await exportPresentationToPptx(
+      const result = await exportPresentationToPptx(
         scanResults,
         slides,
         currentPresentationTitle ?? "presentation",
       );
+      const downloadUrl = startDownload(result.blob, result.fileName);
 
-      update({
+      dismiss();
+
+      toast({
         title: "Export Complete",
         description: (
-          <Button
-            size="sm"
-            variant="outline"
-            className="mt-2"
-            onClick={() => {
-              handleDownload();
-              dismiss();
-            }}
-          >
-            <Download className="mr-1 h-4 w-4" />
-            Download PowerPoint
-          </Button>
+          <p>
+            {"PowerPoint download has started. If it did not start,"}{" "}
+            <a
+              className="font-medium text-foreground underline underline-offset-4"
+              download={result.fileName}
+              href={downloadUrl}
+            >
+              {"click here"}
+            </a>
+            .
+          </p>
         ),
-        duration: 15000,
+        duration: EXPORT_SUCCESS_TOAST_DURATION_MS,
       });
 
       setIsExportDialogOpen(false);
@@ -112,9 +129,9 @@ export function ExportButton() {
         variant: "destructive",
       });
       console.error("Export error:", error);
-    } finally {
       setIsExporting(false);
     }
+    setIsExporting(false);
   };
 
   return (
@@ -123,46 +140,58 @@ export function ExportButton() {
         <Button
           variant="ghost"
           size="sm"
-          className="relative h-9 w-9 px-0 text-muted-foreground hover:text-foreground sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3"
-          aria-label="Export presentation"
+          className="relative size-9 px-0 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3"
         >
-          <SaveStatus className="absolute top-1 right-1 sm:static" />
-          <Download className="h-4 w-4 sm:mr-1" />
-          <span className="hidden sm:inline">Export</span>
+          <span className="sr-only">
+            Export presentation
+          </span>
+          <Download className="size-4 sm:mr-1" />
+          <span className="hidden sm:inline">
+            Export
+          </span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Export Presentation</DialogTitle>
+          <DialogTitle>
+            Export Presentation
+          </DialogTitle>
           <DialogDescription>
-            Export your presentation as a PowerPoint file.
+            Choose a format to export your presentation.
           </DialogDescription>
         </DialogHeader>
 
         <div className="py-4">
-          <Label className="mb-2 block">Export Format</Label>
-          <RadioGroup value="pptx" className="grid gap-4">
-            <div className="flex cursor-pointer items-start space-x-4 rounded-xl border border-primary bg-accent/50 p-4 ring-1 ring-primary">
+          <Label className="mb-2 block">
+            Export Format
+          </Label>
+          <RadioGroup
+            value="pptx"
+            className="grid gap-4"
+          >
+            <Label
+              htmlFor="pptx"
+              className={`flex cursor-pointer items-start space-x-4 rounded-xl border p-4 transition-all hover:bg-accent hover:text-accent-foreground ${
+                "border-primary bg-accent/50 ring ring-primary"
+              }`}
+            >
               <RadioGroupItem value="pptx" id="pptx" className="mt-3" />
               <div className="flex-1 space-y-1">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <Download className="h-5 w-5" />
+                  <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Download className="size-5" />
                   </div>
                   <div>
-                    <Label
-                      htmlFor="pptx"
-                      className="block cursor-pointer text-base font-semibold"
-                    >
+                    <span className="block text-base font-semibold">
                       PowerPoint (.pptx)
-                    </Label>
+                    </span>
                     <p className="text-sm leading-snug text-muted-foreground">
                       Standard PowerPoint file
                     </p>
                   </div>
                 </div>
               </div>
-            </div>
+            </Label>
           </RadioGroup>
         </div>
 
@@ -178,8 +207,8 @@ export function ExportButton() {
           <Button type="button" onClick={handleExport} disabled={isExporting}>
             {isExporting ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Exporting...
+                <Loader2 className="mr-2 size-4 animate-spin" />
+                Exporting…
               </>
             ) : (
               "Export to PowerPoint"

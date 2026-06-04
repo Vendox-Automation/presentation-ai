@@ -64,61 +64,54 @@ interface EventBoundaryProps extends HTMLAttributes<HTMLDivElement> {
  * </EventBoundary>
  * ```
  */
-export const EventBoundary = React.forwardRef<
-  HTMLDivElement,
-  Omit<EventBoundaryProps, "ref">
->(
-  (
-    {
-      children,
-      containedEvents = DEFAULT_CONTAINED_EVENTS,
-      active = true,
-      ...divProps
-    },
-    ref,
-  ) => {
-    const internalRef = useRef<HTMLDivElement>(null);
+export const EventBoundary = ({
+  children,
+  containedEvents = DEFAULT_CONTAINED_EVENTS,
+  active = true,
+  ref,
+  ...divProps
+}: Omit<EventBoundaryProps, "ref"> & React.RefAttributes<HTMLDivElement>) => {
+  const internalRef = useRef<HTMLDivElement>(null);
 
-    // Use internal ref for event handling, forward the external ref
-    useEffect(() => {
-      if (!active) return;
+  // Use internal ref for event handling, forward the external ref
+  useEffect(() => {
+    if (!active) return;
 
-      const el = internalRef.current;
-      if (!el) return;
+    const el = internalRef.current;
+    if (!el) return;
 
-      const handler = (e: Event) => {
-        e.stopPropagation();
-      };
-
-      // Only use bubble phase to allow events to reach children first,
-      // then stop them from bubbling up to parent editors
-      for (const type of containedEvents) {
-        el.addEventListener(type, handler, { capture: false, passive: true });
-      }
-
-      return () => {
-        for (const type of containedEvents) {
-          el.removeEventListener(type, handler, { capture: false });
-        }
-      };
-    }, [containedEvents, active]);
-
-    // Merge refs - assign to both internal and external refs
-    const setRefs = (node: HTMLDivElement | null) => {
-      internalRef.current = node;
-      if (typeof ref === "function") {
-        ref(node);
-      } else if (ref) {
-        ref.current = node;
-      }
+    const handler = (e: Event) => {
+      e.stopPropagation();
     };
 
-    return (
-      <div {...divProps} ref={setRefs}>
-        {children}
-      </div>
-    );
-  },
-);
+    // Only use bubble phase to allow events to reach children first,
+    // then stop them from bubbling up to parent editors
+    for (const type of containedEvents) {
+      el.addEventListener(type, handler, { capture: false, passive: true });
+    }
+
+    return () => {
+      for (const type of containedEvents) {
+        el.removeEventListener(type, handler, { capture: false });
+      }
+    };
+  }, [containedEvents, active]);
+
+  // Merge refs - assign to both internal and external refs
+  const setRefs = (node: HTMLDivElement | null) => {
+    internalRef.current = node;
+    if (typeof ref === "function") {
+      ref(node);
+    } else if (ref) {
+      ref.current = node;
+    }
+  };
+
+  return (
+    <div {...divProps} ref={setRefs}>
+      {children}
+    </div>
+  );
+};
 
 EventBoundary.displayName = "EventBoundary";

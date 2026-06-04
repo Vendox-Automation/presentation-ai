@@ -1,7 +1,8 @@
 "use client";
 
-import { usePresentationState } from "@/states/presentation-state";
 import { PlateLeaf, type PlateLeafProps } from "platejs/react";
+
+import { usePresentationState } from "@/states/presentation-state";
 
 export const GeneratingLeaf = ({ children, ref, ...props }: PlateLeafProps) => {
   const { leaf } = props;
@@ -10,20 +11,18 @@ export const GeneratingLeaf = ({ children, ref, ...props }: PlateLeafProps) => {
 
   return (
     <PlateLeaf ref={ref} {...props}>
-      <span className="flex items-end gap-1">
-        {children}
-        {isGenerating && (
-          <div
-            style={{
-              color: "var(--presentation-text , black) !important",
-              backgroundColor: "var(--presentation-text , black) !important",
-            }}
-            className="animate-blink z-1000 max-h-8"
-          >
-            |
-          </div>
-        )}
-      </span>
+      {children}
+      {isGenerating && (
+        <span
+          aria-hidden="true"
+          className="ml-0.5 inline-flex items-baseline gap-1"
+        >
+          <span className="animate-blink inline-block h-[1.6em] w-0.5 translate-y-[0.45em] bg-purple-600" />
+          <sup className="text-[0.85em] font-semibold leading-none text-purple-600">
+            Generating
+          </sup>
+        </span>
+      )}
     </PlateLeaf>
   );
 };

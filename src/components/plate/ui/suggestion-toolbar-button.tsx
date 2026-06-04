@@ -6,7 +6,6 @@ import { useEditorPlugin, usePluginOption } from "platejs/react";
 
 import { discussionPlugin } from "@/components/plate/plugins/discussion-kit";
 import { cn } from "@/lib/utils";
-
 import { ToolbarButton } from "./toolbar";
 
 export function SuggestionToolbarButton() {

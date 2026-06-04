@@ -1,15 +1,16 @@
 "use server";
 
-import { utapi } from "@/app/api/uploadthing/core";
+import * as z from "zod";
+
+import { presentationThemeStyleDataSchema } from "@/lib/presentation/theme-schema";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
-import * as z from "zod";
 
 // Schema for creating/updating a theme
 const themeSchema = z.object({
   name: z.string().min(1).max(50),
   description: z.string().optional(),
-  themeData: z.any(), // We'll validate this as ThemeProperties in the function
+  themeData: presentationThemeStyleDataSchema,
   logoUrl: z.string().optional(),
   isPublic: z.boolean().optional().default(false),
 });
@@ -35,7 +36,7 @@ export async function createCustomTheme(formData: ThemeFormData) {
         description: validatedData.description,
         themeData: validatedData.themeData,
         logoUrl: validatedData.logoUrl,
-        isPublic: validatedData.isPublic,
+        isPublic: false,
         userId: session.user.id,
       },
     });
@@ -104,7 +105,7 @@ export async function updateCustomTheme(
         description: validatedData.description,
         themeData: validatedData.themeData,
         logoUrl: validatedData.logoUrl,
-        isPublic: validatedData.isPublic,
+        isPublic: false,
         updatedAt: new Date(),
       },
     });
@@ -136,57 +137,99 @@ export async function updateCustomTheme(
   }
 }
 
-// Delete a custom theme
-export async function deleteCustomTheme(themeId: string) {
+// Update a system theme in place. Only application admins can change seeded themes.
+export async function updateAdminPresentationTheme(
+  themeId: string,
+  formData: ThemeFormData,
+) {
   try {
     const session = await auth();
-    if (!session?.user) {
+    if (!session?.user?.isAdmin) {
       return {
         success: false,
-        message: "You must be signed in to delete a theme",
+        message: "Not authorized to update system themes",
       };
     }
 
-    // Verify ownership
+    const validatedData = themeSchema.parse(formData);
+
     const existingTheme = await db.presentationTheme.findUnique({
       where: { id: themeId },
+      select: { isAdmin: true },
     });
 
     if (!existingTheme) {
       return { success: false, message: "Theme not found" };
     }
 
-    if (existingTheme.userId !== session.user.id) {
-      return { success: false, message: "Not authorized to delete this theme" };
+    if (!existingTheme.isAdmin) {
+      return {
+        success: false,
+        message: "This action can only update system themes",
+      };
     }
 
-    // Delete logo from uploadthing if exists
-    if (existingTheme.logoUrl) {
-      try {
-        const fileKey = existingTheme.logoUrl.split("/").pop();
-        if (fileKey) {
-          await utapi.deleteFiles(fileKey);
-        }
-      } catch (deleteError) {
-        console.error("Failed to delete theme logo:", deleteError);
-        // Continue with theme deletion even if logo deletion fails
-      }
-    }
-
-    await db.presentationTheme.delete({
+    await db.presentationTheme.update({
       where: { id: themeId },
+      data: {
+        name: validatedData.name,
+        description: validatedData.description,
+        themeData: validatedData.themeData,
+        logoUrl: validatedData.logoUrl,
+        isPublic: false,
+        updatedAt: new Date(),
+      },
     });
 
     return {
       success: true,
-      message: "Theme deleted successfully",
+      message: "System theme updated successfully",
     };
   } catch (error) {
-    console.error("Failed to delete custom theme:", error);
+    console.error("Failed to update system theme:", error);
+
+    if (error instanceof z.ZodError) {
+      return {
+        success: false,
+        message: "Invalid theme data. Please check your inputs and try again.",
+      };
+    } else if (error instanceof Error && error.message.includes("Prisma")) {
+      return {
+        success: false,
+        message: "Database error. Please try again later.",
+      };
+    } else {
+      return {
+        success: false,
+        message: "Something went wrong. Please try again later.",
+      };
+    }
+  }
+}
+
+// Get system themes that are stored in the database
+export async function getSystemPresentationThemes() {
+  try {
+    const themes = await db.presentationTheme.findMany({
+      where: {
+        isAdmin: true,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
+
+    return {
+      success: true,
+      themes,
+    };
+  } catch (error) {
+    console.error("Failed to fetch system themes:", error);
     return {
       success: false,
       message:
-        "Something went wrong while deleting the theme. Please try again later.",
+        "Unable to load system themes at this time. Please try again later.",
+      themes: [],
     };
   }
 }
@@ -256,18 +299,12 @@ export async function getPublicCustomThemes() {
               where: {
                 userId,
               },
-              select: {
-                id: true,
-              },
             }
           : undefined,
         favoritePresentationThemes: userId
           ? {
               where: {
                 userId,
-              },
-              select: {
-                id: true,
               },
             }
           : undefined,

@@ -1,10 +1,11 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { useCompletion } from "@ai-sdk/react";
 import { Loader2, Send } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface EditWithAIProps {
   currentSyntax: string;
@@ -35,9 +36,6 @@ export function EditWithAI({
       }
       setPrompt("");
     },
-    onError: (err) => {
-      console.error("Edit diagram error:", err);
-    },
   });
 
   useEffect(() => {
@@ -61,6 +59,10 @@ export function EditWithAI({
     });
   }, [prompt, isLoading, complete, currentSyntax]);
 
+  const handleStop = useCallback(() => {
+    stop();
+  }, [stop]);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "Enter" && !e.shiftKey) {
@@ -69,29 +71,29 @@ export function EditWithAI({
       }
       if (e.key === "Escape") {
         if (isLoading) {
-          stop();
+          handleStop();
         } else {
           onClose();
         }
       }
     },
-    [handleSubmit, isLoading, stop, onClose],
+    [handleStop, handleSubmit, isLoading, onClose],
   );
 
   return (
-    <div className="ignore-click-outside/toolbar w-[320px] overflow-hidden rounded-2xl border border-border/70 bg-popover shadow-lg">
+    <div className="ignore-click-outside/toolbar w-80 overflow-hidden rounded-2xl border border-border/70 bg-popover shadow-lg">
       {/* Input Area */}
       <div className="space-y-3 p-3">
         <div className="group relative">
           {/* focus halo (no gradients) - keep your focus behavior class */}
           <div
             className={cn(
-              "absolute -inset-px rounded-xl bg-primary/20 opacity-0 blur-xs transition-opacity duration-300",
+              "absolute -inset-px rounded-xl bg-primary/20 opacity-0 blur-sm transition-opacity duration-300",
               "group-focus-within:opacity-100",
             )}
           />
 
-          <div className="relative overflow-hidden rounded-xl border border-border/60 bg-card shadow-xs">
+          <div className="relative overflow-hidden rounded-xl border border-border/60 bg-card shadow">
             <textarea
               ref={inputRef}
               value={prompt}
@@ -100,8 +102,8 @@ export function EditWithAI({
               placeholder="What would you like to change?"
               disabled={isLoading}
               className={cn(
-                "max-h-[140px] min-h-[72px] w-full resize-none bg-transparent px-3 py-2.5 text-sm",
-                "placeholder:text-muted-foreground/60 focus:outline-hidden",
+                "max-h-35 min-h-18 w-full resize-none bg-transparent px-3 py-2.5 text-sm",
+                "placeholder:text-muted-foreground/60 focus:outline-none",
                 "disabled:cursor-not-allowed disabled:opacity-50",
               )}
               rows={3}
@@ -124,7 +126,7 @@ export function EditWithAI({
                 className={cn(
                   "h-7 w-7 rounded-lg transition-all duration-200",
                   prompt.trim() && !isLoading
-                    ? "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90"
+                    ? "bg-primary text-primary-foreground shadow hover:bg-primary/90"
                     : "text-muted-foreground hover:text-foreground",
                 )}
                 disabled={!prompt.trim() || isLoading}
@@ -154,7 +156,7 @@ export function EditWithAI({
             </div>
             <button
               type="button"
-              onClick={stop}
+              onClick={handleStop}
               className="text-xs font-medium text-muted-foreground transition-colors hover:text-destructive"
             >
               Cancel
@@ -189,7 +191,7 @@ export function EditWithAI({
                     "flex items-center gap-2 rounded-lg px-3 py-2 text-left transition-all duration-200",
                     "border border-transparent bg-muted/30 hover:border-border/50 hover:bg-muted",
                     "text-xs font-medium text-muted-foreground hover:text-foreground",
-                    "hover:shadow-xs",
+                    "hover:shadow",
                     "active:scale-[0.99]",
                   )}
                 >

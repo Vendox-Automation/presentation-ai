@@ -1,9 +1,10 @@
 // font-step/hooks/useFontUpload.ts
+import { useState } from "react";
+import { useWatch, type Control } from "react-hook-form";
+import { toast } from "sonner";
+
 import { useUploadThing } from "@/hooks/globals/useUploadthing";
 import { loadCustomFont } from "@/lib/presentation/loadCustomFont";
-import { useState } from "react";
-import { type Control, useWatch } from "react-hook-form";
-import { toast } from "sonner";
 import { type ThemeFormValues } from "../../types";
 import { type LocalFont } from "./types";
 

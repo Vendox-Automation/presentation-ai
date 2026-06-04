@@ -1,5 +1,6 @@
 import { type TElement } from "platejs";
 import { createTPlatePlugin } from "platejs/react";
+
 import { ConsItem } from "../custom-elements/cons-item";
 import ProsConsGroup from "../custom-elements/pros-cons";
 import { ProsItem } from "../custom-elements/pros-item";
@@ -18,6 +19,7 @@ export const ProsItemPlugin = createTPlatePlugin({
   key: PROS_ITEM,
   node: {
     isElement: true,
+    isStrictSiblings: true,
     type: PROS_ITEM,
     component: ProsItem,
   },
@@ -27,6 +29,7 @@ export const ConsItemPlugin = createTPlatePlugin({
   key: CONS_ITEM,
   node: {
     isElement: true,
+    isStrictSiblings: true,
     type: CONS_ITEM,
     component: ConsItem,
   },

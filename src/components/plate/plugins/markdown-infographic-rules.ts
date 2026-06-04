@@ -1,11 +1,12 @@
-import { ANTV_INFOGRAPHIC } from "@/components/notebook/presentation/editor/lib";
-import { type TAntvInfographicElement } from "@/components/notebook/presentation/editor/plugins/antv-infographic-plugin";
 import {
   defaultRules,
   type MdRules,
   type SerializeMdOptions,
 } from "@platejs/markdown";
 import { nanoid, type TText } from "platejs";
+
+import { ANTV_INFOGRAPHIC } from "@/components/notebook/presentation/editor/lib";
+import { type TAntvInfographicElement } from "@/components/notebook/presentation/editor/plugins/antv-infographic-plugin";
 
 /** Minimal mdast Code node type for deserialization */
 interface MdastCodeNode {

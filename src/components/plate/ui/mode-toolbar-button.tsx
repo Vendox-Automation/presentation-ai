@@ -1,13 +1,12 @@
 "use client";
 
-import * as React from "react";
-
 import {
-  type DropdownMenuProps,
   DropdownMenuItemIndicator,
+  type DropdownMenuProps,
 } from "@radix-ui/react-dropdown-menu";
 import { CheckIcon, EyeIcon, PenIcon } from "lucide-react";
 import { usePlateState } from "platejs/react";
+import * as React from "react";
 
 import {
   DropdownMenu,
@@ -16,25 +15,24 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/plate/ui/dropdown-menu";
-
 import { ToolbarButton } from "./toolbar";
+
+const item: Record<string, { icon: React.ReactNode; label: string }> = {
+  editing: {
+    icon: <PenIcon />,
+    label: "Editing",
+  },
+  viewing: {
+    icon: <EyeIcon />,
+    label: "Viewing",
+  },
+};
 
 export function ModeToolbarButton(props: DropdownMenuProps) {
   const [readOnly, setReadOnly] = usePlateState("readOnly");
   const [open, setOpen] = React.useState(false);
 
   const value = readOnly ? "viewing" : "editing";
-
-  const item: Record<string, { icon: React.ReactNode; label: string }> = {
-    editing: {
-      icon: <PenIcon />,
-      label: "Editing",
-    },
-    viewing: {
-      icon: <EyeIcon />,
-      label: "Viewing",
-    },
-  };
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen} modal={false} {...props}>
@@ -45,7 +43,7 @@ export function ModeToolbarButton(props: DropdownMenuProps) {
         </ToolbarButton>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent className="min-w-[180px]" align="start">
+      <DropdownMenuContent className="min-w-45" align="start">
         <DropdownMenuRadioGroup
           value={value}
           onValueChange={(newValue) => {
@@ -57,7 +55,7 @@ export function ModeToolbarButton(props: DropdownMenuProps) {
           }}
         >
           <DropdownMenuRadioItem
-            className="pl-2 *:first:[span]:hidden *:[svg]:text-muted-foreground"
+            className="pl-2 [span]:first:*:hidden [svg]:*:text-muted-foreground"
             value="editing"
           >
             <Indicator />
@@ -66,7 +64,7 @@ export function ModeToolbarButton(props: DropdownMenuProps) {
           </DropdownMenuRadioItem>
 
           <DropdownMenuRadioItem
-            className="pl-2 *:first:[span]:hidden *:[svg]:text-muted-foreground"
+            className="pl-2 [span]:first:*:hidden [svg]:*:text-muted-foreground"
             value="viewing"
           >
             <Indicator />

@@ -1,20 +1,22 @@
 "use client";
 
-import { usePresentationTheme } from "@/components/presentation/providers/PresentationThemeProvider";
-import { Button } from "@/components/ui/button";
-import { useSlideContentScaling } from "@/hooks/presentation/useSlideContentScaling";
-import { useSlideOperations } from "@/hooks/presentation/useSlideOperations";
-import { themes } from "@/lib/presentation/themes";
-import { cn } from "@/lib/utils";
-import { usePresentationState } from "@/states/presentation-state";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Plus } from "lucide-react";
 import React, { useEffect, useMemo } from "react";
+
+import { usePresentationTheme } from "@/components/presentation/providers/PresentationThemeProvider";
+import { Button } from "@/components/ui/button";
+import { useSlideContentScaling } from "@/hooks/presentation/useSlideContentScaling";
+import { useSlideOperations } from "@/hooks/presentation/useSlideOperations";
+import { DEFAULT_PRESENTATION_SLIDE_ASPECT_RATIO } from "@/lib/presentation/aspect-ratio";
+import { resolvePresentationThemeData } from "@/lib/presentation/theme-resolution";
+import { cn } from "@/lib/utils";
+import { usePresentationState } from "@/states/presentation-state";
 import {
   getPresentModeOverlayClasses,
   getPresentModeSlideClasses,
-} from "../present-mode";
+} from "../present-mode/present-mode-styles";
 import { SlideEditor } from "./SlideEditor";
 
 interface SlideWrapperProps {
@@ -24,8 +26,6 @@ interface SlideWrapperProps {
   isReadOnly?: boolean;
   slideWidth?: string;
   slidesCount?: number;
-  forceLandscapePresentMode?: boolean;
-  forceLandscapeRotationDeg?: 90 | -90;
 }
 
 export function SlideWrapper({
@@ -34,37 +34,53 @@ export function SlideWrapper({
   className,
   isReadOnly = false,
   slideWidth,
-  forceLandscapePresentMode = false,
-  forceLandscapeRotationDeg = -90,
 }: SlideWrapperProps) {
   const isPresenting = usePresentationState((s) => s.isPresenting);
   const isReorderingSlides = usePresentationState((s) => s.isReorderingSlides);
   const currentSlideId = usePresentationState((s) => s.currentSlideId);
+  const isFirstSlide = usePresentationState((s) => s.slides[0]?.id === id);
+  const presentModeSlideOffset = usePresentationState((s) => {
+    const slideIndex = s.slides.findIndex((slide) => slide.id === id);
+    const currentSlideIndex = s.slides.findIndex(
+      (slide) => slide.id === s.currentSlideId,
+    );
+
+    if (slideIndex < 0 || currentSlideIndex < 0) {
+      return 0;
+    }
+
+    return slideIndex - currentSlideIndex;
+  });
+  // setSlides no longer needed after extracting operations
+  // Select only this slide's data so other slides don't re-render on unrelated changes
   const currentSlide = usePresentationState((s) =>
     s.slides.find((slide) => slide.id === id),
   );
+  // Resolve format category and aspect ratio with defaults
+  // If not set, default to presentation format with fluid aspect ratio
   const formatCategory = currentSlide?.formatCategory ?? "presentation";
-  const aspectRatio = currentSlide?.aspectRatio ?? { type: "fluid" };
+  const aspectRatio =
+    currentSlide?.aspectRatio ?? DEFAULT_PRESENTATION_SLIDE_ASPECT_RATIO;
   const zoomLevel = usePresentationState((s) => s.zoomLevel);
 
+  // Get theme data for computing overlay background (same as ThemeBackground)
   const presentationTheme = usePresentationState((s) => s.theme);
   const customThemeData = usePresentationState((s) => s.customThemeData);
   const pageBackground = usePresentationState((s) => s.pageBackground);
   const { resolvedTheme } = usePresentationTheme();
   const isDark = resolvedTheme === "dark";
 
+  // Compute the theme background (same logic as ThemeBackground component)
   const themeBackground = useMemo((): string => {
-    const themeData = customThemeData;
-    const theme = presentationTheme;
-
-    let currentTheme = themeData;
-    if (!currentTheme && typeof theme === "string" && theme in themes) {
-      currentTheme = themes[theme as keyof typeof themes];
-    }
+    const currentTheme = resolvePresentationThemeData({
+      customThemeData,
+      theme: presentationTheme,
+    });
 
     const bgOverride = pageBackground.backgroundOverride;
     const themeBgOverride = currentTheme?.background?.override;
 
+    // Ensure we return a valid string
     if (typeof bgOverride === "string" && bgOverride) return bgOverride;
     if (typeof themeBgOverride === "string" && themeBgOverride)
       return themeBgOverride;
@@ -76,14 +92,12 @@ export function SlideWrapper({
     isDark,
   ]);
 
-  const activeRightPanel = usePresentationState((s) => s.activeRightPanel);
-  const isSidebarOpen = activeRightPanel !== null;
   const scalingConfig = useSlideContentScaling(
     (slideWidth ?? currentSlide?.width ?? "M") as "S" | "M" | "L",
     isPresenting,
     formatCategory,
     aspectRatio,
-    undefined,
+    undefined, // containerRefOverride
     zoomLevel,
   );
   const setPresentingScaleLock = usePresentationState(
@@ -103,23 +117,67 @@ export function SlideWrapper({
     disabled: isPresenting || isReadOnly,
   });
 
+  const presentModeTranslateY =
+    presentModeSlideOffset === 0
+      ? "0"
+      : presentModeSlideOffset > 0
+        ? "100dvh"
+        : "-100dvh";
   const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
+    transform: isPresenting
+      ? `translate3d(0, ${presentModeTranslateY}, 0)`
+      : CSS.Transform.toString(transform),
+    transition: isPresenting
+      ? "transform 320ms cubic-bezier(0.22, 1, 0.36, 1)"
+      : transition,
   };
 
   const [dragTransparent, setDragTransparent] = React.useState(false);
+  const [areSlideControlsActive, setAreSlideControlsActive] =
+    React.useState(false);
+  const slideControlsHideTimeoutRef = React.useRef<number | null>(null);
+
+  const showSlideControls = React.useCallback(() => {
+    if (slideControlsHideTimeoutRef.current !== null) {
+      window.clearTimeout(slideControlsHideTimeoutRef.current);
+      slideControlsHideTimeoutRef.current = null;
+    }
+    setAreSlideControlsActive(true);
+  }, []);
+
+  const hideSlideControls = React.useCallback(() => {
+    if (slideControlsHideTimeoutRef.current !== null) {
+      window.clearTimeout(slideControlsHideTimeoutRef.current);
+    }
+    slideControlsHideTimeoutRef.current = window.setTimeout(() => {
+      setAreSlideControlsActive(false);
+      slideControlsHideTimeoutRef.current = null;
+    }, 180);
+  }, []);
 
   useEffect(() => {
+    let timeout: number;
+
     if (isDragging) {
-      const timeout = setTimeout(() => {
+      timeout = window.setTimeout(() => {
         setDragTransparent(true);
       }, 200);
-      return () => clearTimeout(timeout);
+    } else {
+      timeout = window.setTimeout(() => {
+        setDragTransparent(false);
+      }, 0);
     }
 
-    setDragTransparent(false);
+    return () => window.clearTimeout(timeout);
   }, [isDragging]);
+
+  useEffect(() => {
+    return () => {
+      if (slideControlsHideTimeoutRef.current !== null) {
+        window.clearTimeout(slideControlsHideTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!isPresenting) return;
@@ -139,42 +197,22 @@ export function SlideWrapper({
   const editModeScaledWidth = Math.round(
     scalingConfig.slideWidth * Math.max(scalingConfig.scale, 0.1),
   );
-  const forceLandscapeStageHeight = Math.max(presentWidth, 0);
-  const forceLandscapeStageWidth = Math.max(
-    0,
-    Math.ceil(scalingConfig.contentHeight),
-  );
-  const shouldUseTallLandscapeStage =
-    isPresenting &&
-    forceLandscapePresentMode &&
-    scalingConfig.contentHeight > forceLandscapeStageHeight;
-  const shouldApplyForcedLandscape = isPresenting && forceLandscapePresentMode;
-  const forceLandscapeRotationStyle = shouldApplyForcedLandscape
-    ? shouldUseTallLandscapeStage && forceLandscapeRotationDeg === -90
-      ? {
-          position: "absolute" as const,
-          top: `${forceLandscapeStageHeight}px`,
-          left: "0",
-          transform: `rotate(${forceLandscapeRotationDeg}deg)`,
-          transformOrigin: "top left",
-        }
-      : shouldUseTallLandscapeStage
-        ? {
-            position: "absolute" as const,
-            top: "0",
-            left: `${forceLandscapeStageWidth}px`,
-            transform: `rotate(${forceLandscapeRotationDeg}deg)`,
-            transformOrigin: "top left",
-          }
-        : undefined
-    : undefined;
+
+  // When presentFitScale < 1, the content needs to shrink to fit the viewport.
+  // We render the content at full viewport width (presentWidth) but apply a
+  // CSS transform to scale it down visually. The outer wrapper is sized to
+  // the scaled dimensions so the layout (overflow, centering) is correct.
+  const fitScale = isPresenting ? scalingConfig.presentFitScale : 1;
+  const needsFitScaling = isPresenting && fitScale < 1;
 
   return (
     <div
       ref={setNodeRef}
       style={{
         ...style,
+        // Ensure the parent participates in layout with the scaled height
         ...(scaledHeight ? { height: `${scaledHeight}px` } : {}),
+        // Apply theme background for present mode overlay
         ...(isPresenting ? { background: themeBackground } : {}),
       }}
       className={cn(
@@ -183,22 +221,17 @@ export function SlideWrapper({
         isDragging && "z-50 opacity-50",
         dragTransparent && "opacity-30",
         isPresenting && getPresentModeOverlayClasses(formatCategory),
-        isPresenting &&
-          shouldApplyForcedLandscape &&
-          (shouldUseTallLandscapeStage
-            ? "overflow-auto overscroll-contain"
-            : "overflow-x-auto overflow-y-hidden overscroll-x-contain"),
         id === currentSlideId && isPresenting && "z-999",
+        id !== currentSlideId && isPresenting && "pointer-events-none",
       )}
+      onPointerEnter={showSlideControls}
+      onPointerLeave={hideSlideControls}
       {...attributes}
     >
       <div
         className={cn(
           "relative w-full",
-          !isPresenting && !isSidebarOpen && "flex justify-center",
-          isPresenting &&
-            shouldUseTallLandscapeStage &&
-            "min-h-full min-w-full",
+          !isPresenting && "flex justify-center",
         )}
       >
         <div
@@ -209,90 +242,76 @@ export function SlideWrapper({
                   width: `${editModeScaledWidth}px`,
                   maxWidth: "100%",
                 }
-              : shouldApplyForcedLandscape
-                ? shouldUseTallLandscapeStage
-                  ? {
-                      width: `${forceLandscapeStageWidth}px`,
-                      minWidth: "100dvw",
-                      height: `${forceLandscapeStageHeight}px`,
-                      minHeight: "100dvh",
-                    }
-                  : {
-                      position: "absolute",
-                      top: "50%",
-                      left: "50%",
-                      width: "100dvh",
-                      height: "100dvw",
-                      maxWidth: "none",
-                      maxHeight: "none",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      transform: `translate(-50%, -50%) rotate(${forceLandscapeRotationDeg}deg)`,
-                      transformOrigin: "center center",
-                    }
+              : needsFitScaling
+                ? {
+                    // Set explicit dimensions to the scaled size so the
+                    // grid/overflow parent sees the correct layout box.
+                    width: `${Math.ceil(presentWidth * fitScale)}px`,
+                    height: `${Math.ceil(scalingConfig.contentHeight * fitScale)}px`,
+                    overflow: "hidden",
+                  }
                 : undefined
           }
         >
           <div
+            ref={contentRef}
             className={cn(
-              shouldUseTallLandscapeStage ? "absolute" : "relative",
+              "relative origin-[top_left]",
+              isPresenting && getPresentModeSlideClasses(formatCategory),
+              className,
             )}
-            style={forceLandscapeRotationStyle}
+            style={{
+              ...(!isPresenting && {
+                width: `${scalingConfig.slideWidth}px`,
+                transform: `scale(${scalingConfig.scale})`,
+              }),
+              ...(isPresenting && {
+                width: `${presentWidth}px`,
+                fontSize: `${scalingConfig.fontSize}px`,
+                ...(needsFitScaling && {
+                  transform: `scale(${fitScale})`,
+                  transformOrigin: "top left",
+                }),
+              }),
+            }}
           >
-            <div
-              ref={contentRef}
-              className={cn(
-                "relative origin-[top_left]",
-                isPresenting && getPresentModeSlideClasses(formatCategory),
-                className,
-              )}
-              style={{
-                ...(!isPresenting && {
-                  width: `${scalingConfig.slideWidth}px`,
-                  transform: `scale(${scalingConfig.scale})`,
-                }),
-                ...(isPresenting && {
-                  width: `${presentWidth}px`,
-                  fontSize: `${scalingConfig.fontSize * scalingConfig.presentFitScale}px`,
-                }),
-                ...(isPresenting &&
-                  shouldApplyForcedLandscape &&
-                  !shouldUseTallLandscapeStage &&
-                  formatCategory !== "social" && {
-                    minHeight: "100dvw",
-                  }),
-              }}
-            >
-              {isReorderingSlides && !isPresenting && (
-                <div className="absolute inset-0 z-101 cursor-grabbing bg-transparent" />
-              )}
+            {/* Overlay to prevent accidental editor/element drops during slide reordering */}
+            {isReorderingSlides && !isPresenting && (
+              <div className="absolute inset-0 z-101 cursor-grabbing bg-transparent" />
+            )}
 
-              {!isPresenting && !isReadOnly && (
-                <div
-                  className="absolute top-2 left-4 z-999999 flex opacity-0 transition-opacity duration-200 group-hover/card-container:opacity-100"
-                  style={{
-                    transform: `scale(${0.6 + 0.4 / scalingConfig.scale})`,
-                    transformOrigin: "center center",
-                  }}
-                >
-                  <SlideEditor
-                    slideId={id}
-                    dragListeners={listeners}
-                    onDuplicate={() => addSlide("after", id, currentSlide)}
-                    onDelete={deleteSlide}
-                  />
-                </div>
-              )}
+            {!isPresenting && !isReadOnly && (
+              <div
+                className={cn(
+                  "absolute top-2 left-4 z-999999 flex opacity-0 transition-opacity duration-200 group-hover/card-container:opacity-100",
+                  areSlideControlsActive && "opacity-100",
+                )}
+                style={{
+                  transform: `scale(${0.6 + 0.4 / scalingConfig.scale})`,
+                  transformOrigin: "center center",
+                }}
+              >
+                <SlideEditor
+                  slideId={id}
+                  dragListeners={listeners}
+                  onDuplicate={() => addSlide("after", id, currentSlide)}
+                  onDelete={deleteSlide}
+                />
+              </div>
+            )}
 
-              {children}
-            </div>
+            {children}
           </div>
         </div>
       </div>
 
-      {!isPresenting && !isReadOnly && (
-        <div className="absolute top-0 left-1/2 z-10 -translate-x-1/2 -translate-y-1/2 opacity-0 transition-opacity duration-200 group-hover/card-container:opacity-100">
+      {!isPresenting && !isReadOnly && isFirstSlide && (
+        <div
+          className={cn(
+            "absolute top-0 left-1/2 z-999999 -translate-x-1/2 -translate-y-[calc(100%-0.25rem)] opacity-0 transition-opacity duration-200 group-hover/card-container:opacity-100",
+            areSlideControlsActive && "opacity-100",
+          )}
+        >
           <Button
             variant="outline"
             size="icon"
@@ -305,7 +324,12 @@ export function SlideWrapper({
       )}
 
       {!isPresenting && !isReadOnly && (
-        <div className="absolute bottom-0 left-1/2 z-10 -translate-x-1/2 translate-y-1/2 opacity-0 transition-opacity duration-200 group-hover/card-container:opacity-100">
+        <div
+          className={cn(
+            "absolute bottom-0 left-1/2 z-999999 -translate-x-1/2 translate-y-[calc(100%-0.25rem)] opacity-0 transition-opacity duration-200 group-hover/card-container:opacity-100",
+            areSlideControlsActive && "opacity-100",
+          )}
+        >
           <Button
             variant="outline"
             size="icon"

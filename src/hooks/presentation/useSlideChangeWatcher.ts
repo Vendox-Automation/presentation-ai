@@ -1,6 +1,7 @@
+import { useEffect, useRef } from "react";
+
 import { type PlateSlide } from "@/components/notebook/presentation/utils/parser";
 import { usePresentationState } from "@/states/presentation-state";
-import { useEffect, useRef } from "react";
 import { useDebouncedSave } from "./useDebouncedSave";
 
 interface UseSlideChangeWatcherOptions {
@@ -24,11 +25,14 @@ export const useSlideChangeWatcher = (
   options: UseSlideChangeWatcherOptions = {},
 ) => {
   const { debounceDelay = 1000, enabled = true } = options;
+  const currentPresentationId = usePresentationState(
+    (s) => s.currentPresentationId,
+  );
+  const contentVersion = usePresentationState((s) => s.contentVersion);
   const slides = usePresentationState((s) => s.slides);
   const { save, saveImmediately } = useDebouncedSave({ delay: debounceDelay });
 
-  const didInitRef = useRef(false);
-  const hasSavedOnceRef = useRef(false);
+  const baselineKeyRef = useRef<string | null>(null);
   const prevSlidesRef = useRef<PlateSlide[]>([]);
 
   // Watch for changes to the slides array and trigger save
@@ -41,25 +45,26 @@ export const useSlideChangeWatcher = (
       return;
     }
 
-    if (!didInitRef.current && slides.length > 0) {
-      didInitRef.current = true;
+    if (!currentPresentationId || slides.length === 0) {
+      baselineKeyRef.current = null;
       prevSlidesRef.current = slides;
       return;
     }
 
-    if (hasSavedOnceRef.current) {
-      save();
+    const nextBaselineKey = `${currentPresentationId}:${contentVersion}`;
+    if (baselineKeyRef.current !== nextBaselineKey) {
+      baselineKeyRef.current = nextBaselineKey;
+      prevSlidesRef.current = slides;
+      return;
     }
 
-    if (
-      !hasSavedOnceRef.current &&
-      JSON.stringify(slides) !== JSON.stringify(prevSlidesRef.current)
-    ) {
-      hasSavedOnceRef.current = true;
-      prevSlidesRef.current = slides;
-      save();
+    if (JSON.stringify(slides) === JSON.stringify(prevSlidesRef.current)) {
+      return;
     }
-  }, [slides, enabled]);
+
+    prevSlidesRef.current = slides;
+    save();
+  }, [contentVersion, currentPresentationId, enabled, save, slides]);
 
   return {
     saveImmediately,

@@ -1,8 +1,47 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { CheckIcon } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+
+const plans = [
+  {
+    name: "Plus",
+    price: "$10",
+    period: "/month",
+    features: [
+      "Unlimited AI creations",
+      "Remove ALLWEONE® branding",
+      "Advanced animations",
+      "Advanced AI image models",
+    ],
+  },
+  {
+    name: "Pro",
+    price: "$25",
+    period: "/month",
+    features: [
+      "Everything in Plus",
+      "Premium AI image models",
+      "Custom branding and fonts",
+      "Detailed analytics",
+      "API access",
+    ],
+    popular: true,
+  },
+  {
+    name: "Ultra",
+    price: "$100",
+    period: "/month",
+    features: [
+      "Everything in Pro",
+      "Most advanced AI models",
+      "Priority support",
+      "Early access to features",
+    ],
+  },
+];
 
 interface SubscriptionModalProps {
   open: boolean;
@@ -13,51 +52,13 @@ export function SubscriptionModal({
   open,
   onOpenChange,
 }: SubscriptionModalProps) {
-  const plans = [
-    {
-      name: "Plus",
-      price: "$10",
-      period: "/month",
-      features: [
-        "Unlimited AI creations",
-        "Remove ALLWEONE® branding",
-        "Advanced animations",
-        "Advanced AI image models",
-      ],
-    },
-    {
-      name: "Pro",
-      price: "$25",
-      period: "/month",
-      features: [
-        "Everything in Plus",
-        "Premium AI image models",
-        "Custom branding and fonts",
-        "Detailed analytics",
-        "API access",
-      ],
-      popular: true,
-    },
-    {
-      name: "Ultra",
-      price: "$100",
-      period: "/month",
-      features: [
-        "Everything in Pro",
-        "Most advanced AI models",
-        "Priority support",
-        "Early access to features",
-      ],
-    },
-  ];
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="z-100 max-w-6xl gap-0 p-0">
         <div className="border-b px-8 pt-8 pb-6">
-          <h2 className="text-3xl font-semibold tracking-tight">
+          <DialogTitle className="text-3xl font-semibold tracking-tight">
             Upgrade to ALLWEONE® Presentation AI
-          </h2>
+          </DialogTitle>
           <p className="mt-2 text-muted-foreground">
             Choose the plan that works best for you
           </p>

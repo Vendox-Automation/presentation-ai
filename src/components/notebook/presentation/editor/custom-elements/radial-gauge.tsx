@@ -1,76 +1,28 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-import { type AgGaugeOptions } from "ag-charts-community";
-import { AgGauge } from "ag-charts-react";
 import { PlateElement, type PlateElementProps } from "platejs/react";
+
 import { type TChartNode } from "../plugins/chart-plugin";
-import { buildChartConfigOptions } from "./chart-utils";
-import { getChartColor } from "./charts/ag-chart-wrapper";
-import { useChartTheme } from "./charts/use-chart-theme";
+import { ChartRenderer } from "./charts/ChartRenderer";
 
 export default function RadialGaugeElement(
   props: PlateElementProps<TChartNode>,
 ) {
-  const element = props.element as TChartNode;
-  const config = buildChartConfigOptions(element);
-  const primaryColor = element.color ?? getChartColor(0);
-
-  const themeConfig = useChartTheme();
-  // Get value from data or use default
-  const rawData = element.data as unknown;
-  let value = 50;
-  if (Array.isArray(rawData) && rawData.length > 0) {
-    const firstItem = rawData[0] as Record<string, unknown>;
-    const valueKey = Object.keys(firstItem).find(
-      (key) => typeof firstItem[key] === "number",
-    );
-    if (valueKey) {
-      value = firstItem[valueKey] as number;
-    }
-  } else if (typeof rawData === "number") {
-    value = rawData;
-  }
-
-  // Get needle/bar configuration
-  const needleEnabled = element.needle?.enabled ?? false;
-  const barEnabled = element.bar?.enabled ?? true;
-
-  const gaugeOptions: AgGaugeOptions = {
-    type: "radial-gauge",
-    value,
-    scale: {
-      min: 0,
-      max: 100,
-    },
-    needle: {
-      enabled: needleEnabled,
-    },
-    bar: {
-      enabled: barEnabled,
-      fill: primaryColor,
-    },
-    animation: config.animation,
-    background: config.background,
-    ...themeConfig,
-  };
+  const element = props.element;
 
   return (
     <PlateElement {...props}>
       <div
-        className={cn(
-          "relative mb-4 w-full rounded-lg border bg-card p-2 shadow-2xs",
-        )}
-        style={{
-          backgroundColor: "var(--presentation-background)",
-          color: "var(--presentation-text)",
-          borderColor: "hsl(var(--border))",
-        }}
+        className="relative mb-4 w-full"
         contentEditable={false}
+        data-slate-chart={String(element.type)}
       >
-        <div style={{ width: "100%", minHeight: 200, maxHeight: "40vh" }}>
-          <AgGauge options={gaugeOptions} />
-        </div>
+        <ChartRenderer
+          chartType={String(element.type)}
+          chartData={element.data}
+          chartOptions={element as unknown as Record<string, unknown>}
+          className="min-h-64"
+        />
       </div>
     </PlateElement>
   );

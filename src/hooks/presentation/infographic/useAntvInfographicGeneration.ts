@@ -1,19 +1,25 @@
 "use client";
 
-import { type TAntvInfographicElement } from "@/components/notebook/presentation/editor/plugins/antv-infographic-plugin";
-import { findInfographicEntryById } from "@/hooks/presentation/infographic/findInfographicNode";
-import { useInfographicStreamingState } from "@/states/infographic-streaming-state";
 import { useCompletion } from "@ai-sdk/react";
 import { type PlateEditor } from "platejs/react";
 import {
-  type Dispatch,
-  type SetStateAction,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
+  type Dispatch,
+  type SetStateAction,
 } from "react";
+
+import { type TAntvInfographicElement } from "@/components/notebook/presentation/editor/plugins/antv-infographic-plugin";
+import { findInfographicEntryById } from "@/hooks/presentation/infographic/findInfographicNode";
+import {
+  buildInfographicLayoutInstruction,
+  getInfographicOrientationForSlideLayout,
+} from "@/lib/presentation/infographic-layout";
+import { useInfographicStreamingState } from "@/states/infographic-streaming-state";
+import { usePresentationState } from "@/states/presentation-state";
 
 type GenerationParams = {
   editor: PlateEditor;
@@ -29,10 +35,22 @@ type GenerationTarget = {
 
 type ActiveGenerationRequest = {
   elementId: string;
+  requestKey: string;
   mode: GenerationTarget["mode"];
 };
 
 const DEFAULT_GENERATION_PROMPT = "Generate an infographic";
+
+function hashGenerationInput(input: string): string {
+  let hash = 0;
+
+  for (let index = 0; index < input.length; index += 1) {
+    hash = (hash << 5) - hash + input.charCodeAt(index);
+    hash |= 0;
+  }
+
+  return Math.abs(hash).toString(36);
+}
 
 function resolveGenerationTarget(
   element: TAntvInfographicElement,
@@ -66,15 +84,39 @@ export function useAntvInfographicGeneration({
     () => resolveGenerationTarget(element),
     [element.generationPrompt, element.sourceText],
   );
+  const generationRequestKey = useMemo(() => {
+    if (!elementId) {
+      return "";
+    }
+
+    return `${elementId}:${generationTarget.mode}:${
+      element.slideLayoutType ?? "unspecified"
+    }:${hashGenerationInput(generationTarget.value)}`;
+  }, [
+    element.slideLayoutType,
+    elementId,
+    generationTarget.mode,
+    generationTarget.value,
+  ]);
+  const layoutInstruction = useMemo(
+    () => buildInfographicLayoutInstruction(element.slideLayoutType),
+    [element.slideLayoutType],
+  );
+  const requestedOrientation = useMemo(
+    () => getInfographicOrientationForSlideLayout(element.slideLayoutType),
+    [element.slideLayoutType],
+  );
   const isInfographicComplete = useInfographicStreamingState((state) =>
     elementId ? state.completedInfographicIds[elementId] === true : false,
   );
   const isReadyToGenerate =
-    generationTarget.mode === "text"
-      || isInfographicComplete
-      || canResumeLoadingGeneration;
+    generationTarget.mode === "text" ||
+    isInfographicComplete ||
+    canResumeLoadingGeneration;
   const hasStartedRequest = useInfographicStreamingState((state) =>
-    elementId ? state.startedGenerationRequests[elementId] === true : false,
+    generationRequestKey
+      ? state.startedGenerationRequests[generationRequestKey] === true
+      : false,
   );
 
   useEffect(() => {
@@ -105,6 +147,15 @@ export function useAntvInfographicGeneration({
         }
 
         editor.tf.setNodes(update, { at: path });
+
+        // Ensure global state has the updated content for serialization
+        const slideId = editor.id;
+        if (slideId && typeof slideId === "string") {
+          usePresentationState.getState().updateSlide(slideId, {
+            content: editor.children,
+          });
+        }
+
         return true;
       }
 
@@ -126,10 +177,25 @@ export function useAntvInfographicGeneration({
         setHasError(false);
       }
 
-      updateInfographicNode([activeRequest.elementId, elementId], {
-        syntax: completion,
-        isLoading: false,
+      const didUpdateNode = updateInfographicNode(
+        [activeRequest.elementId, elementId],
+        {
+          syntax: completion,
+          isLoading: false,
+        },
+      );
+
+      console.info("[infographic-api] generation response applied", {
+        elementId: activeRequest.elementId,
+        didUpdateNode,
+        requestKey: activeRequest.requestKey,
+        syntaxLength: completion.length,
       });
+
+      if (!didUpdateNode && isMountedRef.current) {
+        setHasError(true);
+      }
+
     },
     [elementId, setHasError, updateInfographicNode],
   );
@@ -148,6 +214,7 @@ export function useAntvInfographicGeneration({
     if (isMountedRef.current) {
       setHasError(true);
     }
+
   }, [elementId, setHasError, updateInfographicNode]);
 
   const {
@@ -188,22 +255,18 @@ export function useAntvInfographicGeneration({
       return;
     }
 
-    if (elementId) {
-      useInfographicStreamingState
-        .getState()
-        .clearGenerationRequestStarted(elementId);
-    }
     activeRequestRef.current = null;
-  }, [element.isLoading, elementId, setHasError]);
+  }, [element.isLoading, setHasError]);
 
   useEffect(() => {
-    if (!elementId) {
+    if (!elementId || !generationRequestKey) {
       return;
     }
 
     if (
       !isMountedRef.current ||
       !element.isLoading ||
+      element.syntax.trim().length > 0 ||
       !isReadyToGenerate ||
       isGenerating ||
       hasStartedRequest
@@ -213,7 +276,7 @@ export function useAntvInfographicGeneration({
 
     const didStartRequest = useInfographicStreamingState
       .getState()
-      .tryStartGenerationRequest(elementId);
+      .tryStartGenerationRequest(generationRequestKey);
 
     if (!didStartRequest) {
       return;
@@ -221,24 +284,49 @@ export function useAntvInfographicGeneration({
 
     activeRequestRef.current = {
       elementId,
+      requestKey: generationRequestKey,
       mode: generationTarget.mode,
     };
     setSyntax("");
     setHasError(false);
 
+    console.info("[infographic-api] starting generation request", {
+      elementId,
+      inputLength: generationTarget.value.length,
+      mode: generationTarget.mode,
+      requestKey: generationRequestKey,
+    });
+
     if (generationTarget.mode === "text") {
-      void startForText(generationTarget.value);
+      void startForText(generationTarget.value, {
+        body: {
+          slideLayoutType: element.slideLayoutType,
+          requestedOrientation,
+          layoutInstruction,
+        },
+      });
       return;
     }
 
-    void startForPrompt(generationTarget.value);
+    void startForPrompt(generationTarget.value, {
+      body: {
+        slideLayoutType: element.slideLayoutType,
+        requestedOrientation,
+        layoutInstruction,
+      },
+    });
   }, [
     element.isLoading,
+    element.slideLayoutType,
+    element.syntax,
     elementId,
+    generationRequestKey,
     generationTarget.mode,
     generationTarget.value,
     isGenerating,
     isReadyToGenerate,
+    layoutInstruction,
+    requestedOrientation,
     hasStartedRequest,
     setHasError,
     startForPrompt,

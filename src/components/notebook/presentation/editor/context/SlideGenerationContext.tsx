@@ -1,15 +1,17 @@
 "use client";
 
-import { usePresentationState } from "@/states/presentation-state";
 import { useCompletion } from "@ai-sdk/react";
 import {
   createContext,
+  use,
   useCallback,
-  useContext,
   useRef,
   useState,
   type ReactNode,
 } from "react";
+
+import { type ImageModelList } from "@/constants/image-models";
+import { usePresentationState } from "@/states/presentation-state";
 import { SlideParser } from "../../utils/parser";
 
 function stripXmlCodeBlock(input: string): string {
@@ -38,6 +40,7 @@ type SlideGenerationOptions = {
   slideType?: "standard" | "image";
   imageStyle?: string;
   textDensity?: string;
+  imageModel?: ImageModelList;
 };
 
 const SlideGenerationContext =
@@ -49,9 +52,14 @@ export function SlideGenerationProvider({ children }: { children: ReactNode }) {
   );
 
   // Refs for parsing
-  const parserRef = useRef<SlideParser>(new SlideParser());
+  const parserRef = useRef<SlideParser | null>(null);
+  if (!parserRef.current) {
+    parserRef.current = new SlideParser();
+  }
+  const parser = parserRef.current;
   const slideIdRef = useRef<string | null>(null);
   const slideTypeRef = useRef<SlideGenerationOptions["slideType"]>("standard");
+  const imageModelRef = useRef<SlideGenerationOptions["imageModel"]>(undefined);
 
   const language = usePresentationState((s) => s.language);
   const setSlides = usePresentationState((s) => s.setSlides);
@@ -64,10 +72,10 @@ export function SlideGenerationProvider({ children }: { children: ReactNode }) {
     onFinish: (_prompt, finalCompletion) => {
       // Parse final content and update the slide only when fully complete
       const processedCompletion = stripXmlCodeBlock(finalCompletion);
-      parserRef.current.reset();
-      parserRef.current.parseChunk(processedCompletion);
-      parserRef.current.finalize();
-      const parsedSlides = parserRef.current.getAllSlides();
+      parser.reset();
+      parser.parseChunk(processedCompletion);
+      parser.finalize();
+      const parsedSlides = parser.getAllSlides();
 
       if (parsedSlides.length > 0 && slideIdRef.current) {
         const generatedSlide = parsedSlides[0];
@@ -95,21 +103,27 @@ export function SlideGenerationProvider({ children }: { children: ReactNode }) {
           startRootImageGeneration(
             targetSlideId,
             generatedSlide.rootImage.query,
+            {
+              imageModel: imageModelRef.current,
+              source: isImageSlide ? "ai" : undefined,
+            },
           );
         }
+
       }
 
       // Reset state
       setGeneratingSlideId(null);
       slideIdRef.current = null;
       slideTypeRef.current = "standard";
-      parserRef.current.reset();
+      imageModelRef.current = undefined;
+      parser.reset();
     },
     onError: (error) => {
-      console.error("Slide generation error:", error);
+      console.error("Failed to generate slide:", error);
       setGeneratingSlideId(null);
       slideIdRef.current = null;
-      parserRef.current.reset();
+      parser.reset();
     },
   });
 
@@ -119,9 +133,10 @@ export function SlideGenerationProvider({ children }: { children: ReactNode }) {
 
       // Reset state
       setGeneratingSlideId(slideId);
-      parserRef.current.reset();
+      parser.reset();
       slideIdRef.current = slideId;
       slideTypeRef.current = options?.slideType ?? "standard";
+      imageModelRef.current = options?.imageModel;
 
       // Get current slide for context
       const slides = usePresentationState.getState().slides;
@@ -138,6 +153,7 @@ export function SlideGenerationProvider({ children }: { children: ReactNode }) {
           slideType: options?.slideType,
           imageStyle: options?.imageStyle,
           textDensity: options?.textDensity,
+          imageModel: options?.imageModel,
         },
       });
     },
@@ -149,7 +165,8 @@ export function SlideGenerationProvider({ children }: { children: ReactNode }) {
     setGeneratingSlideId(null);
     slideIdRef.current = null;
     slideTypeRef.current = "standard";
-    parserRef.current.reset();
+    imageModelRef.current = undefined;
+    parser.reset();
   }, [stop]);
 
   return (
@@ -167,7 +184,7 @@ export function SlideGenerationProvider({ children }: { children: ReactNode }) {
 }
 
 export function useSlideGeneration(): SlideGenerationContextValue {
-  const context = useContext(SlideGenerationContext);
+  const context = use(SlideGenerationContext);
   if (!context) {
     throw new Error(
       "useSlideGeneration must be used within a SlideGenerationProvider",

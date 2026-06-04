@@ -1,6 +1,7 @@
-import { cn } from "@/lib/utils";
 import { cva } from "class-variance-authority";
 import { PlateElement, type PlateElementProps } from "platejs/react";
+
+import { cn } from "@/lib/utils";
 import { type TArrowListElement } from "../plugins/arrow-plugin";
 
 export const arrowItemVariants = cva("my-4 mb-8 grid w-full overflow-visible", {
@@ -17,7 +18,7 @@ export default function ArrowList(props: PlateElementProps<TArrowListElement>) {
   const { orientation, alignment = "center" } = element;
 
   return (
-    <PlateElement {...props}>
+    <PlateElement {...props} className="relative">
       {/* Container for alignment control */}
       <div
         className={cn(

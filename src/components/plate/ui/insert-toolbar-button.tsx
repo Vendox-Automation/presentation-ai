@@ -1,9 +1,6 @@
 "use client";
 
-import * as React from "react";
-
 import { type DropdownMenuProps } from "@radix-ui/react-dropdown-menu";
-
 import {
   CalendarIcon,
   ChevronRightIcon,
@@ -26,9 +23,11 @@ import {
   TableIcon,
   TableOfContentsIcon,
 } from "lucide-react";
-import { KEYS } from "platejs";
-import { type PlateEditor, useEditorRef } from "platejs/react";
+import { KEYS, type TElement } from "platejs";
+import { useEditorRef, type PlateEditor } from "platejs/react";
+import * as React from "react";
 
+import { PRESENTATION_TITLE_ELEMENT } from "@/components/notebook/presentation/editor/lib";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,7 +38,6 @@ import {
   insertBlock,
   insertInlineElement,
 } from "@/components/plate/utils/transforms";
-
 import { ToolbarButton, ToolbarMenuGroup } from "./toolbar";
 
 type Group = {
@@ -53,12 +51,34 @@ interface Item {
   onSelect: (editor: PlateEditor, value: string) => void;
   focusEditor?: boolean;
   label?: string;
+  nodeType?: string;
+  props?: Partial<TElement>;
 }
 
 const groups: Group[] = [
   {
     group: "Basic blocks",
     items: [
+      {
+        icon: <Heading1Icon />,
+        label: "Title",
+        props: { variant: "title" },
+        value: PRESENTATION_TITLE_ELEMENT,
+      },
+      {
+        icon: <Heading2Icon />,
+        label: "Display",
+        props: { variant: "display" },
+        value: "presentation-title-display",
+        nodeType: PRESENTATION_TITLE_ELEMENT,
+      },
+      {
+        icon: <Heading3Icon />,
+        label: "Humongous",
+        props: { variant: "humongous" },
+        value: "presentation-title-humongous",
+        nodeType: PRESENTATION_TITLE_ELEMENT,
+      },
       {
         icon: <PilcrowIcon />,
         label: "Paragraph",
@@ -101,8 +121,10 @@ const groups: Group[] = [
       },
     ].map((item) => ({
       ...item,
-      onSelect: (editor, value) => {
-        insertBlock(editor, value);
+      onSelect: (editor) => {
+        insertBlock(editor, item.nodeType ?? item.value, {
+          props: item.props,
+        });
       },
     })),
   },
@@ -224,7 +246,7 @@ export function InsertToolbarButton(props: DropdownMenuProps) {
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
-        className="flex max-h-[500px] min-w-0 flex-col overflow-y-auto"
+        className="flex max-h-125 min-w-0 flex-col overflow-y-auto"
         align="start"
       >
         {groups.map(({ group, items: nestedItems }) => (
@@ -232,7 +254,7 @@ export function InsertToolbarButton(props: DropdownMenuProps) {
             {nestedItems.map(({ icon, label, value, onSelect }) => (
               <DropdownMenuItem
                 key={value}
-                className="min-w-[180px]"
+                className="min-w-45"
                 onSelect={() => {
                   onSelect(editor, value);
                   editor.tf.focus();

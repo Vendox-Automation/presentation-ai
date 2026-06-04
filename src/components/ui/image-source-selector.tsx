@@ -1,6 +1,8 @@
 "use client";
 
-import { type ImageModelList } from "@/app/_actions/apps/image-studio/generate";
+import { Clapperboard, Image, Wand2 } from "lucide-react";
+import { useSession } from "next-auth/react";
+
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -11,21 +13,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Image, Wand2 } from "lucide-react";
-
-export const IMAGE_MODELS: { value: ImageModelList; label: string }[] = [
-  { value: "fal-ai/flux-2/flash", label: "Flux 2 Flash" },
-  { value: "fal-ai/flux/dev", label: "Flux Dev" },
-  { value: "fal-ai/flux-2-pro", label: "Flux 2 Pro" },
-];
+import {
+  DEFAULT_IMAGE_MODEL,
+  getAvailableImageModels,
+  type ImageModelList,
+} from "@/constants/image-models";
+import { type PresentationStockImageProvider } from "@/states/presentation-state";
 
 interface ImageSourceSelectorProps {
-  imageSource: "automatic" | "ai" | "stock";
+  imageSource: "automatic" | "ai" | "stock" | "gif";
   imageModel: ImageModelList;
-  stockImageProvider: "unsplash" | "pixabay";
-  onImageSourceChange: (source: "automatic" | "ai" | "stock") => void;
+  stockImageProvider: PresentationStockImageProvider;
+  onImageSourceChange: (source: "automatic" | "ai" | "stock" | "gif") => void;
   onImageModelChange: (model: ImageModelList) => void;
-  onStockImageProviderChange: (provider: "unsplash" | "pixabay") => void;
+  onStockImageProviderChange: (
+    provider: PresentationStockImageProvider,
+  ) => void;
   className?: string;
   showLabel?: boolean;
 }
@@ -40,6 +43,9 @@ export function ImageSourceSelector({
   className,
   showLabel = true,
 }: ImageSourceSelectorProps) {
+  const { data: session } = useSession();
+  const imageModels = getAvailableImageModels(session?.user?.isAdmin === true);
+
   return (
     <div className={className}>
       {showLabel && (
@@ -48,19 +54,24 @@ export function ImageSourceSelector({
       <Select
         value={
           imageSource === "ai"
-            ? imageModel || "fal-ai/flux-2/flash"
+            ? imageModel || DEFAULT_IMAGE_MODEL
             : imageSource === "stock"
               ? `stock-${stockImageProvider}`
-              : "automatic"
+              : imageSource === "gif"
+                ? "gif"
+                : "automatic"
         }
         onValueChange={(value) => {
           if (value === "automatic") {
             onImageSourceChange("automatic");
+          } else if (value === "gif") {
+            onImageSourceChange("gif");
           } else if (value.startsWith("stock-")) {
             // Handle stock image selection
-            const provider = value.replace("stock-", "") as
-              | "unsplash"
-              | "pixabay";
+            const provider = value.replace(
+              "stock-",
+              "",
+            ) as PresentationStockImageProvider;
             onImageSourceChange("stock");
             onStockImageProviderChange(provider);
           } else {
@@ -84,7 +95,7 @@ export function ImageSourceSelector({
               <Wand2 size={10} />
               AI Generation
             </SelectLabel>
-            {IMAGE_MODELS.map((model) => (
+            {imageModels.map((model) => (
               <SelectItem key={model.value} value={model.value}>
                 {model.label}
               </SelectItem>
@@ -93,10 +104,18 @@ export function ImageSourceSelector({
           <SelectGroup>
             <SelectLabel className="flex items-center gap-1 text-primary/80">
               <Image size={10} />
-              Stock Images
+              Stock & Web Images
             </SelectLabel>
             <SelectItem value="stock-unsplash">Unsplash</SelectItem>
             <SelectItem value="stock-pixabay">Pixabay</SelectItem>
+            <SelectItem value="stock-google">Web Search</SelectItem>
+          </SelectGroup>
+          <SelectGroup>
+            <SelectLabel className="flex items-center gap-1 text-primary/80">
+              <Clapperboard size={10} />
+              Animated
+            </SelectLabel>
+            <SelectItem value="gif">GIFs from Giphy</SelectItem>
           </SelectGroup>
         </SelectContent>
       </Select>

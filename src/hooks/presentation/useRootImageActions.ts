@@ -1,5 +1,23 @@
 "use client";
 
+import { DndPlugin, type DragItemNode } from "@platejs/dnd";
+import { ImagePlugin } from "@platejs/media/react";
+import { useEditorRef } from "platejs/react";
+import { type ResizeCallback } from "re-resizable";
+import { useCallback, useId, useMemo } from "react";
+import { type DragSourceMonitor } from "react-dnd";
+
+import {
+  BASE_HEIGHT,
+  BASE_WIDTH_PERCENTAGE,
+  getRootImageCropSettings,
+  getRootImageObjectStyles,
+  getRootImageSizeStyle,
+  MAX_HEIGHT,
+  MAX_WIDTH_PERCENTAGE,
+  MIN_HEIGHT,
+  MIN_WIDTH_PERCENTAGE,
+} from "@/components/notebook/presentation/editor/custom-elements/root-image-layout";
 import { useDraggable } from "@/components/notebook/presentation/editor/dnd/hooks/useDraggable";
 import {
   type LayoutType,
@@ -9,32 +27,63 @@ import {
 import { type ImageCropSettings } from "@/components/notebook/presentation/utils/types";
 import { useDebouncedSave } from "@/hooks/presentation/useDebouncedSave";
 import { usePresentationState } from "@/states/presentation-state";
-import { DndPlugin, type DragItemNode } from "@platejs/dnd";
-import { ImagePlugin } from "@platejs/media/react";
-import { useEditorRef } from "platejs/react";
-import { useCallback, useId, useMemo } from "react";
-import { type DragSourceMonitor } from "react-dnd";
 
-export const BASE_WIDTH_PERCENTAGE = "45%";
-export const BASE_HEIGHT = 384;
-
-// Min and max size constraints
-export const MIN_WIDTH_PERCENTAGE = 20; // 20% of parent width
-export const MAX_WIDTH_PERCENTAGE = 80; // 80% of parent width
-export const MIN_HEIGHT = 200; // 200px minimum height
-export const MAX_HEIGHT = 800; // 800px maximum height
+export {
+  BASE_HEIGHT,
+  BASE_WIDTH_PERCENTAGE,
+  MAX_HEIGHT,
+  MAX_WIDTH_PERCENTAGE,
+  MIN_HEIGHT,
+  MIN_WIDTH_PERCENTAGE,
+} from "@/components/notebook/presentation/editor/custom-elements/root-image-layout";
 
 type UseRootImageActionsOptions = {
   image?: RootImage;
   layoutType?: LayoutType | string;
+  maxHeightPx?: number;
   slideId?: string;
 };
+
+function getMeasuredEditorHeight(resizeElement: HTMLElement) {
+  const slideRoot = resizeElement.closest<HTMLElement>(
+    '[data-slide-content="true"]',
+  );
+  const editorRegion = slideRoot?.querySelector<HTMLElement>(
+    '[data-presentation-editor-region="true"]',
+  );
+  const editorHeight = editorRegion?.getBoundingClientRect().height;
+
+  return typeof editorHeight === "number" && editorHeight > 0
+    ? Math.round(editorHeight)
+    : undefined;
+}
+
+function getMaxAllowedRootImageHeight(
+  resizeElement: HTMLElement,
+  maxHeightPx?: number,
+) {
+  const measuredEditorHeight = getMeasuredEditorHeight(resizeElement);
+
+  if (typeof maxHeightPx === "number" && maxHeightPx > 0) {
+    return Math.min(MAX_HEIGHT, maxHeightPx);
+  }
+
+  if (typeof measuredEditorHeight === "number") {
+    return Math.min(MAX_HEIGHT, measuredEditorHeight);
+  }
+
+  return MAX_HEIGHT;
+}
+
+function constrainRootImageHeight(height: number, maxAllowedHeight: number) {
+  return Math.min(maxAllowedHeight, Math.max(MIN_HEIGHT, height));
+}
 
 export function useRootImageActions(
   slideId: string,
   options: UseRootImageActionsOptions = {},
 ) {
-  const { image, layoutType } = options;
+  const { image, layoutType, maxHeightPx } = options;
 
   const setSlides = usePresentationState((s) => s.setSlides);
   const startRootImageGeneration = usePresentationState(
@@ -49,8 +98,8 @@ export function useRootImageActions(
 
   const size = useMemo(
     () => ({
-    w: image?.size?.w ?? undefined,
-    h: image?.size?.h ?? undefined,
+      w: image?.size?.w ?? undefined,
+      h: image?.size?.h ?? undefined,
     }),
     [image?.size?.h, image?.size?.w],
   );
@@ -59,52 +108,71 @@ export function useRootImageActions(
     () => (slideId ? rootImageGeneration[slideId] : undefined),
     [rootImageGeneration, slideId],
   );
+  const matchingComputedGen = useMemo(() => {
+    if (!computedGen) {
+      return undefined;
+    }
+
+    const imageQuery = image?.query?.trim();
+    return !imageQuery || computedGen.query.trim() === imageQuery
+      ? computedGen
+      : undefined;
+  }, [computedGen, image?.query]);
   const computedImageUrl = useMemo(() => {
     // If it's an embed, return the embed URL directly
     if (image?.embedType) {
       return image.url;
     }
     // Otherwise, use the generated or existing image URL
-    return computedGen?.url ?? image?.url;
-  }, [computedGen?.url, image?.url, image?.embedType]);
+    return matchingComputedGen?.url ?? image?.url;
+  }, [matchingComputedGen?.url, image?.url, image?.embedType]);
 
   // Get crop settings from image or use defaults
   const cropSettings: ImageCropSettings = useMemo(
     () =>
-      image?.cropSettings || {
-        objectFit: "cover",
-        objectPosition: { x: 50, y: 50 },
-        zoom: 1,
-      },
-    [image?.cropSettings],
+      image
+        ? getRootImageCropSettings(image)
+        : {
+            objectFit: "cover",
+            objectPosition: { x: 50, y: 50 },
+            zoom: 1,
+          },
+    [image],
   );
 
   // Derived styles
   const imageStyles: React.CSSProperties = useMemo(
-    () => ({
-      objectFit: cropSettings.objectFit,
-      objectPosition: `${cropSettings.objectPosition.x}% ${cropSettings.objectPosition.y}%`,
-      transform: `scale(${cropSettings.zoom ?? 1})`,
-      transformOrigin: `${cropSettings.objectPosition.x}% ${cropSettings.objectPosition.y}%`,
-      height: "100%",
-      width: "100%",
-      display: "block",
-    }),
-    [cropSettings],
+    () =>
+      image
+        ? getRootImageObjectStyles(image)
+        : {
+            objectFit: cropSettings.objectFit,
+            objectPosition: `${cropSettings.objectPosition.x}% ${cropSettings.objectPosition.y}%`,
+            transform: `scale(${cropSettings.zoom ?? 1})`,
+            transformOrigin: `${cropSettings.objectPosition.x}% ${cropSettings.objectPosition.y}%`,
+            height: "100%",
+            width: "100%",
+            display: "block",
+          },
+    [cropSettings, image],
   );
 
   const sizeStyle: React.CSSProperties = useMemo(() => {
+    if (image) {
+      return getRootImageSizeStyle(image, layoutType);
+    }
+
     if (!size.h && !size.w) {
       if (layoutType === "vertical") {
         return { height: BASE_HEIGHT, width: "100%" } as const;
       }
-      return { width: BASE_WIDTH_PERCENTAGE } as const;
+      return { width: BASE_WIDTH_PERCENTAGE, height: "auto" } as const;
     }
     if (layoutType === "vertical") {
       return { height: size.h ?? BASE_HEIGHT, width: "100%" } as const;
     }
     return { width: size.w ?? BASE_WIDTH_PERCENTAGE, height: "auto" } as const;
-  }, [layoutType, size.h, size.w]);
+  }, [image, layoutType, size.h, size.w]);
 
   const updateCropSettings = useCallback(
     (settings: ImageCropSettings) => {
@@ -217,24 +285,33 @@ export function useRootImageActions(
     [setSlides, slideId],
   );
 
+  const onResize = useCallback<ResizeCallback>(
+    (_e, _direction, ref, d) => {
+      if (layoutType !== "vertical") return;
+
+      const nextHeight = (size?.h ?? BASE_HEIGHT) + d.height;
+      const constrainedHeight = constrainRootImageHeight(
+        nextHeight,
+        getMaxAllowedRootImageHeight(ref, maxHeightPx),
+      );
+
+      ref.style.height = `${constrainedHeight}px`;
+    },
+    [layoutType, maxHeightPx, size?.h],
+  );
+
   // Resizable handler logic moved here
-  const onResizeStop = useCallback(
-    (
-      _e: unknown,
-      _direction: unknown,
-      _ref: HTMLElement,
-      d: { width: number; height: number },
-    ) => {
+  const onResizeStop = useCallback<ResizeCallback>(
+    (_e, _direction, ref, d) => {
       if (layoutType === "vertical") {
         const nextHeight = (size?.h ?? BASE_HEIGHT) + d.height;
-        // Enforce min/max height constraints
-        const constrainedHeight = Math.max(
-          MIN_HEIGHT,
-          Math.min(MAX_HEIGHT, nextHeight),
+        const constrainedHeight = constrainRootImageHeight(
+          nextHeight,
+          getMaxAllowedRootImageHeight(ref, maxHeightPx),
         );
         updateRootImageSize({ h: constrainedHeight });
       } else {
-        const parentElementRect = _ref.parentElement!.getBoundingClientRect();
+        const parentElementRect = ref.parentElement!.getBoundingClientRect();
         const parentWidth = parentElementRect.width;
         const width = parseFloat(size?.w ?? BASE_WIDTH_PERCENTAGE);
         const originalWidth = parentWidth * (width / 100);
@@ -250,7 +327,7 @@ export function useRootImageActions(
         updateRootImageSize({ w: nextWidth });
       }
     },
-    [layoutType, size?.h, size?.w, updateRootImageSize],
+    [layoutType, maxHeightPx, size?.h, size?.w, updateRootImageSize],
   );
 
   // Drag-and-drop logic moved here
@@ -305,7 +382,7 @@ export function useRootImageActions(
 
   return {
     // Derived data
-    computedGen,
+    computedGen: matchingComputedGen,
     computedImageUrl,
     cropSettings,
     imageStyles,
@@ -320,6 +397,7 @@ export function useRootImageActions(
     removeRootImage,
     removeRootImageFromSlide,
     updateRootImageSize,
+    onResize,
     onResizeStop,
     dragId: id,
   };

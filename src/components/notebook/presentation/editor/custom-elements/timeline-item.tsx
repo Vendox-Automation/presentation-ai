@@ -1,10 +1,25 @@
 "use client";
-import { cn } from "@/lib/utils";
+
 import { cva } from "class-variance-authority";
 import { NodeApi, PathApi } from "platejs";
-import { PlateElement, type PlateElementProps } from "platejs/react";
+import {
+  PlateElement,
+  useReadOnly,
+  type PlateElementProps,
+} from "platejs/react";
+
+import { IconPicker } from "@/components/ui/icon-picker";
+import { cn } from "@/lib/utils";
 import { type TTimelineGroupElement } from "../plugins/timeline-plugin";
 import { getAlignmentClasses } from "../utils";
+import { getPresentationAccentColor } from "./color-utils";
+import { PresentationIcon } from "./presentation-icon";
+import { getSiblingIndexContext } from "./sibling-index";
+
+const HORIZONTAL_DOUBLE_CONTENT_CLASS =
+  "w-[min(22rem,calc(200%-2.5rem))] max-w-none px-3 text-center [&_h3]:mb-2 [&_h3]:text-base [&_p]:text-xs [&_p]:leading-snug";
+const VERTICAL_DOUBLE_CONTENT_CLASS =
+  "relative z-10 min-h-40 max-w-full py-5 [&_h3]:mb-2 [&_h3]:text-base [&_p]:text-xs [&_p]:leading-snug";
 
 export const containerVariants = cva("flex flex-1", {
   variants: {
@@ -65,13 +80,15 @@ export const containerVariants = cva("flex flex-1", {
       orientation: "horizontal",
       sidedness: "double",
       isEven: true,
-      class: "row-start-2 h-[calc(100%+2.25rem)] flex-col self-end pt-4",
+      class:
+        "grid grid-rows-[minmax(max-content,1fr)_2.5rem_minmax(max-content,1fr)] place-items-center gap-0 p-0",
     },
     {
       orientation: "horizontal",
       sidedness: "double",
       isEven: false,
-      class: "row-start-1 h-[calc(100%+2rem)] flex-col-reverse self-start pt-4",
+      class:
+        "grid grid-rows-[minmax(max-content,1fr)_2.5rem_minmax(max-content,1fr)] place-items-center gap-0 p-0",
     },
 
     {
@@ -90,7 +107,7 @@ export const containerVariants = cva("flex flex-1", {
 });
 
 export const circleVariants = cva(
-  "relative flex size-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ring-1 ring-(--ring-color) ring-offset-2",
+  "relative flex size-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ring ring-(--ring-color) ring-offset-2",
   {
     variants: {
       orientation: {
@@ -105,59 +122,61 @@ export const circleVariants = cva(
   },
 );
 
-export const lineVariants = cva("", {
-  variants: {
-    orientation: {
-      horizontal: "",
-      vertical: "",
+export const connectorLineVariants = cva(
+  "pointer-events-none absolute z-50 rounded-full bg-(--before-bg)",
+  {
+    variants: {
+      orientation: {
+        horizontal: "",
+        vertical: "",
+      },
+      sidedness: {
+        single: "",
+        double: "",
+      },
+      isEven: {
+        true: "",
+        false: "",
+      },
     },
-    sidedness: {
-      single: "",
-      double: "",
-    },
-    showLine: {
-      true: "before:absolute before:z-50 before:rounded-full before:bg-(--before-bg) before:content-['']",
-      false: "",
-    },
-    isEven: {
-      true: "",
-      false: "",
-    },
+    compoundVariants: [
+      {
+        orientation: "horizontal",
+        sidedness: "single",
+        class:
+          "top-1/2 left-1/2 h-1/2 w-0.5 -translate-x-1/2 translate-y-[calc(100%+2px)]",
+      },
+
+      {
+        orientation: "horizontal",
+        sidedness: "double",
+        isEven: true,
+        class: "bottom-[calc(100%+2px)] left-1/2 h-3 w-0.5 -translate-x-1/2",
+      },
+
+      {
+        orientation: "horizontal",
+        sidedness: "double",
+        isEven: false,
+        class: "top-[calc(100%+2px)] left-1/2 h-3 w-0.5 -translate-x-1/2",
+      },
+
+      {
+        orientation: "vertical",
+        class:
+          "top-1/2 left-1/2 h-0.5 w-1/2 translate-x-[calc(100%+2px)] -translate-y-1/2",
+      },
+
+      {
+        orientation: "vertical",
+        sidedness: "double",
+        isEven: false,
+        class:
+          "top-1/2 left-0 h-0.5 w-1/2 -translate-x-[calc(100%+2px)] -translate-y-1/2",
+      },
+    ],
   },
-  compoundVariants: [
-    {
-      orientation: "horizontal",
-      showLine: true,
-      class:
-        "before:top-1/2 before:left-1/2 before:h-1/2 before:w-[2px] before:-translate-x-1/2 before:translate-y-full",
-    },
-
-    {
-      orientation: "horizontal",
-      sidedness: "double",
-      showLine: true,
-      isEven: false,
-      class:
-        "before:top-0 before:left-1/2 before:h-1/2 before:w-[2px] before:-translate-x-1/2 before:-translate-y-full",
-    },
-
-    {
-      orientation: "vertical",
-      showLine: true,
-      class:
-        "before:top-1/2 before:left-1/2 before:h-[2px] before:w-1/2 before:translate-x-full before:-translate-y-1/2",
-    },
-
-    {
-      orientation: "vertical",
-      sidedness: "double",
-      showLine: true,
-      isEven: false,
-      class:
-        "before:top-1/2 before:left-0 before:h-[2px] before:w-1/2 before:-translate-x-full before:-translate-y-1/2",
-    },
-  ],
-});
+);
 
 export const contentVariants = cva("flex", {
   variants: {
@@ -173,25 +192,84 @@ export const contentVariants = cva("flex", {
 });
 
 export function TimelineItem(props: PlateElementProps) {
-  const parentPath = PathApi.parent(props.path);
-  const parentElement = NodeApi.get(
+  const { index, parentElement } =
+    getSiblingIndexContext<TTimelineGroupElement>(
+      props.editor,
+      props.element,
+      props.path,
+    );
+  const isPresenting = useReadOnly();
+  const fallbackParentPath = PathApi.parent(props.path);
+  const fallbackParentElement = NodeApi.get(
     props.editor,
-    parentPath,
-  ) as TTimelineGroupElement;
-  const orientation = parentElement.orientation ?? "vertical";
-  const sidedness = parentElement.sidedness ?? "single";
-  const showLine = parentElement.showLine ?? true;
-  const numbered = parentElement.numbered ?? true;
-  const index = props.path.at(-1) ?? 0;
+    fallbackParentPath,
+  ) as TTimelineGroupElement | undefined;
+  const resolvedParentElement = parentElement ?? fallbackParentElement;
+  const orientation = resolvedParentElement?.orientation ?? "vertical";
+  const sidedness = resolvedParentElement?.sidedness ?? "single";
+  const showLine = resolvedParentElement?.showLine ?? true;
+  const numbered = resolvedParentElement?.numbered ?? true;
+  const variant = resolvedParentElement?.variant ?? "default";
+  const totalItems = resolvedParentElement?.children.length ?? 1;
   const itemNumber = index + 1;
-  const isEven = itemNumber % 2 === 0;
+  const isEven =
+    orientation === "horizontal" && sidedness === "double"
+      ? index % 2 === 0
+      : itemNumber % 2 === 0;
+  const isFirstItem = index === 0;
+  const isLastItem = index === totalItems - 1;
 
-  const lineClass = lineVariants({ orientation, sidedness, showLine, isEven });
-  const alignment = parentElement.alignment ?? "left";
+  const alignment = resolvedParentElement?.alignment ?? "left";
+  const horizontalDoubleEdgeAlignmentClass =
+    sidedness === "double" && orientation === "horizontal"
+      ? isFirstItem
+        ? "justify-self-start"
+        : isLastItem
+          ? "justify-self-end"
+          : "justify-self-center"
+      : "";
+  const horizontalDoubleTextAlignmentClass =
+    sidedness === "double" && orientation === "horizontal"
+      ? isFirstItem
+        ? "items-start text-left [&>*]:self-start [&>*]:text-left"
+        : isLastItem
+          ? "items-end text-right [&>*]:self-end [&>*]:text-right"
+          : "items-center text-center [&>*]:self-center [&>*]:text-center"
+      : "";
+  const verticalDoubleOverlapClass =
+    sidedness === "double" && orientation === "vertical"
+      ? isFirstItem
+        ? "-mb-10 pb-10"
+        : isLastItem
+          ? "-mt-10 pt-10"
+          : "-my-10 py-10"
+      : "";
+  const verticalDoubleTextAlignmentClass =
+    sidedness === "double" && orientation === "vertical"
+      ? isEven
+        ? "items-start text-left [&>*]:self-start [&>*]:text-left"
+        : "items-end text-right [&>*]:self-end [&>*]:text-right"
+      : "";
+  const timelineColor = getPresentationAccentColor(
+    props.element,
+    resolvedParentElement,
+    "var(--presentation-smart-layout, var(--presentation-primary))",
+  );
+  const timelineTextColor = "var(--presentation-background)";
+  const { icon } = props.element as { icon?: string };
+
+  const handleIconSelect = (iconName: string) => {
+    const itemPath = props.editor.api.findPath(props.element);
+    if (!itemPath) return;
+    props.editor.tf.setNodes({ icon: iconName }, { at: itemPath });
+  };
+
   return (
     //* Container
-    <div
+    <PlateElement
+      {...props}
       className={cn(
+        "group min-h-full",
         containerVariants({
           orientation,
           sidedness,
@@ -219,48 +297,130 @@ export function TimelineItem(props: PlateElementProps) {
     >
       {/* Circle */}
       <div
+        data-shape="ellipse"
+        data-shape-role="timeline-marker"
+        data-fill-color={timelineColor}
+        data-text-color={timelineTextColor}
+        data-shape-text={numbered ? String(itemNumber) : undefined}
         className={cn(
           circleVariants({ orientation, sidedness }),
-          lineClass,
           sidedness === "single" && alignment === "right" && "rotate-180",
+          sidedness === "single" &&
+            alignment === "right" &&
+            orientation === "horizontal" &&
+            isPresenting &&
+            "translate-y-3",
+          sidedness === "double" &&
+            orientation === "horizontal" &&
+            "row-start-2",
         )}
         style={
           {
-            backgroundColor:
-              (parentElement.color as string) ||
-              "var(--presentation-smart-layout, var(--presentation-primary))",
-            color: "var(--presentation-background)",
-            "--ring-color":
-              (parentElement.color as string) ||
-              "var(--presentation-smart-layout, var(--presentation-primary))",
-            "--before-bg":
-              (parentElement.color as string) ||
-              "var(--presentation-smart-layout, var(--presentation-primary))",
+            backgroundColor: timelineColor,
+            color: timelineTextColor,
+            "--ring-color": timelineColor,
+            "--before-bg": timelineColor,
           } as React.CSSProperties & {
             "--ring-color": string;
             "--before-bg": string;
           }
         }
       >
-        <span
-          className={cn(
-            sidedness === "single" && alignment === "right" && "rotate-180",
-          )}
-        >
-          {numbered ? itemNumber : ""}
-        </span>
+        {showLine ? (
+          <div
+            aria-hidden="true"
+            data-shape="rect"
+            data-shape-role="timeline-connector"
+            data-fill-color={timelineColor}
+            data-orientation={orientation}
+            className={cn(
+              connectorLineVariants({ orientation, sidedness, isEven }),
+            )}
+          />
+        ) : null}
+        {isPresenting ? (
+          <div
+            className={cn(
+              "relative z-10",
+              sidedness === "single" && alignment === "right" && "rotate-180",
+            )}
+          >
+            {icon ? (
+              <PresentationIcon icon={icon} size={18} />
+            ) : numbered ? (
+              itemNumber
+            ) : (
+              ""
+            )}
+          </div>
+        ) : (
+          <IconPicker
+            defaultIcon={icon}
+            hidePlaceholderWhenEmpty={!numbered}
+            placeholder={
+              numbered ? (
+                <span>{itemNumber}</span>
+              ) : (
+                <span className="text-lg font-semibold leading-none">+</span>
+              )
+            }
+            onIconSelect={(iconName) => handleIconSelect(iconName)}
+            onIconRemove={() => {
+              const itemPath = props.editor.api.findPath(props.element);
+              if (!itemPath) return;
+              props.editor.tf.setNodes({ icon: "" }, { at: itemPath });
+            }}
+            className={cn(
+              "relative z-10 h-8 w-8 border-transparent bg-transparent shadow-none hover:bg-white/15",
+              sidedness === "single" && alignment === "right" && "rotate-180",
+            )}
+            size="sm"
+            style={{
+              borderColor: "transparent",
+              backgroundColor: "transparent",
+              color: timelineTextColor,
+            }}
+          />
+        )}
       </div>
+
       {/* Content */}
-      <PlateElement
+      <div
         className={cn(
-          "max-w-full",
+          "h-full max-w-full",
           contentVariants({ orientation, sidedness }),
           getAlignmentClasses(alignment),
+          sidedness === "double" &&
+            orientation === "horizontal" &&
+            isEven &&
+            cn(
+              "row-start-1 justify-end pb-8",
+              horizontalDoubleEdgeAlignmentClass,
+              horizontalDoubleTextAlignmentClass,
+              HORIZONTAL_DOUBLE_CONTENT_CLASS,
+            ),
+          sidedness === "double" &&
+            orientation === "horizontal" &&
+            !isEven &&
+            cn(
+              "row-start-3 justify-start pt-8",
+              horizontalDoubleEdgeAlignmentClass,
+              horizontalDoubleTextAlignmentClass,
+              HORIZONTAL_DOUBLE_CONTENT_CLASS,
+            ),
+          sidedness === "double" &&
+            orientation === "vertical" &&
+            cn(
+              VERTICAL_DOUBLE_CONTENT_CLASS,
+              verticalDoubleOverlapClass,
+              verticalDoubleTextAlignmentClass,
+            ),
+          variant === "boxes" &&
+            "flex-1 w-full rounded-xl border bg-card p-4 text-card-foreground shadow-sm",
         )}
-        {...props}
       >
         {props.children}
-      </PlateElement>
-    </div>
+      </div>
+    </PlateElement>
   );
 }

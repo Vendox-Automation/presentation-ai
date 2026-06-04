@@ -1,20 +1,17 @@
-/* eslint-disable react/display-name */
 "use client";
-
-import type React from "react";
-
-import { type TListElement } from "platejs";
 
 import { isOrderedList } from "@platejs/list";
 import {
   useTodoListElement,
   useTodoListElementState,
 } from "@platejs/list/react";
+import { type TListElement } from "platejs";
 import {
+  useReadOnly,
   type PlateElementProps,
   type RenderNodeWrapper,
-  useReadOnly,
 } from "platejs/react";
+import type React from "react";
 
 import { Checkbox } from "@/components/plate/ui/checkbox";
 import { cn } from "@/lib/utils";

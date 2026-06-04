@@ -1,5 +1,6 @@
-import { cn } from "@/lib/utils";
 import { SlateElement, type SlateElementProps } from "platejs/static";
+
+import { cn } from "@/lib/utils";
 
 export default function ProsConsGroupStatic(props: SlateElementProps) {
   const { alignment = "center" } = props.element as {
@@ -22,5 +23,3 @@ export default function ProsConsGroupStatic(props: SlateElementProps) {
     </SlateElement>
   );
 }
-
-

@@ -3,8 +3,13 @@
  * Converts scanned slide DOM data to PPTX using pptxgenjs
  */
 
+import PptxGenJS from "pptxgenjs";
+
 import { type PlateSlide } from "@/components/notebook/presentation/utils/parser";
-import PptxGenJS from "pptxgenjs/dist/pptxgen.bundle.js";
+import {
+  resolveExportImageSource,
+  type ExportImageSource,
+} from "@/lib/image-proxy";
 import {
   type BackgroundRectExportElement,
   type DecorExportElement,
@@ -19,10 +24,40 @@ import {
   type TextExportElement,
 } from "./types";
 
+const SLIDE_WIDTH_INCHES = 10;
+const SLIDE_HEIGHT_INCHES = 5.625;
+
+/**
+ * Fixed reference width for font-size conversion, matching the Fabric
+ * converter. Presentation slides use em-based typography (e.g.
+ * h1 = 3em = 48px at base 16px), so the computed CSS px values are identical
+ * regardless of the slide's configured base width (896/1024/1152 for S/M/L).
+ * Using a fixed reference avoids inflating font sizes for narrower slides.
+ */
+const FONT_REFERENCE_WIDTH_PX = 1280;
+
+/**
+ * Pixels-per-inch at the reference width.
+ * 1280px / 10in = 128 px/in.
+ */
+const PX_PER_INCH = FONT_REFERENCE_WIDTH_PX / SLIDE_WIDTH_INCHES;
+
+/**
+ * Fixed conversion factor: CSS px → PPTX points.
+ * 72 pt/in ÷ 128 px/in = 0.5625 pt/px.
+ * Shared conversion constant for presentation export.
+ */
+const POINTS_PER_PIXEL = 72 / PX_PER_INCH;
+
+type ImageDimensions = {
+  width: number;
+  height: number;
+};
+
 /**
  * Convert scanned slides to PPTX
  */
-export async function convertToPptx(
+async function convertToPptx(
   scanResults: ScanResult[],
   slides: PlateSlide[],
 ): Promise<ArrayBuffer> {
@@ -32,7 +67,7 @@ export async function convertToPptx(
   // Process each slide
   for (let i = 0; i < scanResults.length; i++) {
     const scanResult = scanResults[i];
-    const slideData = slides[i];
+    const slideData = slides.find((slide) => slide.id === scanResult?.slideId);
 
     if (!scanResult || !slideData) continue;
 
@@ -60,27 +95,30 @@ async function addSlide(
   if (slideData.isImageSlide && slideData.rootImage?.url) {
     const slideWidthInches = 10;
     const slideHeightInches = 5.625;
+    const imageSource = await resolveExportImageSource(
+      slideData.rootImage.url,
+      slideData.rootImage,
+    );
+    const imageDimensions = await loadImageDimensionsFromSource(imageSource);
+    const sourceSize = getPptSourceSizeForCover(imageDimensions);
 
     // Use 'data' for base64 images, 'path' for URLs
     const imageProps: PptxGenJS.ImageProps = {
       x: 0,
       y: 0,
-      w: slideWidthInches,
-      h: slideHeightInches,
+      w: sourceSize.w,
+      h: sourceSize.h,
       sizing: {
-        type: "crop",
+        type: "cover",
         w: slideWidthInches,
         h: slideHeightInches,
       },
     };
 
-    if (
-      slideData.rootImage.url.startsWith("data:") ||
-      slideData.rootImage.url.length > 2000 // Simple heuristic for base64 data
-    ) {
-      imageProps.data = slideData.rootImage.url;
+    if (imageSource.type === "data") {
+      imageProps.data = imageSource.value;
     } else {
-      imageProps.path = slideData.rootImage.url;
+      imageProps.path = imageSource.value;
     }
 
     try {
@@ -94,8 +132,6 @@ async function addSlide(
   }
 
   const {
-    width: slideWidthPx,
-    height: slideHeightPx,
     styles,
     elements,
     rootImage: scannedRootImage,
@@ -103,11 +139,11 @@ async function addSlide(
   } = scanResult;
 
   // Calculate conversion factors
-  const slideWidthInches = 10; // Standard 16:9 width
-  const slideHeightInches = 5.625; // Standard 16:9 height
+  const slideWidthInches = SLIDE_WIDTH_INCHES; // Standard 16:9 width
+  const slideHeightInches = SLIDE_HEIGHT_INCHES; // Standard 16:9 height
 
-  const scaleX = slideWidthInches / slideWidthPx;
-  const scaleY = slideHeightInches / slideHeightPx;
+  const scaleX = slideWidthInches / scanResult.width;
+  const scaleY = slideHeightInches / scanResult.height;
 
   // Set slide background color ONLY if it's a non-white, non-black color
   // (black "000000" is the default fallback which we don't want)
@@ -121,7 +157,26 @@ async function addSlide(
   // Handle background image (layout type "background")
   if (backgroundImageUrl) {
     try {
-      slide.background = { path: backgroundImageUrl };
+      const backgroundSource =
+        await resolveExportImageSource(backgroundImageUrl);
+      if (backgroundSource.type === "data") {
+        slide.addImage({
+          data: backgroundSource.value,
+          x: 0,
+          y: 0,
+          w: slideWidthInches,
+          h: slideHeightInches,
+          sizing: {
+            type: "crop",
+            w: slideWidthInches,
+            h: slideHeightInches,
+          },
+        });
+      } else {
+        slide.background = {
+          path: backgroundSource.value,
+        };
+      }
     } catch (error) {
       console.warn("Failed to set background image:", error);
     }
@@ -140,27 +195,39 @@ async function addSlide(
 }
 
 /**
- * Add root image to slide
- * Since root images are now captured as PNG with CSS cropping already applied,
- * we just need to insert them at the correct position.
+ * Add root image to slide.
+ * Prefer originalUrl (the actual source URL) over the captured base64 snapshot.
+ * The captures can be identical across slides when toPng hits CORS/timing
+ * issues, causing pptxgenjs to deduplicate all slides onto the first image.
  */
 async function addRootImage(
   slide: PptxGenJS.Slide,
   rootImage: RootImageData,
   position: { x: number; y: number; w: number; h: number },
 ): Promise<void> {
+  const urlToUse = rootImage.originalUrl ?? rootImage.url;
+  const imageSource = urlToUse.startsWith("data:")
+    ? ({ type: "data", value: urlToUse } satisfies ExportImageSource)
+    : await resolveExportImageSource(urlToUse, rootImage);
+  const imageDimensions = await loadImageDimensionsFromSource(imageSource);
+  const sourceSize = getPptSourceSizeForCover(imageDimensions);
+
   const imageOptions: PptxGenJS.ImageProps = {
     x: position.x,
     y: position.y,
-    w: position.w,
-    h: position.h,
+    w: sourceSize.w,
+    h: sourceSize.h,
+    sizing: {
+      type: "cover",
+      w: position.w,
+      h: position.h,
+    },
   };
 
-  // Use 'data' for base64 images, 'path' for URLs
-  if (rootImage.isBase64 || rootImage.url.startsWith("data:")) {
-    imageOptions.data = rootImage.url;
+  if (imageSource.type === "data") {
+    imageOptions.data = imageSource.value;
   } else {
-    imageOptions.path = rootImage.url;
+    imageOptions.path = imageSource.value;
   }
 
   try {
@@ -168,6 +235,45 @@ async function addRootImage(
   } catch (error) {
     console.warn("Failed to add root image:", error);
   }
+}
+
+function getPptSourceSizeForCover(dimensions: ImageDimensions | null): {
+  w: number;
+  h: number;
+} {
+  if (!dimensions || dimensions.width <= 0 || dimensions.height <= 0) {
+    return { w: 1, h: 1 };
+  }
+
+  return {
+    w: dimensions.width / dimensions.height,
+    h: 1,
+  };
+}
+
+function loadImageDimensionsFromSource(
+  source: ExportImageSource,
+): Promise<ImageDimensions | null> {
+  return loadImageDimensions(source.value).catch((error: unknown) => {
+    console.warn("Failed to load export image dimensions:", error);
+    return null;
+  });
+}
+
+function loadImageDimensions(url: string): Promise<ImageDimensions> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+        resolve({ width: img.naturalWidth, height: img.naturalHeight });
+        return;
+      }
+
+      reject(new Error("Image loaded without natural dimensions."));
+    };
+    img.onerror = () => reject(new Error(`Unable to load image: ${url}`));
+    img.src = url;
+  });
 }
 
 /**
@@ -190,7 +296,7 @@ async function addElement(
       addTable(slide, element, position, styles);
       break;
     case "image":
-      addImageElement(slide, element, position);
+      await addImageElement(slide, element, position);
       break;
     case "decor":
       addDecorElement(slide, element, position);
@@ -216,11 +322,11 @@ function scalePosition(
   _scaleY: number,
 ): { x: number; y: number; w: number; h: number } {
   // Standard 16:9 slide dimensions in inches
-  const slideWidthInches = 10;
-  const slideHeightInches = 5.625;
+  const slideWidthInches = SLIDE_WIDTH_INCHES;
+  const slideHeightInches = SLIDE_HEIGHT_INCHES;
 
-  const x = (position.x / 100) * slideWidthInches;
-  const y = (position.y / 100) * slideHeightInches;
+  let x = (position.x / 100) * slideWidthInches;
+  let y = (position.y / 100) * slideHeightInches;
   let w = (position.width / 100) * slideWidthInches;
   let h = (position.height / 100) * slideHeightInches;
 
@@ -247,34 +353,58 @@ function scalePosition(
     }
   }
 
+  if (position.centerAspectRatio) {
+    x += (originalW - w) / 2;
+    y += (originalH - h) / 2;
+  }
+
   return { x, y, w, h };
 }
 
 /**
- * Standard font sizes for different text element types (in points)
- * These match typical PowerPoint presentation standards
+ * Fallback CSS font sizes (px) for Plate text nodes.
+ * Used only when the browser returns an invalid computed font size.
  */
-const STANDARD_FONT_SIZES: Record<string, number> = {
-  h1: 32,
-  h2: 20,
-  h3: 18,
-  h4: 12,
-  h5: 12,
-  h6: 12,
-  p: 12,
-  blockquote: 12,
-  code_block: 12,
-  li: 12,
-  ul: 12,
-  ol: 12,
+const FALLBACK_FONT_SIZES_PX: Record<string, number> = {
+  h1: 48,
+  h2: 30,
+  h3: 24,
+  h4: 20,
+  h5: 18,
+  h6: 16,
+  p: 16,
+  blockquote: 16,
+  code_block: 16,
+  li: 16,
+  ul: 16,
+  ol: 16,
 };
 
 /**
- * Get standard font size based on node type
+ * Get fallback CSS font size based on node type.
  */
-function getStandardFontSize(nodeType?: string): number {
-  if (!nodeType) return STANDARD_FONT_SIZES.p!;
-  return STANDARD_FONT_SIZES[nodeType] ?? STANDARD_FONT_SIZES.p!;
+function getFallbackFontSizePx(nodeType?: string): number {
+  if (!nodeType) return FALLBACK_FONT_SIZES_PX.p!;
+  return FALLBACK_FONT_SIZES_PX[nodeType] ?? FALLBACK_FONT_SIZES_PX.p!;
+}
+
+/**
+ * Convert a CSS px font size to PPTX points using the fixed conversion factor.
+ * Converts with `fontSize = fontSizePx * POINTS_PER_PIXEL`.
+ */
+function fontSizePxToPptPoints(fontSizePx: number): number {
+  return Math.max(1, fontSizePx * POINTS_PER_PIXEL);
+}
+
+function getMeasuredFontSizePx(
+  fontSizePx: number | undefined,
+  nodeType?: string,
+): number {
+  if (fontSizePx && Number.isFinite(fontSizePx) && fontSizePx > 0) {
+    return fontSizePx;
+  }
+
+  return getFallbackFontSizePx(nodeType);
 }
 
 /**
@@ -290,8 +420,13 @@ function addTextElement(
 
   if (!textContent.trim()) return;
 
-  // Use standard font size based on node type instead of DOM-extracted size
-  const fontSizePt = getStandardFontSize(nodeType);
+  const fontSizePx = getMeasuredFontSizePx(textStyles.fontSize, nodeType);
+  const fontSizePt = fontSizePxToPptPoints(fontSizePx);
+  const lineHeightPx = textStyles.lineHeight;
+  const lineSpacingMultiple =
+    lineHeightPx && Number.isFinite(lineHeightPx) && fontSizePx > 0
+      ? Math.max(0.1, Math.min(9.99, lineHeightPx / fontSizePx))
+      : undefined;
 
   // Check if this is a heading type
   const isHeading = nodeType && /^h[1-6]$/.test(nodeType);
@@ -314,6 +449,7 @@ function addTextElement(
     // Auto-shrink text to fit within the bounding box if it overflows
     // This ensures text that fits in HTML also fits in the exported PPT
     fit: "shrink",
+    lineSpacingMultiple,
   };
 
   // Add bold for headings or if specified
@@ -418,6 +554,12 @@ function addShapeElement(
           rotate = 90;
         }
         break;
+      case "ellipse":
+        shapeType = "ellipse";
+        break;
+      case "rect":
+        shapeType = "rect";
+        break;
     }
 
     slide.addShape(shapeType, {
@@ -430,6 +572,21 @@ function addShapeElement(
       rectRadius: rectRadius > 0 ? rectRadius : undefined,
       line: { type: "none" }, // Minimal/no border for these shapes
     });
+
+    if (element.textContent?.trim()) {
+      slide.addText(element.textContent, {
+        x: position.x,
+        y: position.y + position.h * 0.27,
+        w: position.w,
+        h: position.h * 0.5,
+        fontSize: Math.min(Math.max(position.h * 72 * 0.42, 8), 14),
+        bold: true,
+        color: (element.textColor ?? "FFFFFF").replace("#", ""),
+        align: "center",
+        margin: 0,
+        fit: "shrink",
+      });
+    }
   } catch (error) {
     console.warn("Failed to add shape element:", error);
   }
@@ -584,9 +741,9 @@ function addTable(
         bold: cell.isHeader,
         color: cell.textStyles?.color || styles.textColor,
         fontFace: cell.textStyles?.fontFamily || styles.bodyFont,
-        fontSize: cell.textStyles?.fontSize
-          ? Math.round(cell.textStyles.fontSize * 0.75)
-          : 12,
+        fontSize: fontSizePxToPptPoints(
+          getMeasuredFontSizePx(cell.textStyles?.fontSize, "p"),
+        ),
         colspan: cell.colSpan,
         rowspan: cell.rowSpan,
       },
@@ -604,15 +761,14 @@ function addTable(
 /**
  * Add image element (in-editor)
  */
-function addImageElement(
+async function addImageElement(
   slide: PptxGenJS.Slide,
   element: ImageExportElement,
   position: { x: number; y: number; w: number; h: number },
-): void {
+): Promise<void> {
   try {
     const imageSizing = {
-      type:
-        (element.sizing === "fill" ? "crop" : element.sizing) || "contain",
+      type: (element.sizing === "fill" ? "crop" : element.sizing) || "contain",
       w: position.w,
       h: position.h,
     } as const;
@@ -635,14 +791,22 @@ function addImageElement(
       return;
     }
 
-    slide.addImage({
-      path: element.url,
+    const imageSource = await resolveExportImageSource(element.url, element);
+    const imageOptions: PptxGenJS.ImageProps = {
       x: position.x,
       y: position.y,
       w: position.w,
       h: position.h,
       sizing: imageSizing,
-    });
+    };
+
+    if (imageSource.type === "data") {
+      imageOptions.data = imageSource.value;
+    } else {
+      imageOptions.path = imageSource.value;
+    }
+
+    slide.addImage(imageOptions);
   } catch (error) {
     console.warn("Failed to add image element:", error);
   }
@@ -664,18 +828,4 @@ export async function exportPresentationToPptx(
   });
 
   return { blob, fileName: `${fileName}.pptx` };
-}
-
-/**
- * Helper to trigger download of a blob
- */
-export function downloadBlob(blob: Blob, fileName: string): void {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = fileName;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
 }

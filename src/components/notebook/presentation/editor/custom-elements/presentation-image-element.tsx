@@ -1,43 +1,48 @@
 "use client";
 
-import {
-  PlateElement,
-  type PlateElementProps,
-  useEditorRef,
-  useReadOnly,
-  withHOC,
-} from "platejs/react";
-import type React from "react";
-import { useEffect, useRef, useState } from "react";
-
-import { generateImageAction } from "@/app/_actions/apps/image-studio/generate";
-import { getImageFromUnsplash } from "@/app/_actions/apps/image-studio/unsplash";
-import {
-  Resizable,
-  mediaResizeHandleVariants,
-} from "@/components/plate/ui/resize-handle";
-import { Spinner } from "@/components/ui/spinner";
-import { useDebouncedSave } from "@/hooks/presentation/useDebouncedSave";
-import { cn } from "@/lib/utils";
-import {
-  type ImageEditorMode,
-  usePresentationState,
-} from "@/states/presentation-state";
 import { Image, useMediaState } from "@platejs/media/react";
 import { ResizableProvider, ResizeHandle } from "@platejs/resizable";
 import { type TImageElement } from "platejs";
+import {
+  PlateElement,
+  useEditorRef,
+  useReadOnly,
+  withHOC,
+  type PlateElementProps,
+} from "platejs/react";
+import { useEffect, useMemo, useRef } from "react";
+
+import {
+  mediaResizeHandleVariants,
+  Resizable,
+} from "@/components/plate/ui/resize-handle";
+import { Spinner } from "@/components/ui/spinner";
+import {
+  getElementImageGenerationTarget,
+  getPresentationImageGenerationKey,
+  resolvePresentationImageGenerationSource,
+} from "@/lib/presentation/image-generation";
+import { cn } from "@/lib/utils";
+import {
+  usePresentationState,
+  type ImageEditorMode,
+  type PresentationStockImageProvider,
+} from "@/states/presentation-state";
 import { type ImageCropSettings } from "../../utils/types";
 import { useDraggable } from "../dnd/hooks/useDraggable";
+import { getPresentationImageCropStyles } from "./presentation-image-layout";
 import { PresentationImagePlaceholder } from "./presentation-image-placeholder";
 
 type PresentationImageNode = TImageElement & {
+  id?: string;
   query?: string;
   cropSettings?: ImageCropSettings;
-  imageSource?: "generate" | "search" | "gif";
+  imageSource?: "generate" | "search" | "gif" | "upload";
+  stockImageProvider?: PresentationStockImageProvider;
+  imageGenerationStatus?: "failed";
 };
 
-export interface PresentationImageElementProps
-  extends PlateElementProps<PresentationImageNode> {
+export interface PresentationImageElementProps extends PlateElementProps<PresentationImageNode> {
   nodeProps?: Record<string, unknown>;
 }
 
@@ -56,20 +61,52 @@ export const PresentationImageElement = withHOC(
     });
     const imageRef = useRef<HTMLDivElement | null>(null);
     const editor = useEditorRef();
-    const { saveImmediately } = useDebouncedSave();
-    const [isGenerating, setIsGenerating] = useState(false);
-    const [imageUrl, setImageUrl] = useState<string | undefined>(
-      props.element.url,
-    );
+    const slideId = String(props.editor.id ?? "");
 
     const imageSource = usePresentationState((s) => s.imageSource);
     const imageModel = usePresentationState((s) => s.imageModel);
+    const stockImageProvider = usePresentationState(
+      (s) => s.stockImageProvider,
+    );
+    const setImageSearchState = usePresentationState(
+      (s) => s.setImageSearchState,
+    );
     const openPresentationImageEditor = usePresentationState(
       (s) => s.openPresentationImageEditor,
     );
-    const hasHandledGenerationRef = useRef(false);
+    const presentationImageEditorInitialMode = usePresentationState(
+      (s) => s.presentationImageEditorInitialMode,
+    );
+    const startPresentationImageGeneration = usePresentationState(
+      (s) => s.startPresentationImageGeneration,
+    );
+    const rootImageGeneration = usePresentationState(
+      (s) => s.rootImageGeneration,
+    );
 
     const isReadOnly = useReadOnly();
+    const generationTarget = useMemo(
+      () =>
+        slideId && props.element.id
+          ? getElementImageGenerationTarget(slideId, props.element.id)
+          : null,
+      [props.element.id, slideId],
+    );
+    const generationKey = generationTarget
+      ? getPresentationImageGenerationKey(generationTarget)
+      : null;
+    const computedGen = generationKey
+      ? rootImageGeneration[generationKey]
+      : undefined;
+    const computedImageUrl =
+      computedGen?.status === "success" && computedGen.url
+        ? computedGen.url
+        : props.element.url;
+    const isGenerating =
+      computedGen?.status === "queued" || computedGen?.status === "generating";
+    const hasGenerationFailed =
+      computedGen?.status === "error" ||
+      props.element.imageGenerationStatus === "failed";
 
     const cropSettings: ImageCropSettings = props.element.cropSettings || {
       objectFit: "cover",
@@ -87,88 +124,70 @@ export const PresentationImageElement = withHOC(
           });
         };
 
-        openPresentationImageEditor(mode, boundUpdateElement);
-      }
-    };
-
-    const generateImage = async (prompt: string) => {
-      const container = document.querySelector(".presentation-slides");
-      const isEditorReadOnly = !container?.contains(imageRef?.current);
-      if (isEditorReadOnly) {
-        return;
-      }
-      setIsGenerating(true);
-      try {
-        hasHandledGenerationRef.current = true;
-        let result;
-
-        if (imageSource === "stock") {
-          const unsplashResult = await getImageFromUnsplash(prompt);
-          if (unsplashResult.success && unsplashResult.imageUrl) {
-            result = {
-              success: true,
-              image: { url: unsplashResult.imageUrl },
-            };
-          }
-        } else {
-          result = await generateImageAction(prompt, imageModel);
+        if (mode === "search") {
+          setImageSearchState({
+            mode: props.element.stockImageProvider ?? stockImageProvider,
+          });
         }
 
-        if (
-          result &&
-          typeof result === "object" &&
-          "success" in result &&
-          result.success === true &&
-          result.image?.url
-        ) {
-          const newImageUrl = result.image.url;
-          setImageUrl(newImageUrl);
-
-          const nextImageElement: Partial<TImageElement> = {
+        openPresentationImageEditor(
+          mode,
+          boundUpdateElement,
+          {
             ...props.element,
-            url: newImageUrl,
-            query: prompt,
-            cropSettings,
-          };
-
-          editor.tf.setNodes(nextImageElement);
-
-          setTimeout(() => {
-            void saveImmediately();
-          }, 500);
-        }
-      } catch (error) {
-        console.error("Error generating image:", error);
-      } finally {
-        setIsGenerating(false);
+            url: computedImageUrl,
+          },
+          getPresentationImageElementFrame(props.element),
+        );
       }
     };
-
-    useEffect(() => {
-      setImageUrl(props.element.url);
-    }, [props.element.url]);
 
     useEffect(() => {
       if (
-        hasHandledGenerationRef.current ||
+        !generationTarget ||
         !props.element.query ||
         props.element.url ||
-        imageUrl
+        computedImageUrl ||
+        hasGenerationFailed
       ) {
         return;
       }
 
-      if (props.element.query) {
-        void generateImage(props.element.query);
+      if (computedGen?.query === props.element.query) {
+        return;
       }
-    }, [props.element.query, props.element.url, imageUrl]);
 
-    const imageStyles: React.CSSProperties = {
-      objectFit: cropSettings.objectFit,
-      objectPosition: `${cropSettings.objectPosition.x}% ${cropSettings.objectPosition.y}%`,
-      transform: `scale(${cropSettings.zoom ?? 1})`,
-      transformOrigin: `${cropSettings.objectPosition.x}% ${cropSettings.objectPosition.y}%`,
-    };
+      const source = resolvePresentationImageGenerationSource({
+        globalImageSource: imageSource,
+        imageSource: props.element.imageSource,
+      });
+
+      startPresentationImageGeneration(generationTarget, props.element.query, {
+        imageModel,
+        source,
+        ...(source === "stock"
+          ? {
+              stockImageProvider:
+                props.element.stockImageProvider ?? stockImageProvider,
+            }
+          : {}),
+      });
+    }, [
+      computedGen?.query,
+      computedImageUrl,
+      generationTarget,
+      hasGenerationFailed,
+      imageModel,
+      imageSource,
+      props.element.imageSource,
+      props.element.query,
+      props.element.stockImageProvider,
+      props.element.url,
+      startPresentationImageGeneration,
+      stockImageProvider,
+    ]);
+
+    const imageStyles = getPresentationImageCropStyles(cropSettings);
 
     if (isReadOnly) {
       return (
@@ -181,13 +200,13 @@ export const PresentationImageElement = withHOC(
                 readOnly,
               }}
             >
-              {imageUrl ? (
+              {computedImageUrl ? (
                 <div className="my-4 text-center">
                   <Image
                     ref={handleRef}
                     className={cn("h-auto max-w-full")}
                     alt={props.element.query ?? ""}
-                    src={imageUrl}
+                    src={computedImageUrl}
                     loading="lazy"
                     decoding="async"
                     style={{
@@ -203,6 +222,7 @@ export const PresentationImageElement = withHOC(
                 <PresentationImagePlaceholder
                   className="pointer-events-auto h-full w-full rounded-[inherit]"
                   element={props.element}
+                  imageNotFound={hasGenerationFailed}
                 />
               )}
               {children}
@@ -227,8 +247,8 @@ export const PresentationImageElement = withHOC(
               className={mediaResizeHandleVariants({ direction: "left" })}
               options={{ direction: "left" }}
             />
-            {isGenerating ? (
-              <div className="relative min-h-[200px] w-full">
+            {isGenerating && !computedImageUrl ? (
+              <div className="relative min-h-50 w-full">
                 <div className="absolute inset-0 flex items-center justify-center rounded-sm bg-muted">
                   <div className="flex flex-col items-center gap-2">
                     <Spinner className="h-6 w-6" />
@@ -238,7 +258,7 @@ export const PresentationImageElement = withHOC(
                   </div>
                 </div>
               </div>
-            ) : !imageUrl ? (
+            ) : !computedImageUrl ? (
               <div
                 ref={handleRef}
                 className={cn(
@@ -253,6 +273,7 @@ export const PresentationImageElement = withHOC(
                 <PresentationImagePlaceholder
                   className="pointer-events-auto h-full w-full rounded-[inherit]"
                   element={props.element}
+                  imageNotFound={hasGenerationFailed}
                 />
               </div>
             ) : (
@@ -266,9 +287,18 @@ export const PresentationImageElement = withHOC(
                     isDragging && "opacity-50",
                   )}
                   alt={props.element.query ?? ""}
-                  src={imageUrl}
+                  src={computedImageUrl}
                   loading="lazy"
                   decoding="async"
+                  onClick={(event) => {
+                    if (!presentationImageEditorInitialMode) {
+                      return;
+                    }
+
+                    event.preventDefault();
+                    event.stopPropagation();
+                    handleOpenEditor(presentationImageEditorInitialMode);
+                  }}
                   onDoubleClick={() => {
                     const mode: ImageEditorMode =
                       props.element.imageSource === "search"
@@ -288,7 +318,7 @@ export const PresentationImageElement = withHOC(
                     console.error(
                       "Presentation image failed to load:",
                       e,
-                      imageUrl,
+                      computedImageUrl,
                     );
                   }}
                   {...nodeProps}
@@ -308,3 +338,20 @@ export const PresentationImageElement = withHOC(
     );
   },
 );
+
+function getPresentationImageElementFrame(element: PresentationImageNode):
+  | {
+      height: number;
+      width: number;
+    }
+  | undefined {
+  const width = typeof element.width === "number" ? element.width : undefined;
+  const height =
+    typeof element.height === "number" ? element.height : undefined;
+
+  if (width && height) {
+    return { height, width };
+  }
+
+  return undefined;
+}

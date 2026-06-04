@@ -4,35 +4,24 @@
  */
 
 export {
-  colorToHex,
-  extractBorderStyles,
   extractPresentationStyles,
   extractTextStyles,
-  resolveColor,
-  resolveCssVariable,
-  resolveValue,
 } from "./cssVariableResolver";
-export { scanAllSlides, scanRootImage, scanSlide } from "./domSlideScanner";
-export {
-  convertToPptx,
-  downloadBlob,
-  exportPresentationToPptx,
-} from "./domToPptxConverter";
-export {
-  DEFAULT_SLIDE_HEIGHT_INCHES,
-  DEFAULT_SLIDE_WIDTH_INCHES,
-  PIXELS_PER_INCH,
-} from "./types";
+export { scanAllSlides } from "./domSlideScanner";
+export { exportPresentationToPptx } from "./domToPptxConverter";
 export type {
-  BorderStyles,
+  BackgroundRectExportElement,
   DecorExportElement,
   ElementPosition,
   ExportElement,
-  PlateImageElement,
+  ImageExportElement,
+  NativeShapeType,
   PresentationStyles,
   RootImageData,
   ScanResult,
-  SlideExportData,
+  ShapeExportElement,
+  TableCell,
+  TableExportElement,
+  TableRow,
   TextExportElement,
-  TextStyles,
 } from "./types";

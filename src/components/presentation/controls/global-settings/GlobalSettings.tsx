@@ -1,10 +1,11 @@
 "use client";
 
+import { ImageIcon, LayoutGridIcon, Settings, TypeIcon, X } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePresentationState } from "@/states/presentation-state";
-import { ImageIcon, LayoutGridIcon, Settings, TypeIcon, X } from "lucide-react";
 import { AlignmentSection } from "./sections/AlignmentSection";
 import { FormatsSection } from "./sections/FormatsSection";
 import { PageBackgroundSection } from "./sections/PageBackgroundSection";
@@ -19,25 +20,25 @@ export function GlobalSettings() {
   );
 
   return (
-    <div className="flex h-full w-full flex-col bg-background">
+    <div className="flex size-full flex-col bg-background">
       {/* Header */}
-      <div className="flex items-center justify-between border-b p-3 backdrop-blur-xs supports-backdrop-filter:bg-background/60">
+      <div className="flex items-center justify-between border-b p-3 backdrop-blur-sm supports-backdrop-filter:bg-background/60">
         <div className="flex items-center gap-2">
-          <Settings className="h-4 w-4 text-primary" />
+          <Settings className="size-4 text-primary" />
           <h2 className="text-sm font-semibold tracking-wide">Page Setup</h2>
         </div>
         <Button
           variant="ghost"
           size="icon"
           onClick={() => setActiveRightPanel(null)}
-          className="h-8 w-8 hover:bg-muted"
+          className="size-8 hover:bg-muted"
         >
-          <X className="h-4 w-4" />
+          <X className="size-4" />
         </Button>
       </div>
 
       {/* Content */}
-      <ScrollArea className="max-h-full flex-1 px-4 py-4">
+      <ScrollArea className="max-h-full flex-1 p-4">
         <Tabs defaultValue="cards" className="w-full">
           <TabsList className="w-full">
             <TabsTrigger value="cards" className="flex-1 gap-1.5">

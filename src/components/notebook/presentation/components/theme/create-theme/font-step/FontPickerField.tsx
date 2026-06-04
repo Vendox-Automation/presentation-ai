@@ -1,3 +1,6 @@
+import { FileText, Upload, X } from "lucide-react";
+import { Controller, useWatch } from "react-hook-form";
+
 import FontPicker from "@/components/ui/font-picker/components/FontPicker";
 import {
   Select,
@@ -6,8 +9,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FileText, Upload, X } from "lucide-react";
-import { Controller, useWatch } from "react-hook-form";
 import { type FontPickerFieldProps } from "./types";
 
 const FONT_WEIGHTS = [
@@ -55,7 +56,7 @@ export function FontPickerField({
           disabled={isUploading}
           className="flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-xs text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
         >
-          <Upload className="h-3 w-3" />
+          <Upload className="size-3" />
           {isUploading ? "Uploading..." : "Upload"}
         </button>
       </div>
@@ -63,7 +64,7 @@ export function FontPickerField({
       {currentUrl ? (
         // Show custom uploaded font display
         <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 p-3">
-          <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <FileText className="size-4 shrink-0 text-muted-foreground" />
           <div className="min-w-0 flex-1">
             <p
               className="truncate text-sm font-medium"
@@ -81,7 +82,7 @@ export function FontPickerField({
             className="rounded p-1 transition-colors hover:bg-muted"
             title="Remove custom font"
           >
-            <X className="h-4 w-4" />
+            <X className="size-4" />
           </button>
         </div>
       ) : (
@@ -99,6 +100,9 @@ export function FontPickerField({
                 selectClassName="h-10 w-full"
                 autoLoad={true}
                 value={(fontName: string) => {
+                  setValue(urlKey, undefined, {
+                    shouldDirty: true,
+                  });
                   field.onChange(fontName);
                 }}
                 localFonts={localFonts}
@@ -119,7 +123,7 @@ export function FontPickerField({
             <SelectTrigger className="w-full appearance-none rounded-lg border border-border bg-background px-3 py-2 text-sm transition-colors hover:bg-muted">
               <SelectValue placeholder="Font Weight" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="z-10002">
               {FONT_WEIGHTS.map(({ value, label }) => (
                 <SelectItem key={value} value={String(value)}>
                   {label}

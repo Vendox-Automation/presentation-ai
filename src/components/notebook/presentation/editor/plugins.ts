@@ -1,25 +1,15 @@
 "use client";
 
-import { BulletGroupPlugin, BulletItemPlugin } from "./plugins/bullet-plugin";
-import { CycleItemPlugin, CyclePlugin } from "./plugins/cycle-plugin";
-import { GeneratingPlugin } from "./plugins/generating-plugin";
-import { IconListItemPlugin, IconListPlugin } from "./plugins/icon-list-plugin";
-import { IconPlugin } from "./plugins/icon-plugin";
-import {
-  StaircaseGroupPlugin,
-  StairItemPlugin,
-} from "./plugins/staircase-plugin";
 // Create presentation-specific plugins
+import { ExitBreakPlugin, KEYS } from "platejs";
+import { BlockPlaceholderPlugin } from "platejs/react";
 
 import { AIKit } from "@/components/plate/plugins/ai-kit";
 import { AlignKit } from "@/components/plate/plugins/align-kit";
-import { AutoformatKit } from "@/components/plate/plugins/autoformat-kit";
 import { BasicMarksKit } from "@/components/plate/plugins/basic-marks-kit";
 import { BlockMenuKit } from "@/components/plate/plugins/block-menu-kit";
-import { BlockPlaceholderKit } from "@/components/plate/plugins/block-placeholder-kit";
 import { CalloutKit } from "@/components/plate/plugins/callout-kit";
 import { CodeBlockKit } from "@/components/plate/plugins/code-block-kit";
-import { ColumnKit } from "@/components/plate/plugins/column-kit";
 import { CommentKit } from "@/components/plate/plugins/comment-kit";
 import { CursorOverlayKit } from "@/components/plate/plugins/cursor-overlay-kit";
 import { DateKit } from "@/components/plate/plugins/date-kit";
@@ -27,7 +17,6 @@ import { DiscussionKit } from "@/components/plate/plugins/discussion-kit";
 import { DndKit } from "@/components/plate/plugins/dnd-kit";
 import { DocxKit } from "@/components/plate/plugins/docx-kit";
 import { EmojiKit } from "@/components/plate/plugins/emoji-kit";
-import { ExitBreakKit } from "@/components/plate/plugins/exit-break-kit";
 import { FixedToolbarKit } from "@/components/plate/plugins/fixed-toolbar-kit";
 import { FloatingToolbarKit } from "@/components/plate/plugins/floating-toolbar-kit";
 import { FontKit } from "@/components/plate/plugins/font-kit";
@@ -50,6 +39,7 @@ import {
   BeforeAfterSidePlugin,
 } from "./plugins/before-after-plugin";
 import { BoxGroupPlugin, BoxItemPlugin } from "./plugins/box-plugin";
+import { BulletGroupPlugin, BulletItemPlugin } from "./plugins/bullet-plugin";
 import { ButtonPlugin } from "./plugins/button-plugin";
 import {
   AreaChartPlugin,
@@ -86,13 +76,31 @@ import {
   CompareGroupPlugin,
   CompareSidePlugin,
 } from "./plugins/compare-plugin";
+import { CustomItemBreakPlugin } from "./plugins/custom-item-break-plugin";
+import { CycleItemPlugin, CyclePlugin } from "./plugins/cycle-plugin";
+import {
+  CircularGridGroupPlugin,
+  CircularGridItemPlugin,
+  ConnectedCirclesGroupPlugin,
+  ConnectedCirclesItemPlugin,
+  SlopeGroupPlugin,
+  SlopeItemPlugin,
+  SnakeGroupPlugin,
+  SnakeItemPlugin,
+} from "./plugins/diagram-components-plugin";
 import { EmptyBlockPlugin } from "./plugins/empty-block";
 import { FlexBoxPlugin } from "./plugins/flex-box-plugin";
+import { FocusedParagraphPlaceholderPlugin } from "./plugins/focused-paragraph-placeholder-plugin-config";
+import { GeneratingPlugin } from "./plugins/generating-plugin";
+import { IconListItemPlugin, IconListPlugin } from "./plugins/icon-list-plugin";
+import { IconPlugin } from "./plugins/icon-plugin";
 import {
   VisualizationItemPlugin,
   VisualizationListPlugin,
 } from "./plugins/legacy/visualization-list-plugin";
 import { MediaKit } from "./plugins/media-kit";
+import { PresentationAutoformatKit } from "./plugins/presentation-autoformat-kit";
+import { PresentationColumnKit } from "./plugins/presentation-column-kit";
 import { PresentationTableKit } from "./plugins/presentation-table-kit";
 import {
   ConsItemPlugin,
@@ -109,9 +117,35 @@ import {
   SequenceArrowItemPlugin,
 } from "./plugins/sequence-arrow-plugin";
 import { CustomPlaceholderPlugin } from "./plugins/slide-placeholder-plugin";
+import {
+  StaircaseGroupPlugin,
+  StairItemPlugin,
+} from "./plugins/staircase-plugin";
 import { StatsGroupPlugin, StatsItemPlugin } from "./plugins/stats-plugin";
+import { StepsItemPlugin, StepsPlugin } from "./plugins/steps-plugin";
 import { TimelineItemPlugin, TimelinePlugin } from "./plugins/timeline-plugin";
+
 // import { TablePlugin, TableRowPlugin, TableCellPlugin } from "./plugins/table-plugin";
+
+const PresentationBlockPlaceholderKit = [
+  BlockPlaceholderPlugin.configure({
+    options: {
+      className:
+        "before:absolute before:cursor-text before:opacity-30 before:content-[attr(placeholder)]",
+      placeholders: {
+        [KEYS.h1]: "Untitled Card",
+        [KEYS.h2]: "Untitled Card",
+        [KEYS.h3]: "Untitled Card",
+        [KEYS.h4]: "Untitled Card",
+        [KEYS.h5]: "Untitled Card",
+        [KEYS.h6]: "Untitled Card",
+      },
+      query: ({ path }) => {
+        return path.length === 1;
+      },
+    },
+  }),
+];
 
 export const presentationPlugins = [
   ...AIKit,
@@ -125,7 +159,7 @@ export const presentationPlugins = [
   ...TocKit,
   ...MediaKit,
   ...CalloutKit,
-  ...ColumnKit,
+  ...PresentationColumnKit,
   ...MathKit,
   ...DateKit,
   ...LinkKit,
@@ -147,20 +181,26 @@ export const presentationPlugins = [
 
   // Editing
   ...SlashKit,
-  ...AutoformatKit,
+  ...PresentationAutoformatKit,
   ...CursorOverlayKit,
   ...BlockMenuKit,
   ...DndKit,
   ...EmojiKit,
-  ...ExitBreakKit,
+  ExitBreakPlugin.configure({
+    shortcuts: {
+      insert: { keys: "mod+enter" },
+    },
+  }),
+  CustomItemBreakPlugin,
 
   // Parsers
   ...DocxKit,
   ...MarkdownKit,
 
   // UI
+  FocusedParagraphPlaceholderPlugin,
   CustomPlaceholderPlugin,
-  ...BlockPlaceholderKit,
+  ...PresentationBlockPlaceholderKit,
   ...FixedToolbarKit,
   ...FloatingToolbarKit,
   ...LayoutFloatingToolbarKit,
@@ -185,6 +225,8 @@ export const presentationPlugins = [
 
   TimelinePlugin,
   TimelineItemPlugin,
+  StepsPlugin,
+  StepsItemPlugin,
 
   PyramidGroupPlugin,
   PyramidItemPlugin,
@@ -208,6 +250,15 @@ export const presentationPlugins = [
 
   SequenceArrowGroupPlugin,
   SequenceArrowItemPlugin,
+
+  SlopeGroupPlugin,
+  SlopeItemPlugin,
+  ConnectedCirclesGroupPlugin,
+  ConnectedCirclesItemPlugin,
+  CircularGridGroupPlugin,
+  CircularGridItemPlugin,
+  SnakeGroupPlugin,
+  SnakeItemPlugin,
 
   // Stats components
   StatsGroupPlugin,

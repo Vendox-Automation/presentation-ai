@@ -1,72 +1,52 @@
-import { cn } from "@/lib/utils";
 import { SlateElement, type SlateElementProps } from "platejs/static";
+
+import { cn } from "@/lib/utils";
+import { getDefaultColumnSize, type PresentationColumnSize } from "../../utils";
+
+function getStaticComparisonGridColumns(
+  columnSize: PresentationColumnSize,
+  itemCount: number,
+) {
+  const columnSizeToColumns = {
+    sm: 4,
+    md: 3,
+    lg: 2,
+    xl: 1,
+  } satisfies Record<PresentationColumnSize, number>;
+  const columns = Math.max(
+    1,
+    Math.min(itemCount, columnSizeToColumns[columnSize]),
+  );
+
+  if (columns === 4) return "grid-cols-4";
+  if (columns === 3) return "grid-cols-3";
+  if (columns === 2) return "grid-cols-2";
+  return "grid-cols-1";
+}
 
 export default function CompareGroupStatic(props: SlateElementProps) {
   const { alignment = "center" } = props.element as {
     alignment?: "left" | "center" | "right";
-    color?: string;
+    columnSize?: PresentationColumnSize;
   };
-  const childCount = props.element.children?.length || 0;
-
-  // Calculate grid columns based on number of children
-  // For 2 children: 3 columns (child, vs, child)
-  // For 3 children: 5 columns (child, vs, child, vs, child)
-  // For 4 children: 7 columns, etc.
-  const totalColumns = childCount > 1 ? childCount * 2 - 1 : 1;
-
-  // Create grid template columns
-  const gridTemplateColumns = Array.from({ length: totalColumns }, (_, i) => {
-    // VS columns are at odd indices (1, 3, 5, etc.)
-    return i % 2 === 1 ? "auto" : "1fr";
-  }).join(" ");
+  const childCount = props.element.children?.length ?? 0;
+  const columnSize =
+    (props.element.columnSize as PresentationColumnSize | undefined) ??
+    getDefaultColumnSize(childCount);
 
   return (
-    <SlateElement {...props}>
+    <SlateElement {...props} className="mb-4">
       <div
         className={cn(
-          "relative mb-4 grid gap-6",
-          // Only apply horizontal alignment, don't break the grid layout
+          "relative grid max-w-full auto-rows-fr items-stretch gap-6 *:min-w-0",
+          getStaticComparisonGridColumns(columnSize, childCount),
           alignment === "left" && "justify-start",
           alignment === "right" && "justify-end",
           alignment === "center" && "justify-center",
         )}
-        style={{
-          gridTemplateColumns: gridTemplateColumns,
-        }}
       >
         {props.children}
-        {/* Render VS elements for each comparison */}
-        {Array.from({ length: childCount - 1 }, (_, i) => {
-          const vsColumnIndex = i * 2 + 2; // VS columns are at positions 2, 4, 6, etc.
-          return (
-            <div
-              key={`vs-${i}`}
-              className={cn(
-                "row-span-full flex items-center justify-center self-center",
-              )}
-              style={{ gridColumn: vsColumnIndex }}
-              aria-hidden
-            >
-              <div
-                className={cn(
-                  "grid h-12 w-12 place-items-center rounded-full text-sm font-bold shadow-2xs",
-                )}
-                style={{
-                  backgroundColor:
-                    (props.element.color as string) ||
-                    "var(--presentation-primary)",
-                  color: "var(--presentation-background)",
-                  pointerEvents: "none",
-                }}
-              >
-                VS
-              </div>
-            </div>
-          );
-        })}
       </div>
     </SlateElement>
   );
 }
-
-

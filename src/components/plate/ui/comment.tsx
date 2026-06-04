@@ -1,9 +1,5 @@
 "use client";
 
-import * as React from "react";
-
-import { type CreatePlateEditorOptions } from "platejs/react";
-
 import { getCommentKey, getDraftCommentKey } from "@platejs/comment";
 import { CommentPlugin, useCommentId } from "@platejs/comment/react";
 import {
@@ -21,12 +17,12 @@ import {
   XIcon,
 } from "lucide-react";
 import {
-  type NodeEntry,
-  type TCommentText,
-  type Value,
   KEYS,
   nanoid,
   NodeApi,
+  type NodeEntry,
+  type TCommentText,
+  type Value,
 } from "platejs";
 import {
   Plate,
@@ -34,14 +30,15 @@ import {
   useEditorRef,
   usePlateEditor,
   usePluginOption,
+  type CreatePlateEditorOptions,
 } from "platejs/react";
+import * as React from "react";
 
 import { BasicMarksKit } from "@/components/plate/plugins/basic-marks-kit";
-import { type DiscussionUser } from "@/lib/notes/discussions";
 import {
-  type TDiscussion,
   discussionPlugin,
   updateDiscussionState,
+  type TDiscussion,
 } from "@/components/plate/plugins/discussion-kit";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -51,8 +48,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { type DiscussionUser } from "@/lib/notes/discussions";
 import { cn } from "@/lib/utils";
-
 import { Editor, EditorContainer } from "./editor";
 
 export type TComment = {
@@ -190,18 +187,18 @@ export function Comment(props: {
     >
       {/* Thread connector */}
       {!isFirst && !isLast && (
-        <div className="absolute top-0 left-[17px] h-full w-px bg-border/60" />
+        <div className="absolute top-0 left-4.25 h-full w-px bg-border/60" />
       )}
       {!isFirst && isLast && (
-        <div className="absolute top-0 left-[17px] h-4 w-px bg-border/60" />
+        <div className="absolute top-0 left-4.25 h-4 w-px bg-border/60" />
       )}
       {isFirst && !isLast && (
-        <div className="absolute top-8 left-[17px] bottom-0 w-px bg-border/60" />
+        <div className="absolute top-8 bottom-0 left-4.25 w-px bg-border/60" />
       )}
 
       {/* Header row */}
       <div className="relative flex items-center gap-2">
-        <Avatar className="size-[22px] shrink-0 ring-1 ring-border/50">
+        <Avatar className="size-5.5 shrink-0 ring ring-border/50">
           <AvatarImage
             alt={userInfo?.name ?? undefined}
             src={userInfo?.avatarUrl ?? undefined}
@@ -217,14 +214,12 @@ export function Comment(props: {
 
         <span className="text-[11px] leading-none text-muted-foreground/60">
           {formatCommentDate(new Date(comment.createdAt))}
-          {comment.isEdited && (
-            <span className="ml-1 italic">(edited)</span>
-          )}
+          {comment.isEdited && <span className="ml-1 italic">(edited)</span>}
         </span>
 
         {/* Hover actions */}
         {isMyComment && (hovering || dropdownOpen) && (
-          <div className="absolute -top-0.5 right-0 flex items-center gap-0.5 rounded-md border border-border/50 bg-popover/95 p-0.5 shadow-xs backdrop-blur-xs">
+          <div className="absolute -top-0.5 right-0 flex items-center gap-0.5 rounded-md border border-border/50 bg-popover/95 p-0.5 shadow backdrop-blur-sm">
             {index === 0 && (
               <button
                 className="flex size-6 items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-accent hover:text-emerald-500"
@@ -259,8 +254,8 @@ export function Comment(props: {
 
       {/* Quoted document content */}
       {isFirst && showDocumentContent && documentContent && (
-        <div className="mt-1.5 ml-[30px] flex items-center">
-          <div className="w-[2px] shrink-0 self-stretch rounded-full bg-highlight/60" />
+        <div className="mt-1.5 ml-7.5 flex items-center">
+          <div className="w-0.5 shrink-0 self-stretch rounded-full bg-highlight/60" />
           <div
             className="min-w-0 truncate pl-2 text-[12px] leading-none text-muted-foreground/70"
             title={documentContent}
@@ -271,13 +266,12 @@ export function Comment(props: {
       )}
 
       {/* Comment body */}
-      <div className="mt-0.5 ml-[30px]">
+      <div className="mt-0.5 ml-7.5">
         <Plate readOnly={!isEditing} editor={commentEditor}>
           <EditorContainer
             variant="comment"
             className={cn(
-              isEditing &&
-                "rounded-lg border-border/60 bg-muted/30",
+              isEditing && "rounded-lg border-border/60 bg-muted/30",
             )}
           >
             <Editor
@@ -289,6 +283,7 @@ export function Comment(props: {
             {isEditing && (
               <div className="ml-auto flex shrink-0 items-end gap-1 pb-0.5">
                 <button
+                  type="button"
                   className="flex size-6 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                   onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                     e.stopPropagation();
@@ -299,6 +294,7 @@ export function Comment(props: {
                 </button>
 
                 <button
+                  type="button"
                   className="flex size-6 items-center justify-center rounded-full bg-brand text-background transition-opacity hover:opacity-90"
                   onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                     e.stopPropagation();
@@ -498,10 +494,7 @@ export function CommentCreateForm({
           userId: currentUserId,
         };
 
-        updateDiscussionState(editor, [
-          ...discussions,
-          newDiscussion,
-        ]);
+        updateDiscussionState(editor, [...discussions, newDiscussion]);
         return;
       }
 
@@ -560,10 +553,7 @@ export function CommentCreateForm({
       userId: currentUserId,
     };
 
-    updateDiscussionState(editor, [
-      ...discussions,
-      newDiscussion,
-    ]);
+    updateDiscussionState(editor, [...discussions, newDiscussion]);
 
     const id = newDiscussion.id;
 
@@ -590,11 +580,7 @@ export function CommentCreateForm({
 
   return (
     <div
-      className={cn(
-        "w-full",
-        variant === "popover" && "space-y-3",
-        className,
-      )}
+      className={cn("w-full", variant === "popover" && "space-y-3", className)}
     >
       {variant === "popover" && (
         <div className="space-y-2.5">
@@ -606,12 +592,9 @@ export function CommentCreateForm({
 
       <div className="flex w-full items-start gap-2">
         <div
-          className={cn(
-            "shrink-0",
-            variant === "popover" ? "mt-1.5" : "mt-1",
-          )}
+          className={cn("shrink-0", variant === "popover" ? "mt-1.5" : "mt-1")}
         >
-          <Avatar className="size-[22px] ring-1 ring-border/50">
+          <Avatar className="size-5.5 ring ring-border/50">
             <AvatarImage
               alt={currentUser?.name ?? undefined}
               src={currentUser?.avatarUrl ?? undefined}
@@ -633,7 +616,7 @@ export function CommentCreateForm({
               variant="comment"
               className={cn(
                 variant === "popover" &&
-                  "rounded-lg border-border/60 bg-muted/20 shadow-xs transition-colors focus-within:bg-muted/30",
+                  "rounded-lg border-border/60 bg-muted/20 shadow transition-colors focus-within:bg-muted/30",
               )}
             >
               <Editor
@@ -641,8 +624,8 @@ export function CommentCreateForm({
                 className={cn(
                   "grow",
                   variant === "popover"
-                    ? "min-h-[36px] pr-9 pt-1.5"
-                    : "min-h-[24px] pr-7 pt-0.5",
+                    ? "min-h-9 pt-1.5 pr-9"
+                    : "min-h-6 pt-0.5 pr-7",
                 )}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
@@ -651,9 +634,7 @@ export function CommentCreateForm({
                   }
                 }}
                 placeholder={
-                  variant === "popover"
-                    ? "Write a comment..."
-                    : "Reply..."
+                  variant === "popover" ? "Write a comment..." : "Reply..."
                 }
                 autoComplete="off"
                 autoFocus={autoFocus}
@@ -663,7 +644,7 @@ export function CommentCreateForm({
                 className={cn(
                   "absolute top-1/2 right-1 flex size-6 -translate-y-1/2 items-center justify-center rounded-full transition-all",
                   hasContent && currentUserId
-                    ? "bg-brand text-background shadow-xs hover:opacity-90"
+                    ? "bg-brand text-background shadow hover:opacity-90"
                     : "text-muted-foreground/40",
                 )}
                 disabled={!currentUserId || !hasContent}

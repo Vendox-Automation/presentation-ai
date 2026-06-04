@@ -1,6 +1,7 @@
-import { cn } from "@/lib/utils";
 import { NodeApi, PathApi } from "platejs";
 import { SlateElement, type SlateElementProps } from "platejs/static";
+
+import { cn } from "@/lib/utils";
 import { getAlignmentClasses } from "../../utils";
 
 export function ProsItemStatic(props: SlateElementProps) {
@@ -25,5 +26,3 @@ export function ProsItemStatic(props: SlateElementProps) {
     </div>
   );
 }
-
-

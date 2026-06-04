@@ -2,10 +2,8 @@
 
 import { createPlatePlugin } from "platejs/react";
 
-import {
-  LayoutFloatingToolbar,
-  LayoutFloatingToolbarButtons,
-} from "@/components/presentation/floating-toolbar";
+import { LayoutFloatingToolbar } from "@/components/presentation/floating-toolbar/LayoutFloatingToolbar";
+import { LayoutFloatingToolbarButtons } from "@/components/presentation/floating-toolbar/LayoutFloatingToolbarButtons";
 
 export const LayoutFloatingToolbarKit = [
   createPlatePlugin({

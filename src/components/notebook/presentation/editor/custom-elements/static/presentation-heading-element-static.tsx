@@ -1,19 +1,18 @@
+import { cva, type VariantProps } from "class-variance-authority";
+import { SlateElement, type SlateElementProps } from "platejs/static";
 import type * as React from "react";
 
-import { type SlateElementProps, SlateElement } from "platejs/static";
-
 import { cn } from "@/lib/utils";
-import { type VariantProps, cva } from "class-variance-authority";
 
 const headingVariants = cva("relative mb-1", {
   variants: {
     variant: {
-      h1: "pb-1 text-[3em] font-bold",
-      h2: "pb-px text-[1.875em] font-semibold tracking-tight",
-      h3: "pb-px text-[1.5em] font-semibold tracking-tight",
-      h4: "text-[1.25em] font-semibold tracking-tight",
-      h5: "text-[1.125em] font-semibold tracking-tight",
-      h6: "text-[1em] font-semibold tracking-tight",
+      h1: "pb-1 [font-size:var(--presentation-h1-size)] font-bold",
+      h2: "pb-px [font-size:var(--presentation-h2-size)] font-semibold tracking-tight",
+      h3: "pb-px [font-size:var(--presentation-h3-size)] font-semibold tracking-tight",
+      h4: "[font-size:var(--presentation-h4-size)] font-semibold tracking-tight",
+      h5: "[font-size:var(--presentation-h5-size)] font-semibold tracking-tight",
+      h6: "[font-size:var(--presentation-h6-size)] font-semibold tracking-tight",
     },
   },
 });
@@ -71,5 +70,3 @@ export function H6ElementStatic(
 ) {
   return <PresentationHeadingElementStatic variant="h6" {...props} />;
 }
-
-

@@ -1,14 +1,30 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import { PlateElement, type PlateElementProps } from "platejs/react";
+import type * as React from "react";
+
+import { cn } from "@/lib/utils";
 import { type TButtonElement } from "../plugins/button-plugin";
 
-export default function ButtonElement(
-  props: PlateElementProps<TButtonElement>,
-) {
+function getJustifyClass(alignment: TButtonElement["alignment"]) {
+  if (alignment === "left") return "justify-start";
+  if (alignment === "right") return "justify-end";
+  return "justify-center";
+}
+
+export default function ButtonElement({
+  attributes,
+  ...props
+}: PlateElementProps<TButtonElement>) {
   const variant = props.element.variant ?? "filled";
   const size = props.element.size ?? "md";
+  const alignment = props.element.alignment ?? "left";
+  const accentColor =
+    props.element.backgroundColor ?? "var(--presentation-primary)";
+  const textColor = props.element.textColor ?? props.element.color;
+  const backgroundColor =
+    props.element.backgroundColor ??
+    (variant === "filled" ? "var(--presentation-primary)" : "transparent");
 
   const sizeClasses =
     size === "sm"
@@ -35,31 +51,36 @@ export default function ButtonElement(
     if (variant === "outline") {
       return {
         ...baseStyle,
-        color: (props.element.color as string) || "var(--presentation-primary)",
+        color: textColor ?? accentColor,
         backgroundColor: "transparent",
-        borderColor:
-          (props.element.color as string) || "var(--presentation-primary)",
+        borderColor: accentColor,
       } as React.CSSProperties;
     }
     if (variant === "ghost") {
       return {
         ...baseStyle,
-        color: (props.element.color as string) || "var(--presentation-primary)",
+        color: textColor ?? accentColor,
         backgroundColor: "transparent",
       } as React.CSSProperties;
     }
     // filled
     return {
       ...baseStyle,
-      backgroundColor:
-        (props.element.color as string) || "var(--presentation-primary)",
-      color: "var(--presentation-background)",
+      backgroundColor,
+      color: textColor ?? "var(--presentation-background)",
       boxShadow: "var(--presentation-button-shadow, 0 2px 4px rgba(0,0,0,0.1))",
     } as React.CSSProperties;
   })();
 
   return (
-    <PlateElement {...props}>
+    <PlateElement
+      {...props}
+      className={cn("relative my-1 flex w-full", getJustifyClass(alignment))}
+      attributes={{
+        ...attributes,
+        "data-plate-open-context-menu": true,
+      }}
+    >
       <div
         className={cn(
           "presentation-element",

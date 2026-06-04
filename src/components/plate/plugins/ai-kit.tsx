@@ -1,25 +1,22 @@
 "use client";
 
-import { type AIChatPluginConfig } from "@platejs/ai/react";
-
+import { useChat, type UseChatHelpers } from "@ai-sdk/react";
 import { withAIBatch } from "@platejs/ai";
 import {
   AIChatPlugin,
   AIPlugin,
   applyAISuggestions,
+  streamInsertChunk,
   useChatChunk,
+  type AIChatPluginConfig,
 } from "@platejs/ai/react";
-import { type UseChatHelpers, useChat } from "@ai-sdk/react";
-import { type UIMessage } from "ai";
-import { DefaultChatTransport } from "ai";
+import { DefaultChatTransport, type UIMessage } from "ai";
 import { getPluginType, KEYS, PathApi } from "platejs";
 import { usePluginOption } from "platejs/react";
 import { useEffect, useMemo } from "react";
-import { streamInsertChunk } from "@platejs/ai/react";
 
 import { AILoadingBar, AIMenu } from "@/components/plate/ui/ai-menu";
 import { AIAnchorElement, AILeaf } from "@/components/plate/ui/ai-node";
-
 import { CursorOverlayKit } from "./cursor-overlay-kit";
 import { MarkdownKit } from "./markdown-kit";
 
@@ -32,9 +29,9 @@ type PlateChatMessageData = {
   };
 };
 
-type PlateChatMessage = UIMessage<{}, PlateChatMessageData>;
+type PlateChatMessage = UIMessage<Record<string, never>, PlateChatMessageData>;
 
-export const aiChatPlugin = AIChatPlugin.extend({
+const aiChatPlugin = AIChatPlugin.extend({
   render: {
     afterContainer: AILoadingBar,
     afterEditable: AIMenu,

@@ -1,4 +1,9 @@
 "use client";
+
+import { Globe2 as GlobeIcon, Monitor, Smartphone } from "lucide-react";
+import { useMemo } from "react";
+import { VscLayers } from "react-icons/vsc";
+
 import {
   Select,
   SelectContent,
@@ -9,9 +14,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { Globe2 as GlobeIcon, Monitor, Smartphone } from "lucide-react";
-import { useMemo } from "react";
-import { VscLayers } from "react-icons/vsc";
 import { useCommonValues } from "../hooks/useCommonValues";
 import { useUpdateAllSlides } from "../hooks/useUpdateAllSlides";
 
@@ -173,7 +175,7 @@ export function FormatsSection() {
                 className={cn(
                   "w-full rounded-xl border p-4 text-left transition-colors",
                   active
-                    ? "border-primary bg-muted/30 ring-1 ring-primary"
+                    ? "border-primary bg-muted/30 ring ring-primary"
                     : "border-border hover:bg-muted/20",
                 )}
               >

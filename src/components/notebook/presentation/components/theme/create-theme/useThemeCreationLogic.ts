@@ -1,13 +1,14 @@
 "use client";
 
+import { useCallback, useState } from "react";
+import { type UseFormSetValue } from "react-hook-form";
+
 import { colorThemes } from "@/components/notebook/presentation/components/theme/create-theme/create-theme-types";
 import { type ThemeFormValues } from "@/components/notebook/presentation/components/theme/types";
 import {
   type ThemeColorsKeys,
   type ThemeProperties,
 } from "@/lib/presentation/themes";
-import { useCallback, useState } from "react";
-import { type UseFormSetValue } from "react-hook-form";
 
 interface UseThemeCreationLogicProps {
   setValue: UseFormSetValue<ThemeFormValues>;

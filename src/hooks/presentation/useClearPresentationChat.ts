@@ -1,6 +1,7 @@
-import { clearPresentationChat } from "@/app/_actions/notebook/presentation/clearPresentationChat";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
+
+import { clearPresentationChat } from "@/app/_actions/notebook/presentation/clearPresentationChat";
 
 export function useClearPresentationChat() {
   const { mutate: clearChatMutation, isPending } = useMutation({

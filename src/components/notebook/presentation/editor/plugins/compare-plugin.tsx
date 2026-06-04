@@ -1,5 +1,6 @@
 import { type TElement } from "platejs";
 import { createTPlatePlugin } from "platejs/react";
+
 import CompareGroup from "../custom-elements/compare";
 import { CompareSide } from "../custom-elements/compare-side";
 import { COMPARE_GROUP, COMPARE_SIDE } from "../lib";
@@ -17,6 +18,7 @@ export const CompareSidePlugin = createTPlatePlugin({
   key: COMPARE_SIDE,
   node: {
     isElement: true,
+    isStrictSiblings: true,
     type: COMPARE_SIDE,
     component: CompareSide,
   },
@@ -25,6 +27,7 @@ export const CompareSidePlugin = createTPlatePlugin({
 export type TCompareGroupElement = TElement & {
   type: typeof COMPARE_GROUP;
   alignment?: "left" | "center" | "right";
+  columnSize?: "sm" | "md" | "lg" | "xl";
 };
 export type TCompareSideElement = TElement & {
   type: typeof COMPARE_SIDE;

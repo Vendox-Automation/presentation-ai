@@ -1,16 +1,9 @@
 "use client";
 
-import * as React from "react";
-import TextareaAutosize, {
-  type TextareaAutosizeProps,
-} from "react-textarea-autosize";
-
-import { type TEquationElement } from "platejs";
-import { type PlateElementProps } from "platejs/react";
-
 import { useEquationElement, useEquationInput } from "@platejs/math/react";
 import { BlockSelectionPlugin } from "@platejs/selection/react";
 import { CornerDownLeftIcon, RadicalIcon } from "lucide-react";
+import { type TEquationElement } from "platejs";
 import {
   createPrimitiveComponent,
   PlateElement,
@@ -19,7 +12,12 @@ import {
   useElement,
   useReadOnly,
   useSelected,
+  type PlateElementProps,
 } from "platejs/react";
+import * as React from "react";
+import TextareaAutosize, {
+  type TextareaAutosizeProps,
+} from "react-textarea-autosize";
 
 import { Button } from "@/components/plate/ui/button";
 import {
@@ -54,7 +52,8 @@ export function EquationElement(props: PlateElementProps<TEquationElement>) {
     <PlateElement className="my-1" {...props}>
       <Popover open={open} onOpenChange={setOpen} modal={false}>
         <PopoverTrigger asChild>
-          <div
+          <button
+            type="button"
             className={cn(
               "group flex cursor-pointer items-center justify-center rounded-sm select-none hover:bg-primary/10 data-[selected=true]:bg-primary/10",
               props.element.texExpression.length === 0
@@ -63,7 +62,6 @@ export function EquationElement(props: PlateElementProps<TEquationElement>) {
             )}
             data-selected={selected}
             contentEditable={false}
-            role="button"
           >
             {props.element.texExpression.length > 0 ? (
               <span ref={katexRef} />
@@ -73,7 +71,7 @@ export function EquationElement(props: PlateElementProps<TEquationElement>) {
                 <div>Add a Tex equation</div>
               </div>
             )}
-          </div>
+          </button>
         </PopoverTrigger>
 
         <EquationPopoverContent
@@ -152,7 +150,7 @@ export function InlineEquationElement(
             />
             {element.texExpression.length === 0 && (
               <span>
-                <RadicalIcon className="mr-1 inline-block h-[19px] w-4 py-[1.5px] align-text-bottom" />
+                <RadicalIcon className="mr-1 inline-block h-4.75 w-4 py-[1.5px] align-text-bottom" />
                 New equation
               </span>
             )}

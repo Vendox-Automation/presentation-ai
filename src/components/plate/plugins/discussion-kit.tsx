@@ -1,14 +1,14 @@
 "use client";
 
+import { createPlatePlugin, type PlateEditor } from "platejs/react";
+
 import {
   type DiscussionUser,
   type DiscussionUsersMap,
   type StoredDiscussion,
 } from "@/lib/notes/discussions";
-import { createPlatePlugin } from "platejs/react";
 import { BlockDiscussion } from "../ui/block-discussion";
 import { type TComment } from "../ui/comment";
-import { type PlateEditor } from "platejs/react";
 
 export type TDiscussion = {
   id: string;

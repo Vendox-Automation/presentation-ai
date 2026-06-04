@@ -1,10 +1,22 @@
 "use client";
 
-import { BASE_HEIGHT } from "@/hooks/presentation/useRootImageActions";
 import { useEffect, useMemo, useRef, useState } from "react";
+
+import { BASE_HEIGHT } from "@/hooks/presentation/useRootImageActions";
 import { type PlateSlide } from "../../utils/parser";
 
-const PRESENTING_ROOT_IMAGE_MAX_VIEWPORT_RATIO = 0.5;
+const PRESENTING_ROOT_IMAGE_MAX_VIEWPORT_RATIO_DEFAULT = 0.5;
+const PRESENTING_ROOT_IMAGE_MAX_VIEWPORT_RATIO_SMALL = 0.35;
+const SMALL_VIEWPORT_HEIGHT_THRESHOLD = 700;
+
+function getPresentingRootImageMaxViewportRatio(
+  viewportHeight: number,
+): number {
+  if (viewportHeight <= SMALL_VIEWPORT_HEIGHT_THRESHOLD) {
+    return PRESENTING_ROOT_IMAGE_MAX_VIEWPORT_RATIO_SMALL;
+  }
+  return PRESENTING_ROOT_IMAGE_MAX_VIEWPORT_RATIO_DEFAULT;
+}
 
 interface UseRootImageHeightOptions {
   isPresenting: boolean;
@@ -78,9 +90,8 @@ export function useRootImageHeight({
       return undefined;
     }
 
-    return Math.round(
-      viewportHeightPx * PRESENTING_ROOT_IMAGE_MAX_VIEWPORT_RATIO,
-    );
+    const ratio = getPresentingRootImageMaxViewportRatio(viewportHeightPx);
+    return Math.round(viewportHeightPx * ratio);
   }, [isPresenting, isVerticalRootImageLayout, viewportHeightPx]);
 
   const presentingRootImageHeight = useMemo(() => {
@@ -93,7 +104,9 @@ export function useRootImageHeight({
       return undefined;
     }
 
-    const calculatedHeight = Math.round(rootImageHeightRatio * viewportHeightPx);
+    const calculatedHeight = Math.round(
+      rootImageHeightRatio * viewportHeightPx,
+    );
 
     if (!presentingMaxRootImageHeight) {
       return calculatedHeight;
@@ -108,6 +121,7 @@ export function useRootImageHeight({
     viewportHeightPx,
   ]);
 
+  // Observe editor height changes
   useEffect(() => {
     if (!isVerticalRootImageLayout) {
       setEditorHeightPx(undefined);
@@ -147,10 +161,18 @@ export function useRootImageHeight({
     }
 
     const updateViewportHeight = () => {
-      const nextHeight = Math.max(
-        window.innerHeight,
-        Math.round(window.visualViewport?.height ?? 0),
+      const element = editorRef.current;
+      const slideRoot = element?.closest<HTMLElement>(
+        '[data-slide-content="true"]',
       );
+      const rootHeight = slideRoot?.clientHeight;
+      const nextHeight =
+        rootHeight && rootHeight > 0
+          ? rootHeight
+          : Math.max(
+              window.innerHeight,
+              Math.round(window.visualViewport?.height ?? 0),
+            );
       setViewportHeightPx((prev) => (prev === nextHeight ? prev : nextHeight));
     };
 

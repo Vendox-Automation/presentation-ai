@@ -1,8 +1,8 @@
 import { NodeApi, PathApi } from "platejs";
-import { type SlateElementProps, SlateElement } from "platejs/static";
+import { SlateElement, type SlateElementProps } from "platejs/static";
+import { useRef } from "react";
 
 import { cn } from "@/lib/utils";
-import { useRef } from "react";
 import {
   type TArrowListElement,
   type TArrowListItemElement,
@@ -29,42 +29,46 @@ export function ArrowItemStatic(
   return (
     <div
       className={cn(
-        "group/arrow-item relative mb-2 ml-4 flex w-full gap-6",
-        isHorizontal && "flex-col",
-        alignment === "right" && !isHorizontal && "mr-4 ml-0 flex-row-reverse",
+        "group/arrow-item relative mb-2 flex w-full max-w-full min-w-0 gap-6 pl-4",
+        isHorizontal && "flex-col gap-3 pl-0",
+        !isHorizontal && "items-start",
+        alignment === "right" && !isHorizontal && "pr-4 pl-0 flex-row-reverse",
         alignment === "center" && "justify-center",
       )}
     >
       {/* Chevron icon column */}
       <div
         className={cn(
-          "relative grid place-items-center",
+          "relative grid shrink-0",
           isHorizontal ? "h-24 w-full" : "h-full w-24",
         )}
       >
         <ArrowChevron
           className={cn(
-            "relative z-50 aspect-square overflow-visible",
-            isHorizontal ? "top-4 -left-4" : "-top-4",
+            "relative z-50 block overflow-visible",
+            isHorizontal ? "top-0 left-0" : "top-0",
           )}
           isHorizontal={isHorizontal}
           sizeTargetRef={contentRef}
           svgType={svgType}
           color={
             (parentElement?.color as string) ||
-            "var(--presentation-smart-layout)"
+            "var(--presentation-smart-layout, var(--presentation-primary))"
           }
-          icon={icon ?? "FaHome"}
+          icon={icon}
           showIcon={!!showIcon}
           disabled={true}
         />
       </div>
 
       {/* Content column */}
-      <div ref={contentRef} className={cn("grid w-full")}>
+      <div
+        ref={contentRef}
+        className={cn("grid min-w-0 flex-1", !isHorizontal && "self-start")}
+      >
         <SlateElement
           {...props}
-          className={cn("w-full", getAlignmentClasses(alignment))}
+          className={cn("min-w-0 w-full", getAlignmentClasses(alignment))}
         >
           {props.children}
         </SlateElement>
@@ -72,5 +76,3 @@ export function ArrowItemStatic(
     </div>
   );
 }
-
-

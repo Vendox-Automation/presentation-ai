@@ -1,7 +1,8 @@
-import { usePresentationRecordingState } from "@/states/presentation-recording-state";
-import { usePresentationState } from "@/states/presentation-state";
 import { toPng } from "html-to-image";
 import { startTransition, useCallback, useEffect, useRef } from "react";
+
+import { usePresentationRecordingState } from "@/states/presentation-recording-state";
+import { usePresentationState } from "@/states/presentation-state";
 
 export function useRecording() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);

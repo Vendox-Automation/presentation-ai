@@ -15,10 +15,10 @@ import {
 } from "lucide-react";
 import { KEYS } from "platejs";
 import { useEditorReadOnly } from "platejs/react";
+import { useState } from "react";
 
 import { cn } from "@/lib/utils";
 import { useNotesState } from "@/states/notes-state";
-import { useState } from "react";
 import { AIToolbarButton } from "./ai-toolbar-button";
 import { AlignToolbarButton } from "./align-toolbar-button";
 import { CommentToolbarButton } from "./comment-toolbar-button";
@@ -44,10 +44,11 @@ import { MarkToolbarButton } from "./mark-toolbar-button";
 import { MediaToolbarButton } from "./media-toolbar-button";
 import { ModeToolbarButton } from "./mode-toolbar-button";
 import { MoreToolbarButton } from "./more-toolbar-button";
+import { PrintToolbarButton } from "./print-toolbar-button";
+import { SuggestionToolbarButton } from "./suggestion-toolbar-button";
 import { TableToolbarButton } from "./table-toolbar-button";
 import { TextToDiagramToolbarButton } from "./text-to-diagram-toolbar-button";
 import { ToggleToolbarButton } from "./toggle-toolbar-button";
-import { SuggestionToolbarButton } from "./suggestion-toolbar-button";
 import { Toolbar, ToolbarGroup, ToolbarSeparator } from "./toolbar";
 import { TurnIntoToolbarButton } from "./turn-into-toolbar-button";
 
@@ -87,6 +88,7 @@ export function DocFixedToolbar() {
       >
         {DOC_TABS.map((tab) => (
           <button
+            type="button"
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={cn(
@@ -338,6 +340,7 @@ export function DocFixedToolbar() {
               <ArrowUpToLineIcon />
             </ExportToolbarButton>
             <ImportToolbarButton />
+            <PrintToolbarButton />
           </ToolbarGroup>
         </Toolbar>
       )}

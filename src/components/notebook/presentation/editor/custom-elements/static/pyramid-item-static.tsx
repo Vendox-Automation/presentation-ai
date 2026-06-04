@@ -1,11 +1,19 @@
 import { NodeApi, PathApi } from "platejs";
-import { type SlateElementProps, SlateElement } from "platejs/static";
+import { SlateElement, type SlateElementProps } from "platejs/static";
+import { useEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
 import { type TPyramidGroupElement } from "../../plugins/pyramid-plugin";
+import { PresentationIcon } from "../presentation-icon";
+import {
+  getPyramidBorderExtension,
+  getPyramidSegmentClipPath,
+  getPyramidTextOffset,
+} from "../pyramid-geometry";
+import { usePyramidHeight } from "../pyramid-height-context";
 
 export function PyramidItemStatic(props: SlateElementProps) {
-  const path = props.editor.api.findPath(props.element) ?? [-1];
+  const path = props.path ?? props.editor.api.findPath(props.element) ?? [0];
   const parentPath = PathApi.parent(path);
   const parentElement = NodeApi.get(
     props.editor,
@@ -13,97 +21,169 @@ export function PyramidItemStatic(props: SlateElementProps) {
   ) as TPyramidGroupElement;
 
   const totalItems = parentElement?.children?.length || 1;
-  const index = (path?.at(-1) as number) ?? 0;
-  const isFunnel = (parentElement as unknown as { isFunnel?: boolean })
-    ?.isFunnel;
+  const index = path.at(-1) ?? 0;
+  const isFunnel = parentElement?.isFunnel;
+  const alignment = parentElement?.alignment;
 
-  const shapeHeight = 80;
-  const maxWidthPercentage = 80;
-  const increment = maxWidthPercentage / (2 * totalItems);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [contentHeight, setContentHeight] = useState(80);
+  const { maxShapeHeight, registerItemHeight, unregisterItemHeight } =
+    usePyramidHeight();
+  const itemKey = path.join(".");
 
-  const calculateClipPath = () => {
-    if (isFunnel) {
-      if (index === 0) {
-        const currentXOffset = increment * (totalItems - index);
-        const currentLeft = 50 - currentXOffset;
-        const currentRight = 50 + currentXOffset;
+  useEffect(() => {
+    if (!contentRef.current) return;
 
-        const nextXOffset = increment * (totalItems - index - 1);
-        const nextLeft = 50 - nextXOffset;
-        const nextRight = 50 + nextXOffset;
+    const updateHeight = () => {
+      const currentContentHeight = contentRef.current?.offsetHeight ?? 80;
+      const nextHeight = Math.max(currentContentHeight, 80);
+      setContentHeight(nextHeight);
+      registerItemHeight(itemKey, nextHeight);
+    };
 
-        return `polygon(${currentLeft}% 0%, ${currentRight}% 0%, ${nextRight}% 100%, ${nextLeft}% 100%)`;
-      } else if (index === totalItems - 1) {
-        const prevXOffset = increment * (totalItems - index);
-        const prevLeft = 50 - prevXOffset;
-        const prevRight = 50 + prevXOffset;
+    updateHeight();
+    const resizeObserver = new ResizeObserver(updateHeight);
+    resizeObserver.observe(contentRef.current);
 
-        return `polygon(${prevLeft}% 0%, ${prevRight}% 0%, 50% 100%)`;
-      } else {
-        const currentXOffset = increment * (totalItems - index);
-        const currentLeft = 50 - currentXOffset;
-        const currentRight = 50 + currentXOffset;
+    return () => {
+      resizeObserver.disconnect();
+      unregisterItemHeight(itemKey);
+    };
+  }, [itemKey, registerItemHeight, unregisterItemHeight]);
 
-        const nextXOffset = increment * (totalItems - index - 1);
-        const nextLeft = 50 - nextXOffset;
-        const nextRight = 50 + nextXOffset;
+  const shapeHeight = maxShapeHeight ?? contentHeight;
+  const geometryOptions = { index, totalItems, isFunnel };
+  const clipPath = getPyramidSegmentClipPath(geometryOptions);
+  const leftOffset = getPyramidTextOffset(geometryOptions);
+  const borderExtension = getPyramidBorderExtension(geometryOptions);
 
-        return `polygon(${currentLeft}% 0%, ${currentRight}% 0%, ${nextRight}% 100%, ${nextLeft}% 100%)`;
-      }
-    } else {
-      if (index === 0) {
-        return `polygon(50% 0%, ${50 - increment}% 100%, ${50 + increment}% 100%)`;
-      } else {
-        const prevXOffset = increment * index;
-        const currentXOffset = increment * (index + 1);
-        const prevBottomLeft = 50 - prevXOffset;
-        const prevBottomRight = 50 + prevXOffset;
-        const currentBottomLeft = 50 - currentXOffset;
-        const currentBottomRight = 50 + currentXOffset;
-        return `polygon(${prevBottomLeft}% 0%, ${prevBottomRight}% 0%, ${currentBottomRight}% 100%, ${currentBottomLeft}% 100%)`;
-      }
-    }
-  };
+  const contentGap = "2.5rem";
+  const icon =
+    "icon" in props.element && typeof props.element.icon === "string"
+      ? props.element.icon
+      : undefined;
+  const markerColor =
+    (parentElement?.color as string) || "var(--presentation-smart-layout)";
 
-  const calculateLeftOffset = () => {
-    if (isFunnel) {
-      return 40 - (totalItems - (index + 1)) * increment;
-    }
-    return 40 - (index + 1) * increment;
-  };
+  const variant = parentElement?.variant;
+  const isInside = variant === "inside";
 
-  const clipPath = calculateClipPath();
+  // For inside variant, offset geometry so segments start wider (min 45% top width)
+  // For funnel, top is already full width, so do not offset the index.
+  const insideOffset = Math.max(3, Math.ceil((45 * totalItems) / 55));
+  const effectiveIndex = isFunnel ? index : index + insideOffset;
+  const effectiveTotal = totalItems + insideOffset;
+  const insideClipPath = getPyramidSegmentClipPath({
+    index: effectiveIndex,
+    totalItems: effectiveTotal,
+    isFunnel,
+  });
+
+  // Compute horizontal padding so text stays within the narrowest edge of the trapezoid.
+  const increment = 50 / effectiveTotal;
+  const textInsetPercent = isFunnel
+    ? 50 - increment * (effectiveTotal - effectiveIndex - 1)
+    : 50 - increment * effectiveIndex;
+  const insidePadding = `${textInsetPercent + 1}%`;
+
+  if (isInside) {
+    return (
+      <div className={cn("group/pyramid-item relative h-full w-full")}>
+        <div className="relative w-full">
+          <div
+            data-decor="true"
+            className="relative flex flex-col items-center justify-center border-b border-(--presentation-card-background)"
+            style={
+              {
+                height: `${shapeHeight}px`,
+                clipPath: insideClipPath,
+                backgroundColor: markerColor,
+                color: "var(--presentation-background)",
+                "--presentation-heading": "var(--presentation-card-background)",
+                "--presentation-text": "var(--presentation-card-background)",
+              } as React.CSSProperties
+            }
+          >
+            <SlateElement
+              ref={contentRef}
+              className="relative z-10 w-full py-4 text-center"
+              style={{
+                paddingLeft: insidePadding,
+                paddingRight: insidePadding,
+              }}
+              {...props}
+            >
+              {props.children}
+            </SlateElement>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={cn("group/pyramid-item relative h-full w-full")}>
-      <div className="grid h-full auto-cols-fr grid-flow-col items-center">
+      <div
+        className={cn(
+          "grid h-full auto-cols-fr grid-flow-col items-center",
+          alignment === "right" && "col-start-2",
+        )}
+      >
         <div className="relative flex-1">
           <div
-            className="grid place-items-center text-2xl font-bold"
+            data-decor="true"
+            className="grid place-items-center border-b border-(--presentation-card-background) text-2xl font-bold"
             style={{
               height: `${shapeHeight}px`,
-              clipPath: clipPath as unknown as string,
-              backgroundColor:
-                (parentElement?.color as string) ||
-                "var(--presentation-smart-layout)",
+              clipPath,
+              backgroundColor: markerColor,
               color: "var(--presentation-background)",
             }}
           >
-            {index + 1}
+            {icon ? <PresentationIcon icon={icon} size={24} /> : index + 1}
           </div>
         </div>
         <div
-          className="relative flex h-full flex-1 items-center border-b border-gray-700"
-          style={{
-            right: `calc(${calculateLeftOffset()}% + 34px)`,
-            paddingLeft: isFunnel ? `2.5rem` : `0`,
-          }}
+          className={cn(
+            "relative flex h-full flex-1 items-center after:absolute after:bottom-0 after:h-px after:bg-(--presentation-card-background) after:content-['']",
+            alignment === "right"
+              ? "after:left-0 after:-right-(--border-extension)"
+              : "after:right-0 after:-left-(--border-extension)",
+            alignment === "right" && "col-start-1 justify-end",
+          )}
+          style={
+            {
+              "--border-extension": `${borderExtension}%`,
+              transform:
+                alignment === "right"
+                  ? `translateX(${leftOffset}%)`
+                  : `translateX(-${leftOffset}%)`,
+              paddingLeft: isFunnel
+                ? alignment === "right"
+                  ? `0`
+                  : contentGap
+                : alignment === "right"
+                  ? `0`
+                  : contentGap,
+              paddingRight: isFunnel
+                ? alignment === "right"
+                  ? contentGap
+                  : `0`
+                : alignment === "right"
+                  ? contentGap
+                  : `0`,
+            } as React.CSSProperties
+          }
         >
-          <SlateElement {...props}>{props.children}</SlateElement>
+          <SlateElement
+            ref={contentRef}
+            className="grid w-max items-center px-3"
+            {...props}
+          >
+            {props.children}
+          </SlateElement>
         </div>
       </div>
     </div>
   );
 }
-
-

@@ -55,8 +55,8 @@ export function MediaPreviewDialog() {
       onContextMenu={(e) => e.stopPropagation()}
       {...maskLayerProps}
     >
-      <div className="absolute inset-0 size-full bg-black opacity-30"></div>
-      <div className="absolute inset-0 size-full bg-black opacity-30"></div>
+      <div className="absolute inset-0 size-full bg-gray-950 opacity-30"></div>
+      <div className="absolute inset-0 size-full bg-gray-950 opacity-30"></div>
       <div className="absolute inset-0 flex items-center justify-center">
         <div className="relative flex max-h-screen w-full items-center">
           <PreviewImage

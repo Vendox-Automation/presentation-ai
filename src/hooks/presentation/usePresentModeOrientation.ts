@@ -5,13 +5,7 @@ import { useEffect, useState } from "react";
 type PresentModeViewportState = {
   isPhoneViewport: boolean;
   isPortraitViewport: boolean;
-  shouldForceLandscape: boolean;
-  forcedLandscapeRotationDeg: 90 | -90;
-  forcedLandscapeProgressSide: "left" | "right";
 };
-
-const FORCED_LANDSCAPE_ROTATION_DEG = -90;
-const FORCED_LANDSCAPE_PROGRESS_SIDE = "right" as const;
 
 function getViewportDimensions() {
   if (typeof window === "undefined") {
@@ -45,37 +39,23 @@ function isPhoneLikeViewport(width: number, height: number): boolean {
   return phoneSizedViewport || coarsePointer || (noHover && hasTouchPoints);
 }
 
-export function getPresentModeViewportState(): PresentModeViewportState {
+function getPresentModeViewportState(): PresentModeViewportState {
   const { width, height } = getViewportDimensions();
-  const isPortraitViewport = height > width;
-  const isPhoneViewport = isPhoneLikeViewport(width, height);
 
   return {
-    isPhoneViewport,
-    isPortraitViewport,
-    shouldForceLandscape: isPhoneViewport && isPortraitViewport,
-    forcedLandscapeRotationDeg: FORCED_LANDSCAPE_ROTATION_DEG,
-    forcedLandscapeProgressSide: FORCED_LANDSCAPE_PROGRESS_SIDE,
+    isPhoneViewport: isPhoneLikeViewport(width, height),
+    isPortraitViewport: height > width,
   };
 }
 
+/**
+ * Returns viewport dimensions for present mode scaling.
+ * Always returns the actual viewport dimensions (no swapping).
+ */
 export function getPresentModeViewportDimensions() {
   const { width, height } = getViewportDimensions();
-  const state = getPresentModeViewportState();
 
-  if (state.shouldForceLandscape) {
-    return {
-      width: height,
-      height: width,
-      ...state,
-    };
-  }
-
-  return {
-    width,
-    height,
-    ...state,
-  };
+  return { width, height };
 }
 
 export function usePresentModeOrientation(isPresenting: boolean) {
@@ -105,8 +85,5 @@ export function usePresentModeOrientation(isPresenting: boolean) {
     };
   }, [isPresenting]);
 
-  return {
-    ...viewportState,
-    shouldShowLandscapePrompt: false,
-  };
+  return viewportState;
 }

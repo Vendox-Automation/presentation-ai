@@ -1,5 +1,31 @@
-import { cn } from "@/lib/utils";
 import { SlateElement, type SlateElementProps } from "platejs/static";
+
+import { cn } from "@/lib/utils";
+
+const GAP_CLASS_BY_SIZE = {
+  sm: "gap-2",
+  md: "gap-4",
+  lg: "gap-8",
+  xl: "gap-12",
+  none: "gap-0",
+} as const;
+
+const JUSTIFY_CLASS_BY_VALUE = {
+  start: "justify-start",
+  center: "justify-center",
+  end: "justify-end",
+  between: "justify-between",
+  around: "justify-around",
+  evenly: "justify-evenly",
+} as const;
+
+const ALIGN_CLASS_BY_VALUE = {
+  start: "items-start",
+  center: "items-center",
+  end: "items-end",
+  stretch: "items-stretch",
+  baseline: "items-baseline",
+} as const;
 
 export default function FlexBoxStatic(props: SlateElementProps) {
   const {
@@ -12,39 +38,14 @@ export default function FlexBoxStatic(props: SlateElementProps) {
     gap?: "sm" | "md" | "lg" | "xl" | "none";
   };
 
-  const gapMap = {
-    sm: "gap-2",
-    md: "gap-4",
-    lg: "gap-8",
-    xl: "gap-12",
-    none: "gap-0",
-  };
-
-  const justifyMap = {
-    start: "justify-start",
-    center: "justify-center",
-    end: "justify-end",
-    between: "justify-between",
-    around: "justify-around",
-    evenly: "justify-evenly",
-  };
-
-  const alignMap = {
-    start: "items-start",
-    center: "items-center",
-    end: "items-end",
-    stretch: "items-stretch",
-    baseline: "items-baseline",
-  };
-
   return (
     <SlateElement {...props} className="mb-4">
       <div
         className={cn(
           "flex w-full flex-wrap",
-          gapMap[gap] || "gap-4",
-          justifyMap[justify] || "justify-center",
-          alignMap[align] || "items-center",
+          GAP_CLASS_BY_SIZE[gap] || "gap-4",
+          JUSTIFY_CLASS_BY_VALUE[justify] || "justify-center",
+          ALIGN_CLASS_BY_VALUE[align] || "items-center",
         )}
       >
         {props.children}
@@ -52,5 +53,3 @@ export default function FlexBoxStatic(props: SlateElementProps) {
     </SlateElement>
   );
 }
-
-

@@ -1,7 +1,10 @@
+import { useEffect, useRef, useState } from "react";
+
 import { type PlateSlide } from "@/components/notebook/presentation/utils/parser";
 import { getSlideBaseWidth } from "@/config/slideFormats";
+import { DEFAULT_PRESENTATION_SLIDE_ASPECT_RATIO } from "@/lib/presentation/aspect-ratio";
 import { cn } from "@/lib/utils";
-import { useEffect, useRef, useState } from "react";
+
 interface SlideThumbnailProps {
   index: number;
   isActive: boolean;
@@ -21,7 +24,7 @@ export function SlideThumbnail({
   widthSize = "M",
   containerWidth,
   formatCategory = "presentation",
-  aspectRatio = { type: "fluid", value: "" },
+  aspectRatio = DEFAULT_PRESENTATION_SLIDE_ASPECT_RATIO,
 }: SlideThumbnailProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
@@ -132,10 +135,11 @@ export function SlideThumbnail({
   }, [widthSize, containerWidth, formatCategory, aspectRatio]);
 
   return (
-    <div
+    <button
+      type="button"
       className={cn(
         "group relative cursor-pointer overflow-hidden rounded-md border transition-all hover:border-primary",
-        isActive ? "border-primary ring-1 ring-primary" : "border-muted",
+        isActive ? "border-primary ring ring-primary" : "border-muted",
       )}
       onClick={onClick}
     >
@@ -148,7 +152,6 @@ export function SlideThumbnail({
         style={{
           height: height ?? undefined,
           // aspectRatio: height === undefined ? "16/9" : undefined,
-          transition: "height 150ms ease-in-out",
         }}
       >
         <div
@@ -162,6 +165,6 @@ export function SlideThumbnail({
           {children}
         </div>
       </div>
-    </div>
+    </button>
   );
 }

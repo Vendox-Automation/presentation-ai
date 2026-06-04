@@ -1,5 +1,6 @@
 import { type TElement } from "platejs";
 import { createTPlatePlugin } from "platejs/react";
+
 import Staircase from "../custom-elements/staircase";
 import { StairItem } from "../custom-elements/staircase-item";
 import { STAIR_ITEM, STAIRCASE_GROUP } from "../lib";
@@ -22,6 +23,7 @@ export const StairItemPlugin = createTPlatePlugin({
   key: STAIR_ITEM,
   node: {
     isElement: true,
+    isStrictSiblings: true,
     type: STAIR_ITEM,
     component: StairItem,
   },
@@ -32,9 +34,12 @@ export interface TStairGroupElement extends TElement {
   type: typeof STAIRCASE_GROUP;
   totalChildren?: number; // Store the count on the staircase element
   alignment?: "left" | "center" | "right";
+  variant?: "default" | "inside";
 }
 
 export interface TStairItemElement extends TElement {
   type: typeof STAIR_ITEM;
   alignment?: "left" | "center" | "right";
+  variant?: "default" | "inside";
+  icon?: string;
 }

@@ -1,5 +1,6 @@
 import { type TElement } from "platejs";
 import { createTPlatePlugin } from "platejs/react";
+
 import StatsGroup from "../custom-elements/stats";
 import { StatsItem } from "../custom-elements/stats-item";
 import { STATS_GROUP, STATS_ITEM } from "../lib";
@@ -17,6 +18,7 @@ export const StatsItemPlugin = createTPlatePlugin({
   key: STATS_ITEM,
   node: {
     isElement: true,
+    isStrictSiblings: true,
     type: STATS_ITEM,
     component: StatsItem,
   },

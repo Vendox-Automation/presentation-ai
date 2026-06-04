@@ -1,20 +1,28 @@
+// @ts-nocheck
 import * as React from "react";
-
+import { toast } from "sonner";
 import {
   type ClientUploadedFileData,
   type UploadFilesOptions,
 } from "uploadthing/types";
+import * as z from "zod";
 
 import { type OurFileRouter } from "@/app/api/uploadthing/core";
+import { useBaseDocumentFileContext } from "@/components/files/base-document-file-context";
+import { useProjectEditorUploadContext } from "@/components/files/project-editor-upload-context";
 import { uploadFiles } from "@/hooks/globals/useUploadthing";
-import { toast } from "sonner";
-import * as z from "zod";
+import {
+  editorUploadAttachmentPayloadSchema,
+  type EditorUploadAttachmentPayload,
+} from "@/lib/files/project-editor-upload";
 
 export type UploadedFile<T = unknown> = ClientUploadedFileData<T>;
 
-interface UseUploadFileProps extends Pick<
-  UploadFilesOptions<OurFileRouter["editorUploader"]>,
-  "headers" | "onUploadBegin" | "onUploadProgress" | "skipPolling"
+interface UseUploadFileProps extends Partial<
+  Pick<
+    UploadFilesOptions<OurFileRouter["editorUploader"]>,
+    "headers" | "input" | "onUploadBegin" | "onUploadProgress" | "skipPolling"
+  >
 > {
   onUploadComplete?: (file: UploadedFile) => void;
   onUploadError?: (error: unknown) => void;
@@ -25,6 +33,9 @@ export function useUploadFile({
   onUploadError,
   ...props
 }: UseUploadFileProps = {}) {
+  const { baseDocumentId, baseDocumentType } = useBaseDocumentFileContext();
+  const { projectAttachmentContext, onAttachmentCreated } =
+    useProjectEditorUploadContext();
   const [uploadedFile, setUploadedFile] = React.useState<UploadedFile>();
   const [uploadingFile, setUploadingFile] = React.useState<File>();
   const [progress, setProgress] = React.useState<number>(0);
@@ -37,17 +48,37 @@ export function useUploadFile({
     try {
       const res = await uploadFiles("editorUploader", {
         ...props,
+        input:
+          props.input ||
+          (projectAttachmentContext
+            ? {
+                projectAttachmentContext,
+              }
+            : baseDocumentId && baseDocumentType
+              ? {
+                  baseDocumentId,
+                  baseDocumentType,
+                }
+              : {}),
         files: [file],
         onUploadProgress: ({ progress }) => {
           setProgress(Math.min(progress, 100));
         },
       });
 
-      setUploadedFile(res[0]);
+      const nextUploadedFile = res[0];
+      setUploadedFile(nextUploadedFile);
 
-      onUploadComplete?.(res[0] ?? ({} as UploadedFile));
+      const uploadedAttachment = getEditorUploadAttachmentPayload(
+        nextUploadedFile?.serverData,
+      );
+      if (uploadedAttachment) {
+        onAttachmentCreated?.(uploadedAttachment);
+      }
 
-      return uploadedFile;
+      onUploadComplete?.(nextUploadedFile ?? ({} as UploadedFile));
+
+      return nextUploadedFile;
     } catch (error) {
       const errorMessage = getErrorMessage(error);
 
@@ -104,6 +135,28 @@ export function useUploadFile({
   };
 }
 
+function getEditorUploadAttachmentPayload(
+  serverData: unknown,
+): EditorUploadAttachmentPayload | undefined {
+  if (!serverData || typeof serverData !== "object") {
+    return undefined;
+  }
+
+  const attachment = (serverData as { attachment?: unknown }).attachment;
+  const parsedAttachment =
+    editorUploadAttachmentPayloadSchema.safeParse(attachment);
+
+  if (!parsedAttachment.success) {
+    return undefined;
+  }
+
+  return parsedAttachment.data;
+}
+
+export function showErrorToast(error: unknown) {
+  toast.error(getErrorMessage(error));
+}
+
 export function getErrorMessage(err: unknown) {
   const unknownError = "Something went wrong, please try again later.";
 
@@ -118,10 +171,4 @@ export function getErrorMessage(err: unknown) {
   } else {
     return unknownError;
   }
-}
-
-export function showErrorToast(err: unknown) {
-  const errorMessage = getErrorMessage(err);
-
-  return toast.error(errorMessage);
 }

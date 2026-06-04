@@ -1,11 +1,10 @@
 "use client";
 
-import * as React from "react";
-
 import { BlockSelectionPlugin } from "@platejs/selection/react";
 import { HighlighterIcon } from "lucide-react";
 import { KEYS } from "platejs";
 import { useEditorRef, useEditorSelector } from "platejs/react";
+import * as React from "react";
 
 import {
   DropdownMenu,
@@ -19,7 +18,6 @@ import {
   TooltipTrigger,
 } from "@/components/plate/ui/tooltip";
 import { cn } from "@/lib/utils";
-
 import {
   ToolbarSplitButton,
   ToolbarSplitButtonPrimary,

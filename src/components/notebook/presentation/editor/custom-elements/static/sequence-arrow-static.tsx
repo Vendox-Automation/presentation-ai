@@ -1,5 +1,6 @@
-import { cn } from "@/lib/utils";
 import { SlateElement, type SlateElementProps } from "platejs/static";
+
+import { cn } from "@/lib/utils";
 
 export default function SequenceArrowStatic(props: SlateElementProps) {
   const { orientation, alignment = "center" } = props.element as {
@@ -29,7 +30,7 @@ export default function SequenceArrowStatic(props: SlateElementProps) {
             "[&_:is(.presentation-heading)]:[-webkit-text-fill-color:unset!important;]",
             "[&_:is(.presentation-heading)]:[background-clip:unset!important;]",
             "[&_:is(.presentation-heading)]:[background:none!important;]",
-            "[&_:is(.presentation-heading)]:text-primary!",
+            "[&_:is(.presentation-heading)]:text-(--presentation-text)!",
           )}
         >
           {props.children}
@@ -38,5 +39,3 @@ export default function SequenceArrowStatic(props: SlateElementProps) {
     </SlateElement>
   );
 }
-
-

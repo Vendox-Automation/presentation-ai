@@ -1,10 +1,11 @@
 "use client";
 
+import { AlertTriangle, Check, Loader2, Sparkles } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { useEffect, useMemo, useState } from "react";
+
 import { type Image as GeneratedImage } from "@/app/_actions/apps/image-studio/fetch";
-import {
-  generateImageAction,
-  type ImageModelList,
-} from "@/app/_actions/apps/image-studio/generate";
+import { generateImageAction } from "@/app/_actions/apps/image-studio/generate";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -18,10 +19,18 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  DEFAULT_IMAGE_MODEL,
+  getAvailableImageModels,
+  type ImageAspectRatio,
+  type ImageModelList,
+} from "@/constants/image-models";
+import {
+  buildPresentationThemedImagePrompt,
+  resolvePresentationImageTheme,
+} from "@/lib/presentation/image-generation-theme-prompt";
 import { cn } from "@/lib/utils";
 import { usePresentationState } from "@/states/presentation-state";
-import { AlertTriangle, Check, Loader2, Sparkles } from "lucide-react";
-import { useEffect, useState } from "react";
 
 interface SharedGenerateControlsProps {
   onImageSelect: (url: string, prompt: string) => void;
@@ -83,11 +92,18 @@ export function SharedGenerateControls({
   className,
   onImagesGenerated,
 }: SharedGenerateControlsProps) {
+  const { data: session } = useSession();
+  const imageModels = useMemo(
+    () => getAvailableImageModels(session?.user?.isAdmin === true),
+    [session?.user?.isAdmin],
+  );
   const {
     imageModel,
     setImageModel,
     generatedImageCache,
     setGeneratedImageCache,
+    theme,
+    customThemeData,
   } = usePresentationState();
   const [newPrompt, setNewPrompt] = useState(initialPrompt);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -95,11 +111,29 @@ export function SharedGenerateControls({
 
   // New state for enhanced controls
   const [selectedStyle, setSelectedStyle] = useState(ART_STYLES[0]?.id);
-  const [aspectRatio, setAspectRatio] = useState("1:1");
+  const [aspectRatio, setAspectRatio] = useState<ImageAspectRatio>("16:9");
   const [imageCount, setImageCount] = useState(1);
 
+  const buildStyledPrompt = () => {
+    const styleSuffix =
+      ART_STYLES.find((s) => s.id === selectedStyle)?.value || "";
+    return styleSuffix
+      ? `${newPrompt.trim()}, ${styleSuffix}`
+      : newPrompt.trim();
+  };
+
+  const buildFullPrompt = () => {
+    const styledPrompt = buildStyledPrompt();
+    const currentTheme = resolvePresentationImageTheme(theme, customThemeData);
+
+    return buildPresentationThemedImagePrompt(styledPrompt, currentTheme);
+  };
+
   // Get cached images for current prompt
-  const lastGeneratedImages = generatedImageCache[newPrompt] ?? [];
+  const cacheKey = newPrompt.trim() ? buildFullPrompt() : "";
+  const lastGeneratedImages = cacheKey
+    ? (generatedImageCache[cacheKey] ?? [])
+    : [];
 
   // Update prompt when initialPrompt changes
   useEffect(() => {
@@ -115,17 +149,19 @@ export function SharedGenerateControls({
     setIsGenerating(true);
 
     try {
-      const styleSuffix =
-        ART_STYLES.find((s) => s.id === selectedStyle)?.value || "";
-      const fullPrompt = styleSuffix
-        ? `${newPrompt}, ${styleSuffix}`
-        : newPrompt;
+      const fullPrompt = buildFullPrompt();
 
       // Generate multiple images sequentially (or parallel if backend supports, here sequential for safety)
       const promises = Array(imageCount)
         .fill(null)
         .map(() =>
-          generateImageAction(fullPrompt, imageModel as ImageModelList),
+          generateImageAction(
+            fullPrompt,
+            imageModels.some((model) => model.value === imageModel)
+              ? imageModel
+              : DEFAULT_IMAGE_MODEL,
+            aspectRatio,
+          ),
         );
 
       const results = await Promise.all(promises);
@@ -136,13 +172,13 @@ export function SharedGenerateControls({
       for (const result of results) {
         if (result.success && "image" in result && result.image) {
           successfulImages.push(result.image as unknown as GeneratedImage);
-        } else if (!firstError) {
+        } else if (!firstError && "error" in result) {
           firstError = result.error;
         }
       }
 
       if (successfulImages.length > 0) {
-        setGeneratedImageCache(newPrompt, successfulImages);
+        setGeneratedImageCache(fullPrompt, successfulImages);
         onImagesGenerated?.(successfulImages);
       } else {
         setLocalError(firstError ?? "Failed to generate images");
@@ -167,10 +203,12 @@ export function SharedGenerateControls({
 
       {/* Prompt Section */}
       <div className="space-y-3">
-        <Label className="text-sm font-medium">Prompt</Label>
+        <Label className="text-sm font-medium">
+          Prompt
+        </Label>
         <Textarea
           placeholder="Describe the image you want to create..."
-          className="min-h-[80px] resize-none text-base"
+          className="min-h-20 resize-none text-base"
           value={newPrompt}
           onChange={(e) => setNewPrompt(e.target.value)}
           disabled={isGenerating}
@@ -217,7 +255,14 @@ export function SharedGenerateControls({
                 {lastGeneratedImages.map((img) => (
                   <div
                     key={img.id}
-                    className="group relative aspect-square animate-in overflow-hidden rounded-lg border-2 border-primary shadow-md duration-300 zoom-in-95 fade-in"
+                    className={cn(
+                      "group relative animate-in overflow-hidden rounded-lg border-2 border-primary shadow-md duration-300 zoom-in-95 fade-in",
+                      aspectRatio === "16:9" && "aspect-video",
+                      aspectRatio === "1:1" && "aspect-square",
+                      aspectRatio === "4:3" && "aspect-4/3",
+                      aspectRatio === "3:4" && "aspect-3/4",
+                      aspectRatio === "9:16" && "aspect-9/16",
+                    )}
                   >
                     {/** biome-ignore lint/performance/noImgElement: Without this it is not possible to show image links */}
                     <img
@@ -230,7 +275,9 @@ export function SharedGenerateControls({
                         size="icon"
                         variant="secondary"
                         className="h-8 w-8 rounded-full shadow-lg"
-                        onClick={() => onImageSelect(img.url, img.prompt)}
+                        onClick={() =>
+                          onImageSelect(img.url, buildStyledPrompt())
+                        }
                       >
                         <Check className="h-4 w-4" />
                       </Button>
@@ -293,7 +340,10 @@ export function SharedGenerateControls({
             <Label className="text-xs font-medium text-muted-foreground">
               Aspect ratio
             </Label>
-            <Select value={aspectRatio} onValueChange={setAspectRatio}>
+            <Select
+              value={aspectRatio}
+              onValueChange={(v) => setAspectRatio(v as ImageAspectRatio)}
+            >
               <SelectTrigger className="h-8 text-xs">
                 <SelectValue />
               </SelectTrigger>
@@ -314,7 +364,7 @@ export function SharedGenerateControls({
             </Label>
             <Select
               value={imageCount.toString()}
-              onValueChange={(v) => setImageCount(parseInt(v))}
+              onValueChange={(v) => setImageCount(parseInt(v, 10))}
             >
               <SelectTrigger className="h-8 text-xs">
                 <SelectValue />
@@ -342,14 +392,11 @@ export function SharedGenerateControls({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="fal-ai/flux-2/flash">
-                  Flux 2 Flash
-                </SelectItem>
-                <SelectItem value="fal-ai/flux-2/turbo">
-                  Flux 2 Turbo
-                </SelectItem>
-                <SelectItem value="fal-ai/flux/dev">Flux Dev</SelectItem>
-                <SelectItem value="fal-ai/flux-2-pro">Flux 2 Pro</SelectItem>
+                {imageModels.map((model) => (
+                  <SelectItem key={model.value} value={model.value}>
+                    {model.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

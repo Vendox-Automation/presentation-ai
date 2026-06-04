@@ -1,13 +1,15 @@
 "use client";
+
+import debounce from "lodash.debounce";
+import { RotateCcw } from "lucide-react";
+import { useCallback, useMemo, useRef, useState } from "react";
+
 import ColorPicker from "@/components/ui/color-picker";
 import { Input } from "@/components/ui/input";
 import {
   type ThemeBackground,
   type ThemeColors,
 } from "@/lib/presentation/themes";
-import debounce from "lodash.debounce";
-import { RotateCcw } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
 import { type ColorKey } from "../types";
 import { CompactBackgroundSelector } from "./CompactBackgroundSelector";
 
@@ -110,7 +112,10 @@ export function ColorSettingsPanel({
               defaultColors.background ?? DEFAULT_THEME_COLORS.background
             }
             onReset={() => {
-              onColorChange("background", "none");
+              onColorChange(
+                "background",
+                defaultColors.background ?? DEFAULT_THEME_COLORS.background,
+              );
             }}
           />
         </div>

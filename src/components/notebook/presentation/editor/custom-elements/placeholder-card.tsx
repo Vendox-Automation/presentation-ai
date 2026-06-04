@@ -1,12 +1,14 @@
 "use client";
 
+import { ImageIcon, LayoutTemplate, Sparkles } from "lucide-react";
+import { m as motion } from "motion/react";
+import { nanoid } from "nanoid";
+import { NodeApi } from "platejs";
+import { useEditorSelector, type PlateElementProps } from "platejs/react";
+import { useState } from "react";
+
 import { cn } from "@/lib/utils";
 import { usePresentationState } from "@/states/presentation-state";
-import { motion } from "motion/react";
-import { ImageIcon, LayoutTemplate, Sparkles } from "lucide-react";
-import { nanoid } from "nanoid";
-import { type PlateElementProps, useEditorSelector } from "platejs/react";
-import { useState } from "react";
 import { type PlateSlide } from "../../utils/parser";
 import { useSlideGeneration } from "../context/SlideGenerationContext";
 import { GenerateSlideUI } from "./GenerateSlideUI";
@@ -184,7 +186,7 @@ function TemplateButton({
   return (
     <motion.button
       onClick={onClick}
-      className="group relative flex h-24 w-28 flex-col items-center justify-center gap-2 rounded-xl border border-border bg-card/50 backdrop-blur-xs transition-all hover:border-sidebar-accent-foreground/20 hover:bg-sidebar-accent"
+      className="group relative flex h-24 w-28 flex-col items-center justify-center gap-2 rounded-xl border border-border bg-card/50 backdrop-blur-sm transition-all hover:border-sidebar-accent-foreground/20 hover:bg-sidebar-accent"
       whileHover={{ scale: 1.02, y: -2 }}
       whileTap={{ scale: 0.98 }}
       transition={{ type: "spring", stiffness: 400, damping: 25 }}
@@ -194,7 +196,7 @@ function TemplateButton({
           {preview}
         </div>
       ) : (
-        <div className="flex h-8 w-8 items-center justify-center text-muted-foreground group-hover:text-foreground">
+        <div className="flex size-8 items-center justify-center text-muted-foreground group-hover:text-foreground">
           {icon}
         </div>
       )}
@@ -212,7 +214,7 @@ function ImageLeftPreview() {
   return (
     <div className="flex h-10 w-16 gap-1 rounded border border-border bg-muted/20 p-1">
       <div className="flex h-full w-1/2 items-center justify-center rounded bg-muted/40">
-        <ImageIcon className="h-3 w-3 text-muted-foreground/60" />
+        <ImageIcon className="size-3 text-muted-foreground/60" />
       </div>
       <div className="flex h-full w-1/2 flex-col gap-0.5 py-0.5">
         <div className="h-1 w-full rounded-sm bg-muted-foreground/30" />
@@ -232,7 +234,7 @@ function ImageRightPreview() {
         <div className="h-0.5 w-1/2 rounded-sm bg-muted-foreground/20" />
       </div>
       <div className="flex h-full w-1/2 items-center justify-center rounded bg-muted/40">
-        <ImageIcon className="h-3 w-3 text-muted-foreground/60" />
+        <ImageIcon className="size-3 text-muted-foreground/60" />
       </div>
     </div>
   );
@@ -246,7 +248,7 @@ function ThreeColumnPreview() {
           key={i}
           className="flex h-full flex-1 flex-col items-center gap-0.5 rounded bg-primary/10 p-0.5"
         >
-          <div className="h-2 w-2 rounded-sm bg-primary/60" />
+          <div className="size-2 rounded-sm bg-primary/60" />
           <div className="h-0.5 w-full rounded-sm bg-muted-foreground/20" />
           <div className="h-0.5 w-3/4 rounded-sm bg-muted-foreground/15" />
         </div>
@@ -260,7 +262,7 @@ function ContentListPreview() {
     <div className="flex h-10 w-16 flex-col gap-0.5 rounded border border-border bg-muted/20 p-1">
       {[1, 2, 3, 4].map((i) => (
         <div key={i} className="flex items-center gap-1">
-          <div className="h-1 w-1 rounded-full bg-primary/60" />
+          <div className="size-1 rounded-full bg-primary/60" />
           <div
             className="h-0.5 rounded-sm bg-muted-foreground/30"
             style={{ width: `${70 - i * 10}%` }}
@@ -275,11 +277,13 @@ export default function PlaceHolderCard(props: PlateElementProps) {
   const { editor, element } = props;
   // Use useEditorSelector to properly subscribe to content changes
   // This ensures the component re-renders when content changes
-  const isEmpty = useEditorSelector((editor) => editor.api.isEmpty(), []);
+  const isEditorEmpty = useEditorSelector((editor) => editor.api.isEmpty(), []);
   const setSlides = usePresentationState((s) => s.setSlides);
   const { isGenerating, generatingSlideId } = useSlideGeneration();
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [showGenerateUI, setShowGenerateUI] = useState(false);
+  const isCurrentElementEmpty = NodeApi.string(element).trim().length === 0;
+  const isFirstTopLevelElement = props.path.length === 1 && props.path[0] === 0;
 
   // Check if this slide is currently being generated
   const isGeneratingThisSlide = isGenerating && generatingSlideId === editor.id;
@@ -288,7 +292,9 @@ export default function PlaceHolderCard(props: PlateElementProps) {
   const shouldShowGenerateUI = showGenerateUI || isGeneratingThisSlide;
 
   // Only show template options when the entire editor is empty and not generating
-  const showTemplateOptions = isEmpty && !shouldShowGenerateUI;
+  const showPlaceholder = isEditorEmpty && isCurrentElementEmpty;
+  const showTemplateOptions =
+    showPlaceholder && isFirstTopLevelElement && !shouldShowGenerateUI;
 
   const handleOpenTemplates = () => {
     setShowTemplateModal(true);
@@ -327,12 +333,12 @@ export default function PlaceHolderCard(props: PlateElementProps) {
   }
 
   return (
-    <div className="relative" data-slate-void="true">
-      {isEmpty && (
+    <div className="relative">
+      {showPlaceholder && (
         <div
           contentEditable={false}
           className={cn(
-            "pointer-events-none absolute inset-x-16 opacity-50 select-none",
+            "pointer-events-none absolute inset-x-4 opacity-50 select-none md:inset-x-8",
             // Paragraph styles
             element.type === "p" &&
               "px-0 py-1 [font-family:var(--presentation-body-font)] [font-size:var(--presentation-p-size)] leading-[1.6] text-(--presentation-text)",
@@ -363,10 +369,11 @@ export default function PlaceHolderCard(props: PlateElementProps) {
       {/* Template options overlay - only shown when editor is empty */}
       {showTemplateOptions && (
         <motion.div
+          contentEditable={false}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, ease: "easeOut" }}
-          className="pointer-events-auto mt-6 px-16"
+          className="pointer-events-auto mt-6 px-4 md:px-8"
         >
           {/* Label */}
           <motion.p
@@ -403,12 +410,12 @@ export default function PlaceHolderCard(props: PlateElementProps) {
               preview={<ContentListPreview />}
             />
             <TemplateButton
-              icon={<LayoutTemplate className="h-5 w-5" />}
+              icon={<LayoutTemplate className="size-5" />}
               label="Templates"
               onClick={handleOpenTemplates}
             />
             <TemplateButton
-              icon={<Sparkles className="h-5 w-5" />}
+              icon={<Sparkles className="size-5" />}
               label="Generate"
               onClick={handleGenerate}
             />

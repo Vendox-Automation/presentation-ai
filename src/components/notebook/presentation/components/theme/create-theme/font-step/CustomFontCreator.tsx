@@ -1,6 +1,7 @@
 // font-step/components/CustomFontCreator.tsx
-import { Button } from "@/components/ui/button";
 import { Save } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
 import { FontPickerField } from "./FontPickerField";
 import { type FontStepProps, type LocalFont } from "./types";
 
@@ -68,7 +69,7 @@ export function CustomFontCreator({
           disabled={isSaving || !currentHeadingFont || !currentBodyFont}
           className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
         >
-          <Save className="h-4 w-4" />
+          <Save className="size-4" />
           {isSaving ? "Saving..." : "Save Font Pair"}
         </Button>
       </div>

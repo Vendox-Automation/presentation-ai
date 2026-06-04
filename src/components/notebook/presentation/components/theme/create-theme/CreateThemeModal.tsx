@@ -1,20 +1,27 @@
 "use client";
 
-import { updatePresentation } from "@/app/_actions/notebook/presentation/presentationActions";
-import {
-  createCustomTheme,
-  updateCustomTheme,
-} from "@/app/_actions/presentation/theme-actions";
-import { useThemePanelState } from "@/components/presentation/edit-panel/sections/theme/theme-panel-state";
-import { Credenza, CredenzaContent } from "@/components/ui/credenza";
-import { VisuallyHidden } from "@/components/ui/visually-hidden";
-import { buildPresentationCustomization } from "@/lib/presentation/customization";
-import { type ThemeColorsKeys, themes } from "@/lib/presentation/themes";
-import { usePresentationState } from "@/states/presentation-state";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+
+import { updatePresentation } from "@/app/_actions/notebook/presentation/presentationActions";
+import {
+  createCustomTheme,
+  updateAdminPresentationTheme,
+  updateCustomTheme,
+} from "@/app/_actions/presentation/theme-actions";
+import { useThemePanelState } from "@/components/presentation/edit-panel/sections/theme/theme-panel-state";
+import {
+  Credenza,
+  CredenzaContent,
+  CredenzaTitle,
+} from "@/components/ui/credenza";
+import { VisuallyHidden } from "@/components/ui/visually-hidden";
+import { buildPresentationCustomization } from "@/lib/presentation/customization";
+import { isBuiltInPresentationTheme } from "@/lib/presentation/theme-resolution";
+import { themes, type ThemeColorsKeys } from "@/lib/presentation/themes";
+import { usePresentationState } from "@/states/presentation-state";
 import { type ThemeFormValues } from "../types";
 import { colorThemes, type PreviewTab } from "./create-theme-types";
 import { CreateThemeFooter } from "./CreateThemeFooter";
@@ -25,7 +32,7 @@ import { usePreviewData } from "./usePreviewData";
 import { useStepNavigation } from "./useStepNavigation";
 import { useThemeCreationLogic } from "./useThemeCreationLogic";
 
-export const DEFAULT_THEME_VALUES: ThemeFormValues = {
+const DEFAULT_THEME_VALUES: ThemeFormValues = {
   isPublic: false,
   themeBase: "blank",
   ...themes.mystique,
@@ -34,7 +41,13 @@ export const DEFAULT_THEME_VALUES: ThemeFormValues = {
   name: "",
 };
 
-export function CreateThemeModal() {
+interface CreateThemeModalProps {
+  previewMode?: "all" | "test-only";
+}
+
+export function CreateThemeModal({
+  previewMode = "all",
+}: CreateThemeModalProps) {
   const {
     setOpenCreateThemeModal,
     openCreateThemeModal,
@@ -47,11 +60,16 @@ export function CreateThemeModal() {
   } = useThemePanelState();
 
   const [previewTab, setPreviewTab] = useState<PreviewTab>("current");
+  const previewTabs = useMemo<PreviewTab[]>(
+    () => (previewMode === "test-only" ? ["test"] : ["test", "current"]),
+    [previewMode],
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const currentPresentationId = usePresentationState(
     (s) => s.currentPresentationId,
   );
+  const baseThemeData = editingTheme?.baseThemeData ?? editingTheme?.themeData;
 
   // Prepare default values based on imported theme, editing theme, or default
   const defaultValues = useMemo(() => {
@@ -111,7 +129,7 @@ export function CreateThemeModal() {
     setShowAdvancedColors,
   } = useThemeCreationLogic({
     setValue,
-    initialTheme: editingTheme?.themeData,
+    initialTheme: baseThemeData,
   });
 
   const handleClose = () => {
@@ -127,7 +145,13 @@ export function CreateThemeModal() {
   const onSubmit = async (data: ThemeFormValues) => {
     try {
       setIsSubmitting(true);
-      const { name, description, isPublic, ...themeStyleData } = data;
+      const {
+        name,
+        description,
+        isPublic: _isPublic,
+        themeBase: _themeBase,
+        ...themeStyleData
+      } = data;
 
       // Validate custom font URLs
       const fonts = themeStyleData.fonts as ThemeFormValues["fonts"];
@@ -151,10 +175,14 @@ export function CreateThemeModal() {
       let result;
       // When editing (and NOT customizing), update the existing theme
       if (editingTheme && !isCustomizing) {
-        result = await updateCustomTheme(editingTheme.id, {
+        const updateTheme = editingTheme.isAdmin
+          ? updateAdminPresentationTheme
+          : updateCustomTheme;
+
+        result = await updateTheme(editingTheme.id, {
           name,
           description,
-          isPublic,
+          isPublic: false,
           themeData: themeStyleData,
         });
       } else {
@@ -186,10 +214,16 @@ export function CreateThemeModal() {
           });
 
           if (createResult.success && createResult.themeId) {
+            const createdThemeData = {
+              ...themeStyleData,
+              name: themeName,
+              description: description || "",
+            };
+
             // Apply the new theme to the presentation
             usePresentationState
               .getState()
-              .setTheme(createResult.themeId, null);
+              .setTheme(createResult.themeId, createdThemeData);
 
             // Update the presentation to use the new theme
             result = await updatePresentation({
@@ -204,16 +238,29 @@ export function CreateThemeModal() {
           result = await createCustomTheme({
             name,
             description,
-            isPublic: isPublic,
+            isPublic: false,
             themeData: themeStyleData,
           });
         }
       }
 
       if (result.success) {
+        if (editingTheme && !isCustomizing) {
+          const currentThemeId = usePresentationState.getState().theme;
+          if (currentThemeId === editingTheme.id) {
+            usePresentationState.getState().setTheme(editingTheme.id, {
+              ...themeStyleData,
+              name,
+              description: description ?? "",
+            });
+          }
+        }
+
         toast.success(
           editingTheme && !isCustomizing
-            ? "Theme updated successfully!"
+            ? editingTheme.isAdmin
+              ? "System theme updated successfully!"
+              : "Theme updated successfully!"
             : isCustomizing
               ? "Customization saved successfully!"
               : "Theme created successfully!",
@@ -228,6 +275,9 @@ export function CreateThemeModal() {
         });
         queryClient.invalidateQueries({
           queryKey: ["presentation", "themes", "favorites"],
+        });
+        queryClient.invalidateQueries({
+          queryKey: ["presentation", "themes", "system"],
         });
 
         handleClose();
@@ -258,7 +308,14 @@ export function CreateThemeModal() {
     try {
       setIsSubmitting(true);
       const data = form.getValues();
-      const { description, ...themeStyleData } = data;
+      // Strip form-only fields that aren't part of ThemeProperties
+      const {
+        description,
+        isPublic: _isPublic,
+        themeBase: _themeBase,
+        name: _name,
+        ...themeStyleData
+      } = data;
 
       // Validate custom font URLs
       const fonts = themeStyleData.fonts as ThemeFormValues["fonts"];
@@ -288,28 +345,40 @@ export function CreateThemeModal() {
       const customThemeData = {
         ...themeStyleData,
         name: originalThemeName,
-        description: description ?? "",
+        description: description || originalThemeName,
       };
 
+      const currentTheme = usePresentationState.getState().theme as string;
+
+      const currentThemeDataByTheme =
+        usePresentationState.getState().themeDataByTheme;
+      const nextThemeDataByTheme = {
+        ...currentThemeDataByTheme,
+        [currentTheme]: customThemeData,
+      };
+      usePresentationState.getState().setThemeDataByTheme(nextThemeDataByTheme);
+
       // Update the presentation state with new theme data
-      usePresentationState
-        .getState()
-        .setTheme(
-          usePresentationState.getState().theme as string,
-          customThemeData,
-        );
+      usePresentationState.getState().setTheme(currentTheme, customThemeData);
 
       // Build customization object
       const state = usePresentationState.getState();
       const customization = buildPresentationCustomization({
         customThemeData,
+        themeDataByTheme: nextThemeDataByTheme,
+        generatedThemeData: state.generatedThemeData,
+        theme: state.theme,
         pageStyle: state.pageStyle,
         presentationStyle: state.presentationStyle,
+        generationAspectRatio: state.generationAspectRatio,
         textContent: state.textContent,
         tone: state.tone,
         audience: state.audience,
         scenario: state.scenario,
         pageBackground: state.pageBackground,
+        selectedSlideTemplates: state.selectedSlideTemplates,
+        outlineItemIds: state.outlineItemIds,
+        outlineTemplateOverrides: state.outlineTemplateOverrides,
       });
 
       // Save to the presentation
@@ -332,6 +401,97 @@ export function CreateThemeModal() {
     }
   }, [currentPresentationId, form, handleClose]);
 
+  const handleSaveCurrentStep = useCallback(() => {
+    if (editingTheme && !isCustomizing) {
+      void handleSubmit(onSubmit)();
+      return;
+    }
+
+    void handleSaveCustomization();
+  }, [
+    editingTheme,
+    handleSaveCustomization,
+    handleSubmit,
+    isCustomizing,
+    onSubmit,
+  ]);
+
+  const handleResetCustomization = useCallback(async () => {
+    if (!currentPresentationId) {
+      toast.error("No presentation selected to reset");
+      return;
+    }
+
+    const state = usePresentationState.getState();
+    const currentTheme = state.theme as string;
+    const resetThemeData = baseThemeData ?? null;
+    const nextThemeDataByTheme = { ...state.themeDataByTheme };
+    delete nextThemeDataByTheme[currentTheme];
+
+    try {
+      setIsSubmitting(true);
+      usePresentationState.getState().setThemeDataByTheme(nextThemeDataByTheme);
+      usePresentationState
+        .getState()
+        .setTheme(
+          currentTheme,
+          isBuiltInPresentationTheme(currentTheme) ? null : resetThemeData,
+        );
+      if (resetThemeData) {
+        reset({
+          isPublic: false,
+          themeBase: "blank",
+          ...resetThemeData,
+          description: resetThemeData.description || "",
+          name: resetThemeData.name || editingTheme?.name || "Custom Theme",
+        });
+      }
+
+      const customization = buildPresentationCustomization({
+        customThemeData: isBuiltInPresentationTheme(currentTheme)
+          ? null
+          : resetThemeData,
+        themeDataByTheme: nextThemeDataByTheme,
+        generatedThemeData: state.generatedThemeData,
+        theme: currentTheme,
+        pageStyle: state.pageStyle,
+        presentationStyle: state.presentationStyle,
+        generationAspectRatio: state.generationAspectRatio,
+        textContent: state.textContent,
+        tone: state.tone,
+        audience: state.audience,
+        scenario: state.scenario,
+        pageBackground: state.pageBackground,
+        selectedSlideTemplates: state.selectedSlideTemplates,
+        outlineItemIds: state.outlineItemIds,
+        outlineTemplateOverrides: state.outlineTemplateOverrides,
+      });
+
+      const result = await updatePresentation({
+        id: currentPresentationId,
+        theme: currentTheme,
+        customization,
+      });
+
+      if (result.success) {
+        toast.success("Customization reset successfully!");
+        handleClose();
+      } else {
+        toast.error(result.message || "Failed to reset customization");
+      }
+    } catch {
+      toast.error("An unexpected error occurred while resetting");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [
+    baseThemeData,
+    currentPresentationId,
+    editingTheme?.name,
+    handleClose,
+    reset,
+  ]);
+
   // Handler for "Save & Create New" - create a new theme copy and apply it
   const handleSaveAndCreateNew = useCallback(async () => {
     if (!currentPresentationId) {
@@ -342,7 +502,13 @@ export function CreateThemeModal() {
     try {
       setIsSubmitting(true);
       const data = form.getValues();
-      const { description, ...themeStyleData } = data;
+      const {
+        description,
+        isPublic: _isPublic,
+        themeBase: _themeBase,
+        name,
+        ...themeStyleData
+      } = data;
 
       // Validate custom font URLs
       const fonts = themeStyleData.fonts as ThemeFormValues["fonts"];
@@ -373,7 +539,7 @@ export function CreateThemeModal() {
         "Custom Theme";
 
       // Use the user's input if provided, otherwise use "Copy of {original}"
-      const themeName = data.name || `Copy of ${originalThemeName}`;
+      const themeName = name || `Copy of ${originalThemeName}`;
 
       // Create the new theme
       const createResult = await createCustomTheme({
@@ -384,8 +550,16 @@ export function CreateThemeModal() {
       });
 
       if (createResult.success && createResult.themeId) {
+        const createdThemeData = {
+          ...themeStyleData,
+          name: themeName,
+          description: description || "",
+        };
+
         // Apply the new theme to the presentation
-        usePresentationState.getState().setTheme(createResult.themeId, null);
+        usePresentationState
+          .getState()
+          .setTheme(createResult.themeId, createdThemeData);
 
         // Update the presentation to use the new theme
         const result = await updatePresentation({
@@ -431,7 +605,7 @@ export function CreateThemeModal() {
   useEffect(() => {
     if (openCreateThemeModal) {
       reset(defaultValues);
-      setPreviewTab("current");
+      setPreviewTab(previewMode === "test-only" ? "test" : "current");
       setCurrentStep("colors");
       setSelectedColorTheme(
         editingTheme || importedThemeData
@@ -445,6 +619,7 @@ export function CreateThemeModal() {
     editingTheme,
     isCustomizing,
     importedThemeData,
+    previewMode,
     reset,
     defaultValues,
     setCurrentStep,
@@ -475,10 +650,11 @@ export function CreateThemeModal() {
     >
       <CredenzaContent
         shouldHaveClose={false}
-        className="h-dvh max-h-none w-dvw max-w-none border-none p-0"
+        overlayClassName="z-40"
+        className="z-50 h-dvh max-h-none w-dvw max-w-none border-none p-0"
       >
         <VisuallyHidden>
-          <h2>Create Theme</h2>
+          <CredenzaTitle>Create Theme</CredenzaTitle>
         </VisuallyHidden>
         <div className="flex h-full flex-col lg:flex-row">
           {/* Left Panel - Editor */}
@@ -497,6 +673,7 @@ export function CreateThemeModal() {
                 onSelectColorTheme={handleThemeSelect}
                 setValue={setValue}
                 isCustomizing={isCustomizing}
+                defaultColors={baseThemeData?.colors}
               />
             </div>
             <CreateThemeFooter
@@ -504,8 +681,11 @@ export function CreateThemeModal() {
               isSubmitting={isSubmitting}
               onStepClick={setCurrentStep}
               onContinue={handleContinue}
-              onSave={handleSaveCustomization}
+              onSave={handleSaveCurrentStep}
               onSaveAndCreateNew={handleSaveAndCreateNew}
+              onResetCustomization={
+                isCustomizing ? handleResetCustomization : undefined
+              }
               isEditing={!!editingTheme}
               isCustomizing={isCustomizing}
             />
@@ -515,6 +695,7 @@ export function CreateThemeModal() {
           <PreviewSection
             containerRef={containerRef}
             previewTab={previewTab}
+            previewTabs={previewTabs}
             previewThemeData={previewThemeData}
             slidesToDisplay={slidesToDisplay}
             onTabChange={setPreviewTab}

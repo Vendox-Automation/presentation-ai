@@ -1,20 +1,34 @@
-import { DndPlugin, type DragItemNode } from "@platejs/dnd";
+import {
+  DndPlugin,
+  type DragItemNode,
+  type ElementDragItemNode,
+} from "@platejs/dnd";
 import { type TElement } from "platejs";
 import { type PlateEditor } from "platejs/react";
 import React from "react";
 import {
+  useDrag,
   type ConnectDragPreview,
   type ConnectDragSource,
   type DragSourceHookSpec,
-  useDrag,
 } from "react-dnd";
+
+import { dropNodeAtFreeformTarget } from "../transforms/onDropNode";
+import { startFreeformDrag, stopFreeformDrag } from "../utils/freeformDrop";
 
 export interface UseDragNodeOptions extends DragSourceHookSpec<
   DragItemNode,
   unknown,
   { isDragging: boolean }
 > {
+  disableFreeformDrag?: boolean;
   element: TElement;
+}
+
+function isElementDragItem(
+  dragItem: DragItemNode | undefined,
+): dragItem is ElementDragItemNode {
+  return Boolean(dragItem && "id" in dragItem && "element" in dragItem);
 }
 
 /**
@@ -30,7 +44,12 @@ export interface UseDragNodeOptions extends DragSourceHookSpec<
  */
 export const useDragNode = (
   editor: PlateEditor,
-  { element: staleElement, item, ...options }: UseDragNodeOptions,
+  {
+    disableFreeformDrag = false,
+    element: staleElement,
+    item,
+    ...options
+  }: UseDragNodeOptions,
 ): [
   { isAboutToDrag: boolean; isDragging: boolean },
   ConnectDragSource,
@@ -52,7 +71,16 @@ export const useDragNode = (
       collect: (monitor) => ({
         isDragging: monitor.isDragging(),
       }),
-      end: () => {
+      end: (dragItem, monitor) => {
+        if (
+          !disableFreeformDrag &&
+          !monitor.didDrop() &&
+          isElementDragItem(dragItem)
+        ) {
+          dropNodeAtFreeformTarget(editor, dragItem);
+        }
+
+        stopFreeformDrag(editor);
         editor.setOption(DndPlugin, "isDragging", false);
         document.body.classList.remove("dragging");
         setIsAboutToDrag(false);
@@ -61,8 +89,6 @@ export const useDragNode = (
         editor.setOption(DndPlugin, "isDragging", true);
         editor.setOption(DndPlugin, "_isOver", true);
         document.body.classList.add("dragging");
-
-        const _item = typeof item === "function" ? item(monitor) : item;
 
         // Check if multiple nodes are selected
         const currentDraggingId = editor.getOption(DndPlugin, "draggingId");
@@ -84,18 +110,28 @@ export const useDragNode = (
         // Get the fresh element from the editor, or fall back to the stale element
         // This handles external/synthetic elements (like RootImage) that don't exist in the editor
         const nodeEntry = editor.api.node({ id: elementId, at: [] });
-        const element = (nodeEntry?.[0] as TElement | undefined) ?? staleElement;
+        const element =
+          (nodeEntry?.[0] as TElement | undefined) ?? staleElement;
 
-        return {
+        const optionItem = typeof item === "function" ? item(monitor) : item;
+        const extraItem =
+          optionItem && typeof optionItem === "object" ? optionItem : {};
+        const dragNodeItem: ElementDragItemNode = {
+          ...extraItem,
           id,
           editorId: editor.id,
           element,
-          ..._item,
         };
+
+        if (!disableFreeformDrag) {
+          startFreeformDrag(editor, dragNodeItem);
+        }
+
+        return dragNodeItem;
       },
       ...options,
     }),
-    [editor, elementId],
+    [disableFreeformDrag, editor, elementId],
   );
 
   // Reset isAboutToDrag when drag is cancelled (e.g., ESC key)

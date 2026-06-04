@@ -1,8 +1,10 @@
 "use client";
 
-import { usePlateEditor } from "@/components/plate/hooks/usePlateEditor";
 import { type Value } from "platejs";
 import { type PlateEditor } from "platejs/react";
+
+import { usePlateEditor } from "@/components/plate/hooks/usePlateEditor";
+import { normalizePresentationValue } from "../../utils/normalizePresentationSlate";
 import { presentationPlugins } from "../plugins";
 
 interface UsePresentationEditorInstanceArgs {
@@ -16,9 +18,11 @@ export function usePresentationEditorInstance({
   onReady,
   id,
 }: UsePresentationEditorInstanceArgs) {
+  const normalizedInitialValue = normalizePresentationValue(initialValue);
+
   const editor = usePlateEditor({
     plugins: presentationPlugins,
-    value: (initialValue ?? ({} as Value)) as Value,
+    value: normalizedInitialValue,
     onReady,
     override: {
       enabled: {

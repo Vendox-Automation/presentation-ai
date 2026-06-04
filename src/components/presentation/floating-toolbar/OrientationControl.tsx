@@ -19,7 +19,6 @@ import { useToolbarContext } from "./ToolbarContext";
 export function OrientationControl() {
   const [open, setOpen] = React.useState(false);
   const {
-    editor,
     supportsOrientationControl,
     currentOrientation,
     orientationOptions,
@@ -35,21 +34,17 @@ export function OrientationControl() {
       <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
         <DropdownMenuTrigger asChild>
           <ToolbarButton
-            className="min-w-[100px]"
+            className="min-w-25"
             pressed={open}
             tooltip="Change Orientation"
             isDropdown
           >
-            <ArrowUpDown className="h-4 w-4" />
+            <ArrowUpDown className="size-4" />
             <span className="capitalize">{currentOrientation}</span>
           </ToolbarButton>
         </DropdownMenuTrigger>
         <DropdownMenuContent
           className="ignore-click-outside/toolbar min-w-0"
-          onCloseAutoFocus={(e) => {
-            e.preventDefault();
-            editor.tf.focus();
-          }}
           align="start"
         >
           <ToolbarMenuGroup

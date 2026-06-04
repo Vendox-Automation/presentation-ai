@@ -1,11 +1,12 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-import { usePresentationRecordingState } from "@/states/presentation-recording-state";
 import { motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export function WebcamOverlay() {
+import { cn } from "@/lib/utils";
+import { usePresentationRecordingState } from "@/states/presentation-recording-state";
+
+function WebcamOverlay() {
   const {
     wantsToRecord,
     webcamEnabled,
@@ -89,8 +90,8 @@ export function WebcamOverlay() {
         );
       }}
       className={cn(
-        "fixed z-999999 overflow-hidden rounded-xl border border-border shadow-xs",
-        "aspect-video w-80 bg-background/50 backdrop-blur-sm supports-backdrop-filter:bg-background/40",
+        "fixed z-999999 overflow-hidden rounded-xl border border-border shadow",
+        "aspect-video w-80 bg-background/50 backdrop-blur supports-backdrop-filter:bg-background/40",
       )}
     >
       <video

@@ -1,8 +1,12 @@
 "use client";
 
-import { motion } from "motion/react";
 import { Loader2, Sparkles, X } from "lucide-react";
-import { useCallback, useState } from "react";
+import { m as motion } from "motion/react";
+import { useSession } from "next-auth/react";
+import { useCallback, useMemo, useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -10,6 +14,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  DEFAULT_IMAGE_MODEL,
+  getAvailableImageModels,
+  type ImageModelList,
+} from "@/constants/image-models";
 import { useSlideGeneration } from "../context/SlideGenerationContext";
 
 interface GenerateSlideUIProps {
@@ -26,8 +37,15 @@ const IMAGE_STYLES: ImageStyle[] = ["3D", "Sketch", "Flat"];
 const TEXT_DENSITIES: TextDensity[] = ["Minimal", "Balanced", "Detailed"];
 
 export function GenerateSlideUI({ slideId, onClose }: GenerateSlideUIProps) {
+  const { data: session } = useSession();
+  const imageModels = useMemo(
+    () => getAvailableImageModels(session?.user?.isAdmin === true),
+    [session?.user?.isAdmin],
+  );
   const [prompt, setPrompt] = useState("");
   const [contentType, setContentType] = useState<ContentType>("Slide");
+  const [imageModel, setImageModel] =
+    useState<ImageModelList>(DEFAULT_IMAGE_MODEL);
   const [imageStyle, setImageStyle] = useState<ImageStyle>("3D");
   const [textDensity, setTextDensity] = useState<TextDensity>("Balanced");
   const { isGenerating, generatingSlideId, generateSlide, cancelGeneration } =
@@ -45,6 +63,9 @@ export function GenerateSlideUI({ slideId, onClose }: GenerateSlideUIProps) {
         slideType: contentType === "Infograph" ? "image" : "standard",
         imageStyle,
         textDensity,
+        imageModel: imageModels.some((model) => model.value === imageModel)
+          ? imageModel
+          : DEFAULT_IMAGE_MODEL,
       });
     },
     [
@@ -55,6 +76,8 @@ export function GenerateSlideUI({ slideId, onClose }: GenerateSlideUIProps) {
       contentType,
       imageStyle,
       textDensity,
+      imageModel,
+      imageModels,
     ],
   );
 
@@ -88,152 +111,143 @@ export function GenerateSlideUI({ slideId, onClose }: GenerateSlideUIProps) {
         transition={{ duration: 0.3, ease: "easeOut" }}
         className="mt-6 px-6 sm:px-10 lg:px-16"
       >
-        {/* Prompt input state */}
-        {!isGeneratingThisSlide && (
-          <>
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.1 }}
-              className="mb-4 text-sm font-medium text-slate-500 dark:text-white/50"
-            >
-              Generate with AI
-            </motion.p>
+        {!isGeneratingThisSlide ? (
+          <form onSubmit={handleSubmit}>
+            <div className="flex flex-col gap-4 rounded-xl border bg-card p-6 text-card-foreground shadow-sm dark:bg-slate-950 dark:border-slate-800">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1.5">
+                  <h3 className="font-semibold leading-none tracking-tight flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    Generate Slide
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Describe what you want on this slide and AI will generate it
+                    for you.
+                  </p>
+                </div>
+                <Tabs
+                  value={contentType}
+                  onValueChange={(value) =>
+                    setContentType(value as ContentType)
+                  }
+                  className="w-full sm:w-auto"
+                >
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="Slide">Standard Slide</TabsTrigger>
+                    <TabsTrigger value="Infograph">Infographic</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-xs backdrop-blur-sm dark:border-white/10 dark:bg-white/5 sm:p-5">
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-slate-500 dark:text-white/60">
-                      Content
-                    </span>
+              {contentType === "Infograph" && (
+                <div className="flex flex-wrap items-center gap-4 py-3 border-y border-border/50">
+                  <div className="flex flex-col space-y-2 flex-1 min-w-35">
+                    <Label className="text-xs font-medium text-muted-foreground">
+                      Model
+                    </Label>
                     <Select
-                      value={contentType}
+                      value={imageModel}
                       onValueChange={(value) =>
-                        setContentType(value as ContentType)
+                        setImageModel(value as ImageModelList)
                       }
                     >
-                      <SelectTrigger className="h-9 w-[150px] rounded-xl border-slate-200 bg-slate-50 text-xs font-semibold text-slate-900 shadow-none dark:border-white/10 dark:bg-white/5 dark:text-white">
+                      <SelectTrigger className="h-9">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="rounded-xl">
-                        <SelectItem value="Slide">Slide</SelectItem>
-                        <SelectItem value="Infograph">Infograph</SelectItem>
+                      <SelectContent>
+                        {imageModels.map((model) => (
+                          <SelectItem key={model.value} value={model.value}>
+                            {model.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
 
-                  {contentType === "Infograph" && (
-                    <>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-slate-500 dark:text-white/60">
-                          Style
-                        </span>
-                        <Select
-                          value={imageStyle}
-                          onValueChange={(value) =>
-                            setImageStyle(value as ImageStyle)
-                          }
-                        >
-                          <SelectTrigger className="h-9 w-[140px] rounded-xl border-slate-200 bg-slate-50 text-xs font-semibold text-slate-900 shadow-none dark:border-white/10 dark:bg-white/5 dark:text-white">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="rounded-xl">
-                            {IMAGE_STYLES.map((style) => (
-                              <SelectItem key={style} value={style}>
-                                {style}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                  <div className="flex flex-col space-y-2 flex-1 min-w-35">
+                    <Label className="text-xs font-medium text-muted-foreground">
+                      Style
+                    </Label>
+                    <Select
+                      value={imageStyle}
+                      onValueChange={(value) =>
+                        setImageStyle(value as ImageStyle)
+                      }
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {IMAGE_STYLES.map((style) => (
+                          <SelectItem key={style} value={style}>
+                            {style}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-slate-500 dark:text-white/60">
-                          Text density
-                        </span>
-                        <Select
-                          value={textDensity}
-                          onValueChange={(value) =>
-                            setTextDensity(value as TextDensity)
-                          }
-                        >
-                          <SelectTrigger className="h-9 w-[160px] rounded-xl border-slate-200 bg-slate-50 text-xs font-semibold text-slate-900 shadow-none dark:border-white/10 dark:bg-white/5 dark:text-white">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="rounded-xl">
-                            {TEXT_DENSITIES.map((density) => (
-                              <SelectItem key={density} value={density}>
-                                {density}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </>
-                  )}
+                  <div className="flex flex-col space-y-2 flex-1 min-w-35">
+                    <Label className="text-xs font-medium text-muted-foreground">
+                      Text Density
+                    </Label>
+                    <Select
+                      value={textDensity}
+                      onValueChange={(value) =>
+                        setTextDensity(value as TextDensity)
+                      }
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TEXT_DENSITIES.map((density) => (
+                          <SelectItem key={density} value={density}>
+                            {density}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
+              )}
 
-                <textarea
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Describe what you want on this slide..."
-                  rows={3}
-                  className="mt-4 w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 shadow-xs focus:border-slate-300 focus:outline-hidden focus:ring-0 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/40 dark:focus:border-white/30"
-                />
-              </div>
+              <Textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="E.g., A comparison between Q1 and Q2 marketing strategies..."
+                rows={4}
+                className="resize-none focus-visible:ring-1"
+              />
 
-              <div className="flex items-center gap-3">
-                <motion.button
-                  type="submit"
-                  disabled={!prompt.trim()}
-                  className="flex items-center gap-2 rounded-xl border border-slate-900 bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
-                  whileHover={{ scale: 1.02, y: -1 }}
-                  whileTap={{ scale: 0.98 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Generate
-                </motion.button>
-
-                <motion.button
-                  type="button"
-                  onClick={handleCancel}
-                  className="flex items-center gap-2 rounded-xl border border-slate-200 bg-transparent px-4 py-2.5 text-sm font-medium text-slate-600 transition-all hover:border-slate-300 hover:text-slate-900 dark:border-white/10 dark:text-white/60 dark:hover:border-white/20 dark:hover:text-white/80"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                >
-                  <X className="h-4 w-4" />
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <Button type="button" variant="ghost" onClick={handleCancel}>
+                  <X className="mr-2 h-4 w-4" />
                   Cancel
-                </motion.button>
+                </Button>
+                <Button type="submit" disabled={!prompt.trim()}>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Generate
+                </Button>
               </div>
-            </form>
-          </>
-        )}
-
-        {/* Loading state - shown until generation is fully complete */}
-        {isGeneratingThisSlide && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex items-center gap-3"
-          >
-            <Loader2 className="h-5 w-5 animate-spin text-slate-500 dark:text-white/50" />
-            <span className="text-sm text-slate-500 dark:text-white/50">
-              Generating slide...
-            </span>
-            <motion.button
-              type="button"
-              onClick={handleCancel}
-              className="ml-2 text-sm text-slate-400 hover:text-slate-600 dark:text-white/40 dark:hover:text-white/60"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              Cancel
-            </motion.button>
-          </motion.div>
+            </div>
+          </form>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-12 px-4 rounded-xl border border-border/50 bg-muted/20 backdrop-blur-sm">
+            <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
+            <h3 className="font-medium text-lg mb-2">
+              Generating your slide...
+            </h3>
+            <p className="text-sm text-muted-foreground text-center max-w-sm mb-6">
+              AI is currently designing the layout, writing the content, and
+              sourcing the perfect images.
+            </p>
+            <Button variant="outline" onClick={handleCancel}>
+              <X className="mr-2 h-4 w-4" />
+              Cancel Generation
+            </Button>
+          </div>
         )}
       </motion.div>
     </div>

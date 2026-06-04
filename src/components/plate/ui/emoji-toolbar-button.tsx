@@ -1,20 +1,17 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: This use requires any */
 "use client";
 
-import * as React from "react";
-
 import { type Emoji } from "@emoji-mart/data";
-
 import {
+  EmojiSettings,
   type EmojiCategoryList,
   type EmojiIconList,
   type GridRow,
-  EmojiSettings,
 } from "@platejs/emoji";
 import {
+  useEmojiDropdownMenuState,
   type EmojiDropdownMenuOptions,
   type UseEmojiPickerType,
-  useEmojiDropdownMenuState,
 } from "@platejs/emoji/react";
 import * as Popover from "@radix-ui/react-popover";
 import {
@@ -30,6 +27,7 @@ import {
   StarIcon,
   XIcon,
 } from "lucide-react";
+import * as React from "react";
 
 import { Button } from "@/components/plate/ui/button";
 import { ToolbarButton } from "@/components/plate/ui/toolbar";

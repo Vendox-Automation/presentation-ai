@@ -1,5 +1,6 @@
 import { type TElement } from "platejs";
 import { createTPlatePlugin } from "platejs/react";
+
 import FlexBox from "../custom-elements/flex-box";
 import { FLEX_BOX } from "../lib";
 

@@ -1,7 +1,8 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import { PlateElement, type StyledPlateElementProps } from "platejs/react";
+
+import { cn } from "@/lib/utils";
 
 export const PresentationElement = ({
   children,
@@ -13,7 +14,7 @@ export const PresentationElement = ({
     <PlateElement
       ref={ref}
       className={cn(
-        "relative transition-all duration-300 select-text!",
+        "slate-selectable relative transition-all duration-300 select-text!",
         className,
       )}
       {...props}

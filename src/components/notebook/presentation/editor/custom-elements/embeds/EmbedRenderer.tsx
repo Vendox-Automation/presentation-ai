@@ -1,13 +1,15 @@
 "use client";
 
+import Image from "next/image";
+import { useState } from "react";
+import LiteYouTubeEmbed from "react-lite-youtube-embed";
+
 import {
   extractYouTubeVideoId,
   generateEmbedUrl,
   getEmbedConfig,
 } from "@/components/plate/ui/media-embeds";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
-import LiteYouTubeEmbed from "react-lite-youtube-embed";
 
 interface EmbedRendererProps {
   embedType: string;
@@ -71,11 +73,13 @@ export function EmbedRenderer({
     );
   }
 
-  if (embedType === "image") {
+  if (embedType === "image" || embedType === "infographic") {
     const embedUrl = generateEmbedUrl(url, embedType);
     return (
-      // biome-ignore lint/performance/noImgElement: This is necessary to support image embeds
-      <img
+      <Image
+        unoptimized
+        width={400}
+        height={300}
         src={embedUrl}
         alt={config.name}
         className={cn("h-full w-full object-contain", className)}
@@ -113,10 +117,10 @@ export function EmbedRenderer({
           wrapperClass={cn(
             "absolute! inset-0! h-full! w-full!",
             "cursor-pointer bg-black bg-cover bg-center",
-            "[&.lyt-activated]:before:absolute [&.lyt-activated]:before:top-0 [&.lyt-activated]:before:h-[60px] [&.lyt-activated]:before:w-full [&.lyt-activated]:before:bg-top [&.lyt-activated]:before:bg-repeat-x [&.lyt-activated]:before:pb-[50px] [&.lyt-activated]:before:[transition:all_0.2s_cubic-bezier(0,0,0.2,1)]",
+            "[&.lyt-activated]:before:absolute [&.lyt-activated]:before:top-0 [&.lyt-activated]:before:h-15 [&.lyt-activated]:before:w-full [&.lyt-activated]:before:bg-top [&.lyt-activated]:before:bg-repeat-x [&.lyt-activated]:before:pb-12.5 [&.lyt-activated]:before:[transition:all_0.2s_cubic-bezier(0,0,0.2,1)]",
             "[&.lyt-activated]:before:bg-[url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAADGCAYAAAAT+OqFAAAAdklEQVQoz42QQQ7AIAgEF/T/D+kbq/RWAlnQyyazA4aoAB4FsBSA/bFjuF1EOL7VbrIrBuusmrt4ZZORfb6ehbWdnRHEIiITaEUKa5EJqUakRSaEYBJSCY2dEstQY7AuxahwXFrvZmWl2rh4JZ07z9dLtesfNj5q0FU3A5ObbwAAAABJRU5ErkJggg==)]",
             "[&_>_iframe]:absolute [&_>_iframe]:top-0 [&_>_iframe]:left-0 [&_>_iframe]:size-full",
-            "[&_>_.lty-playbtn]:z-1 [&_>_.lty-playbtn]:h-[46px] [&_>_.lty-playbtn]:w-[70px] [&_>_.lty-playbtn]:rounded-[14%] [&_>_.lty-playbtn]:bg-[#212121] [&_>_.lty-playbtn]:opacity-80 [&_>_.lty-playbtn]:[transition:all_0.2s_cubic-bezier(0,0,0.2,1)]",
+            "[&_>_.lty-playbtn]:z-1 [&_>_.lty-playbtn]:h-11.5 [&_>_.lty-playbtn]:w-17.5 [&_>_.lty-playbtn]:rounded-[14%] [&_>_.lty-playbtn]:bg-[#212121] [&_>_.lty-playbtn]:opacity-80 [&_>_.lty-playbtn]:[transition:all_0.2s_cubic-bezier(0,0,0.2,1)]",
             "[&:hover_>_.lty-playbtn]:bg-[red] [&:hover_>_.lty-playbtn]:opacity-100",
             '[&_>_.lty-playbtn]:before:border-y-11 [&_>_.lty-playbtn]:before:border-r-0 [&_>_.lty-playbtn]:before:border-l-19 [&_>_.lty-playbtn]:before:border-[transparent_transparent_transparent_#fff] [&_>_.lty-playbtn]:before:content-[""]',
             "[&_>_.lty-playbtn]:absolute [&_>_.lty-playbtn]:top-1/2 [&_>_.lty-playbtn]:left-1/2 [&_>_.lty-playbtn]:transform-[translate3d(-50%,-50%,0)]",
@@ -140,6 +144,7 @@ export function EmbedRenderer({
       style={style}
       allowFullScreen
       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+      sandbox="allow-forms allow-scripts allow-popups allow-popups-to-escape-sandbox allow-presentation"
       onError={handleError}
       title={`${config.name} embed`}
     />

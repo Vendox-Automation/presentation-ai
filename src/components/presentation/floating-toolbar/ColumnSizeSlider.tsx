@@ -29,7 +29,7 @@ export function ColumnSizeSlider() {
       <Tooltip>
         <TooltipTrigger asChild>
           <div className="flex items-center gap-2 px-2">
-            <Columns3 className="h-4 w-4 text-muted-foreground" />
+            <Columns3 className="size-4 text-muted-foreground" />
             <Slider
               value={[
                 columnSizeOptions.indexOf(currentColumnSize) !== -1

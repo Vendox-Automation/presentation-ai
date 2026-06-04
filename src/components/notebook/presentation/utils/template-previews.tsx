@@ -350,7 +350,7 @@ export function LineChartPreview() {
   );
 }
 
-export function OriginalCircleStatsPreview() {
+function _OriginalCircleStatsPreview() {
   return (
     <div className="flex h-full w-full flex-col items-center justify-center space-y-2 p-3">
       <div className="flex justify-center gap-2">
@@ -376,7 +376,7 @@ export function OriginalCircleStatsPreview() {
   );
 }
 
-export function TimelinePreview() {
+function _TimelinePreview() {
   return (
     <div className="h-full w-full space-y-1 p-3">
       <div className="h-2 w-full rounded bg-muted-foreground/20" />
@@ -390,7 +390,7 @@ export function TimelinePreview() {
   );
 }
 
-export function FourColumnsPreview() {
+function _FourColumnsPreview() {
   return (
     <div className="h-full w-full space-y-2 p-3">
       <div className="h-2 w-full rounded bg-muted-foreground/20" />
@@ -410,7 +410,7 @@ export function FourColumnsPreview() {
   );
 }
 
-export function ThreeImageColumnsPreview() {
+function _ThreeImageColumnsPreview() {
   return (
     <div className="h-full w-full space-y-2 p-3">
       <div className="grid grid-cols-3 gap-1">
@@ -442,11 +442,11 @@ export function ThreeImageColumnsPreview() {
   );
 }
 
-export function BlankCardPreview() {
+function _BlankCardPreview() {
   return <div className="h-full w-full" />;
 }
 
-export function TwoColumnWithHeaderPreview() {
+function _TwoColumnWithHeaderPreview() {
   return (
     <div className="h-full w-full space-y-1 p-3">
       <div className="h-2 w-full rounded bg-muted-foreground/20" />
@@ -464,7 +464,7 @@ export function TwoColumnWithHeaderPreview() {
   );
 }
 
-export function ThreeColumnsPreview() {
+function _ThreeColumnsPreview() {
   return (
     <div className="h-full w-full p-3">
       <div className="grid grid-cols-3 gap-1">
@@ -488,7 +488,7 @@ export function ThreeColumnsPreview() {
   );
 }
 
-export function ThreeColumnWithHeaderPreview() {
+function _ThreeColumnWithHeaderPreview() {
   return (
     <div className="h-full w-full space-y-1 p-3">
       <div className="h-2 w-full rounded bg-muted-foreground/20" />
@@ -510,7 +510,7 @@ export function ThreeColumnWithHeaderPreview() {
   );
 }
 
-export function TitleWithBulletsPreview() {
+function _TitleWithBulletsPreview() {
   return (
     <div className="h-full w-full space-y-1 p-3">
       <div className="h-2 w-3/4 rounded bg-muted-foreground/20" />
@@ -532,7 +532,7 @@ export function TitleWithBulletsPreview() {
   );
 }
 
-export function TitleWithBulletsAndImagePreview() {
+function _TitleWithBulletsAndImagePreview() {
   return (
     <div className="h-full w-full space-y-1 p-3">
       <div className="h-2 w-3/4 rounded bg-muted-foreground/20" />
@@ -626,7 +626,7 @@ export function ArrowBulletsPreview() {
   );
 }
 
-export function ProcessStepsPreview() {
+function _ProcessStepsPreview() {
   return (
     <div className="grid h-full w-full place-items-center space-y-1.5 p-3">
       <div className="w-full space-y-1.5">
@@ -643,7 +643,7 @@ export function ProcessStepsPreview() {
   );
 }
 
-export function SolidBoxSmallBulletsPreview() {
+function _SolidBoxSmallBulletsPreview() {
   return (
     <div className="grid h-full w-full place-items-center space-y-1 p-3">
       <div className="w-full space-y-1">
@@ -795,7 +795,7 @@ export function TeamPhotosPreview() {
   );
 }
 
-export function TimelineCollectionPreview() {
+function _TimelineCollectionPreview() {
   return (
     <div className="grid h-full w-full place-items-center space-y-2 p-3">
       <div className="w-full space-y-2">
@@ -819,7 +819,7 @@ export function TimelineCollectionPreview() {
   );
 }
 
-export function LargeBulletListPreview() {
+function _LargeBulletListPreview() {
   return (
     <div className="grid h-full w-full place-items-center space-y-1 p-3">
       <div className="w-full space-y-1">
@@ -837,7 +837,7 @@ export function LargeBulletListPreview() {
   );
 }
 
-export function IconsWithTextPreview() {
+function _IconsWithTextPreview() {
   return (
     <div className="grid h-full w-full place-items-center p-3">
       <div className="grid w-full grid-cols-4 gap-2">
@@ -853,7 +853,7 @@ export function IconsWithTextPreview() {
   );
 }
 
-export function SmallIconsWithTextPreview() {
+function _SmallIconsWithTextPreview() {
   return (
     <div className="grid h-full w-full place-items-center p-3">
       <div className="grid w-full grid-cols-4 gap-2">
@@ -877,7 +877,7 @@ export function TimelineSequencePreview() {
           {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className="h-3 w-3 rounded-full border-2 border-background bg-muted-foreground shadow-sm"
+              className="h-3 w-3 rounded-full border-2 border-background bg-muted-foreground shadow"
             />
           ))}
         </div>
@@ -921,7 +921,7 @@ export function MinimalTimelineWithBoxesPreview() {
   );
 }
 
-export function ArrowsSequencePreview() {
+function _ArrowsSequencePreview() {
   return (
     <div className="flex h-full w-full items-center justify-center p-4">
       <div className="flex w-full items-center justify-center gap-1">
@@ -961,7 +961,7 @@ export function SlantedLabelsPreview() {
   );
 }
 
-export function ArrowsPreview() {
+function _ArrowsPreview() {
   return (
     <div className="grid h-full w-full place-items-center space-y-2 p-3">
       <div className="w-full space-y-2">
@@ -984,7 +984,7 @@ export function ArrowsPreview() {
   );
 }
 
-export function FunnelWithTextPreview() {
+function _FunnelWithTextPreview() {
   return (
     <div className="grid h-full w-full place-items-center p-3">
       <div className="flex w-full gap-2">
@@ -1003,7 +1003,7 @@ export function FunnelWithTextPreview() {
   );
 }
 
-export function SteppedPyramidPreview() {
+function _SteppedPyramidPreview() {
   return (
     <div className="grid h-full w-full place-items-center p-3">
       <div className="flex w-full gap-2">
@@ -1035,7 +1035,7 @@ export function PyramidOutsideTextPreview() {
   );
 }
 
-export function LeftSteppedPyramidPreview() {
+function _LeftSteppedPyramidPreview() {
   return (
     <div className="grid h-full w-full place-items-center p-3">
       <div className="flex w-full gap-2">
@@ -1053,7 +1053,7 @@ export function LeftSteppedPyramidPreview() {
   );
 }
 
-export function ColumnChartPreview() {
+function _ColumnChartPreview() {
   return (
     <div className="grid h-full w-full place-items-center space-y-2 p-3">
       <div className="w-full space-y-2">
@@ -1130,7 +1130,7 @@ export function DonutChartPreview() {
   );
 }
 
-export function BigNumbersPreview() {
+function _BigNumbersPreview() {
   return (
     <div className="flex h-full w-full flex-col items-center justify-center space-y-2 p-3">
       <div className="h-2 w-full rounded bg-muted-foreground/20" />
@@ -1187,7 +1187,7 @@ export function ThreeRowTablePreview() {
   );
 }
 
-export function YouTubeVideoPreview() {
+function _YouTubeVideoPreview() {
   return (
     <div className="grid h-full w-full place-items-center space-y-2 p-3">
       <div className="w-full space-y-2">
@@ -1206,7 +1206,7 @@ export function YouTubeVideoPreview() {
   );
 }
 
-export function WebpageEmbedPreview() {
+function _WebpageEmbedPreview() {
   return (
     <div className="grid h-full w-full place-items-center space-y-2 p-3">
       <div className="w-full space-y-2">
@@ -1227,7 +1227,7 @@ export function WebpageEmbedPreview() {
   );
 }
 
-export function AccordionPreview() {
+function _AccordionPreview() {
   return (
     <div className="grid h-full w-full place-items-center space-y-1 p-3">
       <div className="w-full space-y-1">
@@ -1245,7 +1245,7 @@ export function AccordionPreview() {
   );
 }
 
-export function TabsPreview() {
+function _TabsPreview() {
   return (
     <div className="grid h-full w-full place-items-center space-y-1 p-3">
       <div className="w-full space-y-1">
@@ -1264,7 +1264,7 @@ export function TabsPreview() {
   );
 }
 
-export function QuoteCardPreview() {
+function _QuoteCardPreview() {
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-4">
       <div className="text-2xl text-muted-foreground/20">"</div>
@@ -1281,7 +1281,7 @@ export function QuoteCardPreview() {
   );
 }
 
-export function ProfileCardPreview() {
+function _ProfileCardPreview() {
   return (
     <div className="flex h-full w-full flex-col items-center gap-2 p-4">
       <div className="h-12 w-12 rounded-full bg-muted" />
@@ -1300,7 +1300,7 @@ export function ProfileCardPreview() {
   );
 }
 
-export function PricingCardPreview() {
+function _PricingCardPreview() {
   return (
     <div className="flex h-full w-full flex-col gap-2 p-4">
       <div className="h-2 w-16 rounded bg-muted" />
@@ -1327,7 +1327,7 @@ export function PricingCardPreview() {
   );
 }
 
-export function FeatureHighlightPreview() {
+function _FeatureHighlightPreview() {
   return (
     <div className="flex h-full w-full flex-col gap-2 p-4">
       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted-foreground/20">
@@ -1344,7 +1344,7 @@ export function FeatureHighlightPreview() {
   );
 }
 
-export function CountdownPreview() {
+function _CountdownPreview() {
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-4">
       <div className="h-2 w-20 rounded bg-muted" />
@@ -1367,7 +1367,7 @@ export function CountdownPreview() {
   );
 }
 
-export function SocialProofPreview() {
+function _SocialProofPreview() {
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-4">
       <div className="flex -space-x-2">
@@ -1390,7 +1390,7 @@ export function SocialProofPreview() {
   );
 }
 
-export function CTACardPreview() {
+function _CTACardPreview() {
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-4">
       <div className="h-10 w-10 rounded-full bg-muted-foreground/20" />
@@ -1404,7 +1404,7 @@ export function CTACardPreview() {
   );
 }
 
-export function ComparisonPreview() {
+function _ComparisonPreview() {
   return (
     <div className="flex h-full w-full gap-2 p-4">
       <div className="flex flex-1 flex-col gap-2">
@@ -1430,7 +1430,7 @@ export function ComparisonPreview() {
   );
 }
 
-export function KPICardPreview() {
+function _KPICardPreview() {
   return (
     <div className="flex h-full w-full flex-col gap-2 p-4">
       <div className="flex items-center justify-between">
@@ -1459,7 +1459,7 @@ export function KPICardPreview() {
   );
 }
 
-export function BadgeCardPreview() {
+function _BadgeCardPreview() {
   return (
     <div className="flex h-full w-full flex-col gap-2 p-4">
       <div className="h-4 w-12 rounded-full bg-muted-foreground/20" />
@@ -1473,7 +1473,7 @@ export function BadgeCardPreview() {
   );
 }
 
-export function StackedBoxesPreview() {
+function _StackedBoxesPreview() {
   return (
     <div className="h-full w-full p-3">
       <div className="space-y-1">
@@ -1485,7 +1485,7 @@ export function StackedBoxesPreview() {
   );
 }
 
-export function ThreeTimelinesPreview() {
+function _ThreeTimelinesPreview() {
   return (
     <div className="grid h-full w-full place-items-center space-y-1 p-3">
       <div className="flex gap-1">
@@ -1514,58 +1514,126 @@ export function ThreeTimelinesPreview() {
 }
 
 export function CyclePreview() {
+  const cardWidths = ["w-11/12", "w-full", "w-full", "w-11/12"];
+
   return (
-    <div className="flex h-full w-full items-center justify-center p-4">
-      <svg width="60" height="60" viewBox="0 0 60 60" fill="none">
-        <circle
-          cx="30"
-          cy="30"
-          r="24"
-          stroke="currentColor"
-          strokeWidth="2"
-          className="text-muted-foreground/40"
-        />
-        <circle
-          cx="30"
-          cy="10"
-          r="4"
-          fill="currentColor"
-          className="text-muted-foreground/40"
-        />
-        <circle
-          cx="50"
-          cy="30"
-          r="4"
-          fill="currentColor"
-          className="text-muted-foreground/40"
-        />
-        <circle
-          cx="30"
-          cy="50"
-          r="4"
-          fill="currentColor"
-          className="text-muted-foreground/40"
-        />
-        <circle
-          cx="10"
-          cy="30"
-          r="4"
-          fill="currentColor"
-          className="text-muted-foreground/40"
-        />
-        <path
-          d="M 45 15 L 48 12 L 51 15"
-          stroke="currentColor"
-          strokeWidth="2"
-          className="text-muted-foreground/40"
-          fill="none"
-        />
-      </svg>
+    <div className="grid h-full w-full grid-cols-[minmax(0,1fr)_4rem_minmax(0,1fr)] items-center gap-1.5 p-2">
+      <div className="flex flex-col gap-2">
+        {cardWidths.slice(0, 2).map((widthClass, index) => (
+          <div
+            key={`left-${index}`}
+            className="flex h-8 flex-col items-end justify-center gap-1 rounded bg-background px-1.5 shadow-sm ring-1 ring-border"
+          >
+            <div
+              className={`${widthClass} h-1.5 rounded bg-muted-foreground/35`}
+            />
+            <div className="h-1 w-9/12 rounded bg-muted-foreground/20" />
+          </div>
+        ))}
+      </div>
+
+      <div className="relative grid aspect-square w-full place-items-center">
+        <svg
+          viewBox="0 0 100 100"
+          className="h-full w-full text-muted-foreground/55"
+          aria-hidden="true"
+        >
+          <circle cx="50" cy="50" r="36" className="fill-current" />
+          <circle cx="50" cy="50" r="17" className="fill-background" />
+        </svg>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        {cardWidths.slice(2).map((widthClass, index) => (
+          <div
+            key={`right-${index}`}
+            className="flex h-8 flex-col justify-center gap-1 rounded bg-background px-1.5 shadow-sm ring-1 ring-border"
+          >
+            <div
+              className={`${widthClass} h-1.5 rounded bg-muted-foreground/35`}
+            />
+            <div className="h-1 w-9/12 rounded bg-muted-foreground/20" />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
-export function FlowerPreview() {
+export function LabeledBoxesPreview() {
+  return (
+    <div className="grid h-full w-full grid-cols-3 gap-2 p-4">
+      {[0, 1, 2].map((item) => (
+        <div
+          key={item}
+          className="h-14 overflow-hidden rounded border border-primary/60"
+        >
+          <div className="h-4 bg-primary/60" />
+          <div className="space-y-1 p-2">
+            <div className="h-1.5 rounded bg-muted-foreground/30" />
+            <div className="h-1 rounded bg-muted" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function AlternatingBoxesPreview() {
+  return (
+    <div className="grid h-full w-full grid-cols-2 gap-x-2 gap-y-1 p-4">
+      <div className="h-8 rounded bg-primary/60" />
+      <div />
+      <div />
+      <div className="h-8 rounded bg-primary/60" />
+      <div className="h-8 rounded bg-primary/60" />
+    </div>
+  );
+}
+
+export function SideLineTextPreview() {
+  return (
+    <div className="grid h-full w-full place-items-center gap-1 p-3">
+      {[0, 1, 2].map((item) => (
+        <div
+          key={item}
+          className="h-6 w-full rounded border border-l-[1rem] border-primary/60"
+        />
+      ))}
+    </div>
+  );
+}
+
+export function TopLineTextPreview() {
+  return (
+    <div className="grid h-full w-full grid-cols-2 gap-2 p-4">
+      {[0, 1, 2, 3].map((item) => (
+        <div
+          key={item}
+          className="aspect-square rounded border border-t-[0.8rem] border-primary/60"
+        />
+      ))}
+    </div>
+  );
+}
+
+export function TopCircleBoxesPreview() {
+  return (
+    <div className="grid h-full w-full grid-cols-3 gap-2 p-4">
+      {[0, 1, 2].map((item) => (
+        <div
+          key={item}
+          className="relative h-12 rounded border border-primary/60"
+        >
+          <div className="absolute top-2 left-0 h-px w-full bg-primary/60" />
+          <div className="absolute top-0 left-1/2 size-4 -translate-x-1/2 rounded-full border border-primary/60 bg-background" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function _FlowerPreview() {
   return (
     <div className="flex h-full w-full items-center justify-center p-4">
       <svg width="60" height="60" viewBox="0 0 60 60" fill="none">
@@ -1645,7 +1713,7 @@ export function FlowerPreview() {
   );
 }
 
-export function CirclePreview() {
+function _CirclePreview() {
   return (
     <div className="flex h-full w-full items-center justify-center p-4">
       <svg width="60" height="60" viewBox="0 0 60 60" fill="none">
@@ -1677,7 +1745,7 @@ export function CirclePreview() {
   );
 }
 
-export function RingPreview() {
+function _RingPreview() {
   return (
     <div className="flex h-full w-full items-center justify-center p-4">
       <svg width="60" height="60" viewBox="0 0 60 60" fill="none">
@@ -1736,7 +1804,7 @@ export function RingPreview() {
   );
 }
 
-export function SemiCirclePreview() {
+function _SemiCirclePreview() {
   return (
     <div className="flex h-full w-full items-center justify-center p-4">
       <svg width="60" height="60" viewBox="0 0 60 60" fill="none">
@@ -1834,21 +1902,21 @@ export function ArrowListPreview() {
     <div className="flex h-full w-full items-center justify-center p-4">
       <div className="flex w-full items-center justify-center gap-2">
         {/* Arrow shape 1 */}
-        <svg viewBox="0 0 50 24" className="h-8 max-w-[50px] flex-1">
+        <svg viewBox="0 0 50 24" className="h-8 max-w-12.5 flex-1">
           <path
             d="M0,0 L38,0 L50,12 L38,24 L0,24 Z"
             className="fill-muted-foreground/20"
           />
         </svg>
         {/* Arrow shape 2 */}
-        <svg viewBox="0 0 50 24" className="h-8 max-w-[50px] flex-1">
+        <svg viewBox="0 0 50 24" className="h-8 max-w-12.5 flex-1">
           <path
             d="M0,0 L38,0 L50,12 L38,24 L0,24 Z"
             className="fill-muted-foreground/20"
           />
         </svg>
         {/* Arrow shape 3 */}
-        <svg viewBox="0 0 50 24" className="h-8 max-w-[50px] flex-1">
+        <svg viewBox="0 0 50 24" className="h-8 max-w-12.5 flex-1">
           <path
             d="M0,0 L38,0 L50,12 L38,24 L0,24 Z"
             className="fill-muted-foreground/20"
@@ -1859,7 +1927,7 @@ export function ArrowListPreview() {
   );
 }
 
-export function StepsPreview() {
+function _StepsPreview() {
   return (
     <div className="flex h-full w-full items-center justify-center gap-2 p-3">
       <div className="flex flex-col items-center gap-1">
@@ -1890,7 +1958,7 @@ export function StepsPreview() {
   );
 }
 
-export function BoxStepsPreview() {
+function _BoxStepsPreview() {
   return (
     <div className="flex h-full w-full items-center justify-center gap-1.5 p-3">
       <div className="flex h-10 flex-1 items-center justify-center rounded border-2 border-muted-foreground/20">
@@ -1906,7 +1974,7 @@ export function BoxStepsPreview() {
   );
 }
 
-export function ArrowStepsPreview() {
+function _ArrowStepsPreview() {
   return (
     <div className="flex h-full w-full items-center justify-center gap-0.5 p-3">
       <div className="relative flex h-8 w-8 items-center justify-center bg-muted-foreground/20">
@@ -1924,7 +1992,7 @@ export function ArrowStepsPreview() {
   );
 }
 
-export function StepsWithIconsPreview() {
+function _StepsWithIconsPreview() {
   return (
     <div className="h-full w-full space-y-1.5 p-3">
       <div className="flex items-center gap-2">
@@ -1994,7 +2062,7 @@ export function CircleStatsPreview() {
   );
 }
 
-export function BarStatsFullPreview() {
+function _BarStatsFullPreview() {
   return (
     <div className="flex h-full w-full flex-col justify-center gap-2 p-3">
       <div className="space-y-1">
@@ -2169,7 +2237,7 @@ export function CircleStatsMiddleBoldPreview() {
   );
 }
 
-export function CircleStatsExternalBoldPreview() {
+function _CircleStatsExternalBoldPreview() {
   return (
     <div className="flex h-full w-full items-center justify-center p-3">
       <svg viewBox="0 0 32 32" className="h-14 w-14">
@@ -2207,7 +2275,7 @@ export function CircleStatsExternalBoldPreview() {
   );
 }
 
-export function QuoteWithMarksPreview() {
+function _QuoteWithMarksPreview() {
   return (
     <div className="flex h-full w-full items-center justify-center p-4">
       <div className="flex flex-col items-center gap-2">
@@ -2227,7 +2295,7 @@ export function QuoteWithMarksPreview() {
   );
 }
 
-export function TestimonialCardPreview() {
+function _TestimonialCardPreview() {
   return (
     <div className="flex h-full w-full flex-col gap-2 p-4">
       <div className="flex items-center gap-2">
@@ -2246,7 +2314,7 @@ export function TestimonialCardPreview() {
   );
 }
 
-export function SideBorderedQuotePreview() {
+function _SideBorderedQuotePreview() {
   return (
     <div className="flex h-full w-full items-center p-4">
       <div className="flex w-full items-start gap-2">
@@ -2264,7 +2332,7 @@ export function SideBorderedQuotePreview() {
   );
 }
 
-export function CenteredQuotePreview() {
+function _CenteredQuotePreview() {
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-4">
       <div className="h-0.5 w-8 rounded bg-muted-foreground/20" />
@@ -2284,7 +2352,7 @@ export function CenteredQuotePreview() {
   );
 }
 
-export function BulletsCollectionPreview() {
+function _BulletsCollectionPreview() {
   return (
     <div className="grid h-full w-full place-items-center space-y-1 p-3">
       {[1, 2, 3].map((i) => (
@@ -2297,7 +2365,7 @@ export function BulletsCollectionPreview() {
   );
 }
 
-export function IconsCollectionPreview() {
+function _IconsCollectionPreview() {
   return (
     <div className="flex h-full w-full items-center justify-center p-3">
       <div className="grid grid-cols-3 gap-1.5">
@@ -2902,7 +2970,7 @@ export function RadialColumnChartPreview() {
 export function RadialBarChartPreview() {
   return (
     <div className="grid h-full w-full place-items-center p-3">
-      <svg viewBox="0 0 60 60" className="h-full w-full max-w-[50px]">
+      <svg viewBox="0 0 60 60" className="h-full w-full max-w-12.5">
         {/* Background tracks */}
         <circle
           cx="30"
@@ -3613,6 +3681,99 @@ export function SimpleSideQuotePreview() {
         </div>
         <div className="mt-2 h-0.5 w-1/4 rounded bg-muted" />
       </div>
+    </div>
+  );
+}
+
+export function SlopeDiagramPreview() {
+  return (
+    <div className="grid h-full w-full grid-cols-4 items-end gap-[3%] overflow-hidden px-[8%] pt-[5%] pb-[8%]">
+      {[0, 1, 2, 3].map((item) => (
+        <div
+          key={item}
+          className="flex w-full flex-col items-center rounded-t-full bg-primary/70 px-[12%] pt-[14%]"
+          style={{ height: `${62 + item * 10}%` }}
+        >
+          <div className="mb-[18%] aspect-square w-[58%] rounded-full bg-background" />
+          <div className="h-[4%] w-[70%] rounded bg-background/60" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function ConnectedCirclesDiagramPreview() {
+  return (
+    <div className="grid h-full w-full grid-cols-2 place-items-center gap-0.5 overflow-hidden">
+      {[0, 1, 2, 3].map((item) => (
+        <div
+          key={item}
+          className={`grid size-12 place-items-center rounded-full bg-primary/70 ${
+            item === 0
+              ? "self-end justify-self-end"
+              : item === 1
+                ? "self-end justify-self-start"
+                : item === 2
+                  ? "self-start justify-self-end"
+                  : "self-start justify-self-start"
+          }`}
+        >
+          <div className="h-1 w-7 rounded bg-background/70" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function CircularGridDiagramPreview() {
+  return (
+    <div className="relative h-full w-full p-4">
+      <div className="absolute top-1/2 left-1/2 grid size-12 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-primary/60">
+        <div className="h-1 w-7 rounded bg-background/70" />
+      </div>
+      {[0, 1, 2, 3, 4, 5].map((item) => {
+        const angle = (item / 6) * Math.PI * 2 - Math.PI / 2;
+        return (
+          <div
+            key={item}
+            className="absolute h-4 w-12 rounded bg-muted"
+            style={{
+              left: `calc(50% + ${Math.cos(angle) * 58}px)`,
+              top: `calc(50% + ${Math.sin(angle) * 42}px)`,
+              transform: "translate(-50%, -50%)",
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+export function SnakeDiagramPreview() {
+  return (
+    <div className="relative h-full w-full p-4">
+      <svg className="h-full w-full" viewBox="0 0 160 80" aria-hidden="true">
+        <path
+          d="M 10 40 Q 30 8 50 40 Q 70 72 90 40 Q 110 8 130 40 L 150 40"
+          fill="none"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeWidth="3"
+          className="text-primary"
+        />
+        <path
+          d="M 143 33 L 152 40 L 143 47"
+          fill="none"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="3"
+          className="text-primary"
+        />
+      </svg>
+      <div className="absolute top-6 left-8 h-1 w-9 rounded bg-muted-foreground/30" />
+      <div className="absolute bottom-7 left-17 h-1 w-9 rounded bg-muted-foreground/30" />
+      <div className="absolute top-6 right-10 h-1 w-9 rounded bg-muted-foreground/30" />
     </div>
   );
 }

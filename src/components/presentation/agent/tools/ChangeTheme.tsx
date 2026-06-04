@@ -1,5 +1,8 @@
 "use client";
 
+import { Loader2, Palette } from "lucide-react";
+import { useEffect, useState } from "react";
+
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -10,8 +13,6 @@ import {
 } from "@/components/ui/select";
 import { executeToolAction } from "@/hooks/presentation/agentTools";
 import { themes, type ThemeName } from "@/lib/presentation/themes";
-import { Loader2, Palette } from "lucide-react";
-import { useEffect, useState } from "react";
 
 type Themes = ThemeName;
 
@@ -30,17 +31,15 @@ export function PresentationChangeThemeCall({
   }, [theme]);
 
   const apply = () => {
-    if (!selected) {
-      return;
+    if (selected) {
+      executeToolAction({ action: "change_theme", theme: selected });
+      setIsEditing(false);
     }
-
-    executeToolAction({ action: "change_theme", theme: selected });
-    setIsEditing(false);
   };
 
   if (!theme || !themes?.[theme]?.name) {
     return (
-      <div className="w-full rounded-lg border bg-card p-3 shadow-2xs">
+      <div className="w-full rounded-lg border bg-card p-3 shadow">
         <div className="flex items-center gap-2">
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           <span className="text-sm text-muted-foreground">
@@ -53,7 +52,7 @@ export function PresentationChangeThemeCall({
 
   if (isEditing) {
     return (
-      <div className="rounded-lg border bg-card p-3 shadow-2xs">
+      <div className="rounded-lg border bg-card p-3 shadow">
         <div className="mb-3 flex items-center gap-2">
           <Palette className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-medium">Change Theme</span>
@@ -61,17 +60,18 @@ export function PresentationChangeThemeCall({
         <div className="flex gap-2">
           <Select
             value={selected}
-            onValueChange={(value) => setSelected(value as Themes)}
+            onValueChange={(v) => setSelected(v as Themes)}
           >
             <SelectTrigger className="flex-1">
               <SelectValue placeholder="Select theme" />
             </SelectTrigger>
             <SelectContent>
-              {Object.entries(themes).map(([key, value]) => (
-                <SelectItem key={key} value={key}>
-                  {value?.name ?? key}
-                </SelectItem>
-              ))}
+              {themes &&
+                Object.entries(themes).map(([key, value]) => (
+                  <SelectItem key={key} value={key}>
+                    {value?.name ?? key}
+                  </SelectItem>
+                ))}
             </SelectContent>
           </Select>
           <Button size="sm" onClick={apply} disabled={loading || !selected}>
@@ -88,14 +88,16 @@ export function PresentationChangeThemeCall({
   return (
     <button
       onClick={() => setIsEditing(true)}
-      className="group w-full rounded-lg border bg-card p-3 text-left shadow-2xs transition-colors hover:bg-accent/50"
+      className="group w-full rounded-lg border bg-card p-3 text-left shadow transition-colors hover:bg-accent/50"
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Palette className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm text-muted-foreground">Theme:</span>
           <span className="text-sm font-medium">
-            {selected ? themes?.[selected]?.name ?? selected : "None"}
+            {selected
+              ? (themes?.[selected as Themes]?.name ?? selected)
+              : "None"}
           </span>
         </div>
         <span className="text-xs text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">

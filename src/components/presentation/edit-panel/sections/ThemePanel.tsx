@@ -1,34 +1,38 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
+import { useSession } from "next-auth/react";
+import { useMemo } from "react";
+
 import {
-  getPublicCustomThemes,
+  getSystemPresentationThemes,
   getUserCustomThemes,
 } from "@/app/_actions/presentation/theme-actions";
 import { getUserFavoriteThemes } from "@/app/_actions/presentation/theme-favorite-actions";
+import { type CustomTheme } from "@/components/notebook/presentation/components/theme/types";
+import { PRESENTATION_AUTO_THEME_ID } from "@/lib/presentation/theme-resolution";
 import { themes as builtInThemes } from "@/lib/presentation/themes";
 import { usePresentationState } from "@/states/presentation-state";
-import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
 import { FontsSection } from "../../controls/global-settings/sections/FontsSection";
 import { ThemeFilter } from "./theme/Filter";
+import { useThemePanelState } from "./theme/theme-panel-state";
 import { ThemePanelHeader } from "./theme/ThemeHeader";
 import { ThemeSelector, type ThemeListItem } from "./theme/ThemeSelector";
 import { ThemeTabs } from "./theme/ThemeTabs";
-import { useThemePanelState } from "./theme/theme-panel-state";
-
-import { type CustomTheme } from "@/components/notebook/presentation/components/theme/types";
 
 export function ThemePanel() {
-  const { theme: activeTheme } = usePresentationState();
+  const { generatedThemeData, theme: activeTheme } = usePresentationState();
   const { tab, showFavorites, showFont } = useThemePanelState();
+  const { data: session } = useSession();
+  const canEditSystemThemes = session?.user?.isAdmin === true;
 
-  const publicThemesQuery = useQuery({
-    queryKey: ["presentation", "themes", "public"],
+  const systemThemesQuery = useQuery({
+    queryKey: ["presentation", "themes", "system"],
     queryFn: async () => {
-      const result = await getPublicCustomThemes();
+      const result = await getSystemPresentationThemes();
       return result.success ? (result.themes as CustomTheme[]) : [];
     },
-    enabled: tab === "public" || showFavorites,
+    enabled: tab === "standard",
   });
 
   const userThemesQuery = useQuery({
@@ -46,23 +50,60 @@ export function ThemePanel() {
       const result = await getUserFavoriteThemes();
       return result.success ? (result.themes as CustomTheme[]) : [];
     },
-    enabled: showFavorites || tab === "public",
+    enabled: showFavorites,
   });
 
-  const publicThemes = publicThemesQuery.data ?? [];
   const userThemes = userThemesQuery.data ?? [];
   const favoriteThemes = favoriteThemesQuery.data ?? [];
+  const systemThemes = systemThemesQuery.data ?? [];
 
-  const standardThemeItems = useMemo<ThemeListItem[]>(
-    () =>
-      Object.entries(builtInThemes).map(([key, value]) => ({
-        themeId: key,
-        theme: value,
-        canFavorite: false,
-        canLike: false,
-      })),
-    [],
-  );
+  const standardThemeItems = useMemo<ThemeListItem[]>(() => {
+    const systemThemesById = new Map(
+      systemThemes.map((item) => [item.id, item]),
+    );
+
+    const automaticThemeItem: ThemeListItem[] = generatedThemeData
+      ? [
+          {
+            themeId: PRESENTATION_AUTO_THEME_ID,
+            theme: {
+              ...generatedThemeData,
+              name: generatedThemeData.name || "Custom Theme",
+              description:
+                generatedThemeData.description ||
+                "Generated presentation theme",
+            },
+            canLike: false,
+            showFavoriteButton: false,
+          },
+        ]
+      : [];
+
+    const builtInThemeItems = Object.entries(builtInThemes).map(
+      ([key, value]) => {
+        const systemTheme = systemThemesById.get(key);
+        const themeData = systemTheme
+          ? {
+              ...value,
+              ...systemTheme.themeData,
+              name: systemTheme.name,
+              description: systemTheme.description ?? value.description,
+            }
+          : value;
+
+        return {
+          themeId: key,
+          theme: themeData,
+          canLike: false,
+          showFavoriteButton: false,
+          isAdminTheme: true,
+          canEditSystemTheme: canEditSystemThemes,
+        };
+      },
+    );
+
+    return [...automaticThemeItem, ...builtInThemeItems];
+  }, [canEditSystemThemes, generatedThemeData, systemThemes]);
 
   const userThemeItems = useMemo<ThemeListItem[]>(
     () =>
@@ -73,26 +114,11 @@ export function ThemePanel() {
         isFavorite: item.isFavorite ?? false,
         likeCount: item.likeCount ?? 0,
         isLiked: item.isLiked ?? false,
-        canFavorite: false,
         canLike: false,
+        showFavoriteButton: false,
         isUserTheme: true,
       })),
     [userThemes],
-  );
-
-  const publicThemeItems = useMemo<ThemeListItem[]>(
-    () =>
-      publicThemes.map((item) => ({
-        key: item.id,
-        themeId: item.id,
-        theme: { ...item.themeData, name: item.name },
-        isFavorite: item.isFavorite ?? false,
-        likeCount: item.likeCount ?? 0,
-        isLiked: item.isLiked ?? false,
-        canFavorite: true,
-        canLike: true,
-      })),
-    [publicThemes],
   );
 
   const favoriteThemeItems = useMemo<ThemeListItem[]>(
@@ -104,34 +130,25 @@ export function ThemePanel() {
         isFavorite: item.isFavorite ?? true,
         likeCount: item.likeCount ?? 0,
         isLiked: item.isLiked ?? false,
-        canFavorite: true,
-        canLike: true,
+        canLike: false,
+        showFavoriteButton: true,
+        isUserTheme: item.userId === session?.user?.id,
       })),
-    [favoriteThemes],
-  );
-
-  // Combine user themes and public themes for "More Themes" tab
-  const combinedThemeItems = useMemo<ThemeListItem[]>(
-    () => [...userThemeItems, ...publicThemeItems],
-    [userThemeItems, publicThemeItems],
+    [favoriteThemes, session?.user?.id],
   );
 
   let themesForSelector: ThemeListItem[] = [];
   if (showFavorites) {
     themesForSelector = favoriteThemeItems;
   } else if (tab === "public") {
-    themesForSelector = combinedThemeItems;
+    themesForSelector = userThemeItems;
   } else {
     themesForSelector = standardThemeItems;
   }
 
-  const isFavoritesLoading = showFavorites && favoriteThemesQuery.isPending;
-  const isPublicLoading =
-    !showFavorites &&
-    tab === "public" &&
-    (publicThemesQuery.isPending || userThemesQuery.isPending);
-
-  const isLoadingThemes = isFavoritesLoading || isPublicLoading;
+  const isLoadingThemes = showFavorites
+    ? favoriteThemesQuery.isPending
+    : tab === "public" && userThemesQuery.isPending;
 
   return (
     <div className="flex h-full flex-col gap-2 bg-background">
@@ -151,7 +168,9 @@ export function ThemePanel() {
           emptyMessage={
             showFavorites
               ? "You have not favorited any themes yet."
-              : "No themes available right now."
+              : tab === "public"
+                ? "You have not created any themes yet."
+                : "No themes available right now."
           }
         />
       )}

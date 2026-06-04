@@ -1,5 +1,7 @@
 "use client";
 
+import { ChevronDown, Copy, RotateCcw, Save } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import {
@@ -8,9 +10,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChevronDown, Copy, Save } from "lucide-react";
-import { CreateThemeStepper } from "./CreateThemeStepper";
 import { type CreateThemeStep } from "./create-theme-types";
+import { CreateThemeStepper } from "./CreateThemeStepper";
 
 interface CreateThemeFooterProps {
   currentStep: CreateThemeStep;
@@ -19,6 +20,7 @@ interface CreateThemeFooterProps {
   onContinue: () => void;
   onSave?: () => void;
   onSaveAndCreateNew?: () => void;
+  onResetCustomization?: () => void;
   isEditing?: boolean;
   isCustomizing?: boolean;
 }
@@ -30,12 +32,13 @@ export function CreateThemeFooter({
   onContinue,
   onSave,
   onSaveAndCreateNew,
+  onResetCustomization,
   isEditing = false,
   isCustomizing = false,
 }: CreateThemeFooterProps) {
-  // Determine if we should show the save split button
-  // Show it when customizing and NOT on the save step (save step is for creating new theme)
+  const showQuickSave = (isCustomizing || isEditing) && currentStep !== "save";
   const showSaveSplitButton = isCustomizing && currentStep !== "save";
+  const saveLabel = isEditing && !isCustomizing ? "Save Edits" : "Save";
 
   // Get the text for the continue/next button
   const getContinueButtonText = () => {
@@ -53,45 +56,62 @@ export function CreateThemeFooter({
       <CreateThemeStepper currentStep={currentStep} onStepClick={onStepClick} />
 
       <div className="flex items-center gap-2">
-        {/* Save split button when customizing (not on save step) */}
-        {showSaveSplitButton && (
-          <ButtonGroup>
+        {showQuickSave &&
+          (showSaveSplitButton ? (
+            <ButtonGroup>
+              <Button
+                type="button"
+                onClick={onSave}
+                disabled={isSubmitting}
+                className="flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700"
+              >
+                <Save className="size-4" />
+                {saveLabel}
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    disabled={isSubmitting}
+                    className="bg-blue-600 px-2 text-white hover:bg-blue-700"
+                    aria-label="More save options"
+                  >
+                    <ChevronDown className="size-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" sideOffset={4}>
+                  <DropdownMenuItem onClick={onSave} disabled={isSubmitting}>
+                    <Save className="mr-2 size-4" />
+                    Save
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={onSaveAndCreateNew}
+                    disabled={isSubmitting}
+                  >
+                    <Copy className="mr-2 size-4" />
+                    Save & Create New
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={onResetCustomization}
+                    disabled={isSubmitting || !onResetCustomization}
+                  >
+                    <RotateCcw className="mr-2 size-4" />
+                    Reset Customization
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </ButtonGroup>
+          ) : (
             <Button
               type="button"
               onClick={onSave}
               disabled={isSubmitting}
               className="flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700"
             >
-              <Save className="h-4 w-4" />
-              Save
+              <Save className="size-4" />
+              {saveLabel}
             </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  disabled={isSubmitting}
-                  className="bg-blue-600 px-2 text-white hover:bg-blue-700"
-                  aria-label="More save options"
-                >
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" sideOffset={4}>
-                <DropdownMenuItem onClick={onSave} disabled={isSubmitting}>
-                  <Save className="mr-2 h-4 w-4" />
-                  Save
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={onSaveAndCreateNew}
-                  disabled={isSubmitting}
-                >
-                  <Copy className="mr-2 h-4 w-4" />
-                  Save & Create New
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </ButtonGroup>
-        )}
+          ))}
 
         {/* Next/Continue button */}
         <Button
@@ -101,7 +121,7 @@ export function CreateThemeFooter({
           className="flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700"
         >
           {getContinueButtonText()}
-          <ChevronDown className="h-4 w-4 -rotate-90" />
+          <ChevronDown className="size-4 -rotate-90" />
         </Button>
       </div>
     </div>

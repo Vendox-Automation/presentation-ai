@@ -1,16 +1,12 @@
 "use client";
 
-import { type CreateThemeStep } from "@/components/notebook/presentation/components/theme/create-theme/create-theme-types";
-import { type ThemeFormValues } from "@/components/notebook/presentation/components/theme/types";
 import { useCallback, useState } from "react";
 import { type UseFormHandleSubmit } from "react-hook-form";
 
-export const STEP_ORDER: CreateThemeStep[] = [
-  "colors",
-  "fonts",
-  "design",
-  "save",
-];
+import { type CreateThemeStep } from "@/components/notebook/presentation/components/theme/create-theme/create-theme-types";
+import { type ThemeFormValues } from "@/components/notebook/presentation/components/theme/types";
+
+const STEP_ORDER: CreateThemeStep[] = ["colors", "fonts", "design", "save"];
 
 interface UseStepNavigationProps {
   onClose: () => void;

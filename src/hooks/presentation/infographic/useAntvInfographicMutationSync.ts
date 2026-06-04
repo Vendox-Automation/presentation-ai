@@ -1,8 +1,5 @@
 "use client";
 
-import { type TAntvInfographicElement } from "@/components/notebook/presentation/editor/plugins/antv-infographic-plugin";
-import { syncInfographicSyntaxWithData } from "@/components/notebook/presentation/editor/utils/infographic-utils";
-import { findInfographicEntryById } from "@/hooks/presentation/infographic/findInfographicNode";
 import {
   type Infographic,
   type InfographicOptions,
@@ -10,58 +7,57 @@ import {
 } from "@antv/infographic";
 import debounce from "lodash.debounce";
 import { type PlateEditor } from "platejs/react";
-import { useEffect, useMemo, type RefObject } from "react";
+import {
+  useEffect,
+  useMemo,
+  type MutableRefObject,
+  type RefObject,
+} from "react";
+
+import { type TAntvInfographicElement } from "@/components/notebook/presentation/editor/plugins/antv-infographic-plugin";
+import { syncInfographicSyntaxWithData } from "@/components/notebook/presentation/editor/utils/infographic-utils";
+import { findInfographicEntryById } from "@/hooks/presentation/infographic/findInfographicNode";
+import {
+  cloneSerializableOptions,
+  getSerializableOptionsKey,
+  pickSerializableOptions,
+  toSerializableOptionsFromParsed,
+} from "./infographic-options";
 
 type MutationSyncParams = {
   infographicRef: RefObject<Infographic | null>;
   editor: PlateEditor;
   elementRef: RefObject<TAntvInfographicElement>;
+  skipNextRenderRef?: MutableRefObject<boolean>;
   syntax: string;
-};
-
-const pickSerializableOptions = (
-  options: Partial<InfographicOptions>,
-): Partial<InfographicOptions> => {
-  const {
-    container: _container,
-    plugins: _plugins,
-    interactions: _interactions,
-    elements: _elements,
-    ...rest
-  } = options;
-  return rest;
-};
-
-const toSerializableOptionsFromParsed = (
-  parsed: Partial<ParsedInfographicOptions>,
-): Partial<InfographicOptions> => {
-  return {
-    template: parsed.template,
-    data: parsed.data,
-    theme: parsed.theme,
-    themeConfig: parsed.themeConfig,
-    width: parsed.width,
-    height: parsed.height,
-    padding: parsed.padding,
-    svg: parsed.svg,
-  };
 };
 
 export function useAntvInfographicMutationSync({
   infographicRef,
   editor,
   elementRef,
+  skipNextRenderRef,
   syntax,
 }: MutationSyncParams) {
   const debouncedSave = useMemo(
     () =>
       debounce((options: Partial<InfographicOptions>) => {
-        const stableData = structuredClone(options);
-        const elementId =
-          typeof elementRef.current.id === "string" ? elementRef.current.id : "";
-        const entry = findInfographicEntryById(editor, elementId);
-        const currentElement = entry?.[0];
-        const path = entry?.[1];
+        const stableData = cloneSerializableOptions(options);
+        let currentElement: TAntvInfographicElement | undefined;
+        let path: ReturnType<typeof editor.api.findPath>;
+
+        try {
+          path = editor.api.findPath(elementRef.current);
+          currentElement = elementRef.current;
+        } catch {
+          const elementId =
+            typeof elementRef.current.id === "string"
+              ? elementRef.current.id
+              : "";
+          const entry = findInfographicEntryById(editor, elementId);
+          currentElement = entry?.[0];
+          path = entry?.[1];
+        }
 
         if (!path || !currentElement) {
           return;
@@ -71,15 +67,30 @@ export function useAntvInfographicMutationSync({
           currentElement.syntax ?? "",
           stableData,
         );
+        const nextSyntax = syncedSyntax || currentElement.syntax;
+        const currentDataKey = getSerializableOptionsKey(currentElement.data);
+        const nextDataKey = getSerializableOptionsKey(stableData);
+
+        if (
+          currentDataKey === nextDataKey &&
+          nextSyntax === currentElement.syntax
+        ) {
+          return;
+        }
+
         const update: Partial<TAntvInfographicElement> = { data: stableData };
 
-        if (syncedSyntax && syncedSyntax !== currentElement.syntax) {
-          update.syntax = syncedSyntax;
+        if (nextSyntax !== currentElement.syntax) {
+          update.syntax = nextSyntax;
+        }
+
+        if (skipNextRenderRef) {
+          skipNextRenderRef.current = true;
         }
 
         editor.tf.setNodes(update, { at: path });
       }, 1000),
-    [editor, elementRef],
+    [editor, elementRef, skipNextRenderRef],
   );
 
   // Cancel any pending debounced save when syntax changes externally
@@ -89,7 +100,10 @@ export function useAntvInfographicMutationSync({
   }, [syntax, debouncedSave]);
 
   useEffect(() => {
-    return () => debouncedSave.cancel();
+    return () => {
+      debouncedSave.flush();
+      debouncedSave.cancel();
+    };
   }, [debouncedSave]);
 
   useEffect(() => {

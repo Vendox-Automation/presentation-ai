@@ -1,14 +1,6 @@
 import { type LayoutType } from "@/components/notebook/presentation/utils/parser";
 
 export type ContentAlignment = "start" | "center" | "end";
-
-export interface SlideEditorProps {
-  slideId: string;
-  dragListeners?: React.HTMLAttributes<HTMLElement>;
-  onDuplicate?: () => void;
-  onDelete?: () => void;
-}
-
 export const layoutMap: Record<number, LayoutType> = {
   0: "none",
   1: "vertical",

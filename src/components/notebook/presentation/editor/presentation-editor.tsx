@@ -3,20 +3,21 @@
 import { TooltipProvider } from "@/components/plate/ui/tooltip";
 import { loadCustomFonts } from "@/lib/presentation/loadCustomFont";
 import { usePresentationState } from "@/states/presentation-state";
+
 import "@/styles/presentation.css";
+
 import { type Value } from "platejs";
 import React, { useEffect, useRef } from "react";
-import {
-  EditablePlate,
-  PresentationRoot,
-  slideSignature,
-  useDebouncedOnChange,
-  useEditorFonts,
-  useHistoryGuard,
-  usePresentationEditorInstance,
-  useSlideFocus,
-} from ".";
+
 import { type PlateNode, type PlateSlide } from "../utils/parser";
+import { EditablePlate } from "./components/EditablePlate";
+import { PresentationRoot } from "./components/PresentationRoot";
+import { useDebouncedOnChange } from "./hooks/useDebouncedOnChange";
+import { useEditorFonts } from "./hooks/useEditorFonts";
+import { useHistoryGuard } from "./hooks/useHistoryGuard";
+import { usePresentationEditorInstance } from "./hooks/usePresentationEditorInstance";
+import { useSlideFocus } from "./hooks/useSlideFocus";
+import { slideSignature } from "./utils/slideSignature";
 
 interface PresentationEditorProps {
   initialContent?: PlateSlide;

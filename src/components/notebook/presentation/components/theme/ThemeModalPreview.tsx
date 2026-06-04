@@ -19,7 +19,7 @@ export function ThemeModalPreview({
   selectedThemeData,
 }: ThemeModalPreviewProps) {
   return (
-    <div className="hidden h-[calc(85vh)] w-[60%] flex-col overflow-y-auto bg-muted/30 lg:flex">
+    <div className="hidden h-full min-h-0 flex-col overflow-y-auto bg-muted/30 lg:flex lg:basis-[60%]">
       {/* Preview Header */}
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border p-4">
         <h2 className="text-lg font-semibold">Preview</h2>
@@ -31,6 +31,7 @@ export function ThemeModalPreview({
           <ThemeBackground
             themeDataOverride={selectedThemeData}
             suppressThemeUpdates={true}
+            ignorePageBackgroundOverride={true}
           >
             <div className="flex flex-col items-center gap-4 py-4">
               {testSlides.map((slide) => (

@@ -12,10 +12,12 @@ export interface ElementPosition {
   aspectRatio?: number;
   /** Which dimension to preserve when using aspectRatio: 'width' recalculates height, 'height' recalculates width */
   aspectRatioBase?: "width" | "height";
+  /** Center the resized aspect-ratio box within the original measured bounds */
+  centerAspectRatio?: boolean;
 }
 
 // Text styling extracted from DOM
-export interface TextStyles {
+interface TextStyles {
   fontFamily: string;
   fontSize: number; // in px
   fontWeight: string | number;
@@ -31,7 +33,7 @@ export interface TextStyles {
 }
 
 // Border styling
-export interface BorderStyles {
+interface BorderStyles {
   width: number;
   color: string;
   style: string;
@@ -40,7 +42,7 @@ export interface BorderStyles {
 
 // Element types we extract
 // Element types we extract
-export type ExportElementType =
+type ExportElementType =
   | "text"
   | "table"
   | "image"
@@ -100,7 +102,9 @@ export interface ImageExportElement extends BaseExportElement {
   type: "image";
   url: string;
   alt?: string;
+  imageSource?: "generate" | "search" | "gif" | "upload";
   sizing?: "contain" | "cover" | "fill";
+  stockImageProvider?: string;
 }
 
 // Decorative element with data-decor attribute
@@ -111,12 +115,21 @@ export interface DecorExportElement extends BaseExportElement {
   sizing: "contain" | "cover" | "fill";
 }
 
-// Native Shape element (for arrows, pills, parallelograms)
+export type NativeShapeType =
+  | "arrow"
+  | "pill"
+  | "parallelogram"
+  | "rect"
+  | "ellipse";
+
+// Native Shape element (for arrows, pills, parallelograms, and timeline marks)
 export interface ShapeExportElement extends BaseExportElement {
   type: "shape";
-  shapeType: "arrow" | "pill" | "parallelogram";
+  shapeType: NativeShapeType;
   orientation: "horizontal" | "vertical";
   fillColor: string;
+  textContent?: string;
+  textColor?: string;
 }
 
 // Background rectangle element (for component backgrounds like box-item, cycle-item)
@@ -143,6 +156,10 @@ export interface ScanResult {
   slideId: string;
   width: number; // px
   height: number; // px
+  /** Untransformed source slide width used for px-to-PPT font conversion */
+  sourceWidth: number;
+  /** Untransformed source slide height */
+  sourceHeight: number;
   elements: ExportElement[];
   // Resolved presentation styles
   styles: PresentationStyles;
@@ -194,39 +211,12 @@ export interface PresentationStyles {
   backgroundImageUrl?: string;
 }
 
-// Image element from PlateJS (not scanned from DOM)
-export interface PlateImageElement {
-  type: "img" | "image";
-  url: string;
-  width?: number;
-  height?: number;
-  align?: "left" | "center" | "right";
-}
-
 // Root image data
 export interface RootImageData {
   url: string; // Either original URL or base64 data URL
   position: ElementPosition;
   isBase64?: boolean; // True if url is base64 data (captured image)
   originalUrl?: string; // Original URL of the image (before capture)
+  imageSource?: "generate" | "search" | "gif" | "upload";
+  stockImageProvider?: string;
 }
-
-// Complete slide export data
-export interface SlideExportData {
-  slideId: string;
-  dimensions: { width: number; height: number };
-  styles: PresentationStyles;
-  elements: ExportElement[];
-  rootImage?: RootImageData;
-  // Images from PlateJS slide data (not DOM scanned)
-  plateImages: Array<{
-    url: string;
-    position: ElementPosition;
-    align?: "left" | "center" | "right";
-  }>;
-}
-
-// Constants for conversion
-export const PIXELS_PER_INCH = 96;
-export const DEFAULT_SLIDE_WIDTH_INCHES = 10;
-export const DEFAULT_SLIDE_HEIGHT_INCHES = 5.625; // 16:9 aspect ratio

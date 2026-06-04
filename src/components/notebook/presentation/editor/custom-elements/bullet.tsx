@@ -1,9 +1,10 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import { PlateElement, type PlateElementProps } from "platejs/react";
+
+import { cn } from "@/lib/utils";
 import { type TBulletGroupElement } from "../plugins/bullet-plugin";
-import { columnSizeVariant } from "../utils";
+import { columnSizeVariant, getDefaultColumnSize } from "../utils";
 
 export function BulletsElement({
   element,
@@ -12,13 +13,15 @@ export function BulletsElement({
   ref,
   ...props
 }: PlateElementProps<TBulletGroupElement>) {
-  const { columnSize, alignment = "center" } = element;
+  const { alignment = "center" } = element;
+  const columnSize =
+    element.columnSize ?? getDefaultColumnSize(element.children.length);
 
   return (
     <PlateElement
       ref={ref}
       element={element}
-      className={cn("my-6", className)}
+      className={cn("relative my-0", className)}
       {...props}
     >
       <div

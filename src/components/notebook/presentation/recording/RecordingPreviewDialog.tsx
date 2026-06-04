@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo, useRef } from "react";
+
 import { Button } from "@/components/ui/button";
 import {
   Credenza,
@@ -9,9 +11,8 @@ import {
   CredenzaTitle,
 } from "@/components/ui/credenza";
 import { usePresentationRecordingState } from "@/states/presentation-recording-state";
-import { useMemo, useRef } from "react";
 
-export function RecordingPreviewDialog() {
+function RecordingPreviewDialog() {
   const { blobUrl, setBlobUrl, reset } = usePresentationRecordingState();
   const open = Boolean(blobUrl);
   const url = blobUrl ?? undefined;

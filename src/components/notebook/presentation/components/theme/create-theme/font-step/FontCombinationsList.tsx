@@ -1,6 +1,7 @@
-import { fontPairs } from "@/components/presentation/controls/global-settings/sections/FontsSection";
-import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
+
+import { cn } from "@/lib/utils";
+import { fontPairs } from "../../../../../../presentation/controls/global-settings/sections/FontsSection";
 
 interface FontCombinationsListProps {
   currentHeading: string;
@@ -15,9 +16,9 @@ export function FontCombinationsList({
 }: FontCombinationsListProps) {
   return (
     <div className="space-y-3">
-      <label className="text-xs font-semibold text-muted-foreground uppercase">
+      <span className="text-xs font-semibold text-muted-foreground uppercase">
         Font Combinations
-      </label>
+      </span>
       <div className="space-y-2">
         {fontPairs.map((pair) => {
           const isSelected =
@@ -25,6 +26,7 @@ export function FontCombinationsList({
 
           return (
             <button
+              type="button"
               key={`${pair.heading}-${pair.body}`}
               className={cn(
                 "flex w-full items-center justify-between rounded-lg border p-3 text-left transition-all hover:bg-accent/50",
@@ -40,9 +42,7 @@ export function FontCombinationsList({
                 </div>
                 <div className="text-xs text-muted-foreground">{pair.body}</div>
               </div>
-              {isSelected && (
-                <Check className="h-4 w-4 shrink-0 text-primary" />
-              )}
+              {isSelected && <Check className="size-4 shrink-0 text-primary" />}
             </button>
           );
         })}

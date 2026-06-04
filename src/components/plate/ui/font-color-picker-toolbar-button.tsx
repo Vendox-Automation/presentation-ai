@@ -1,9 +1,9 @@
 "use client";
 
-import ColorPicker from "@/components/ui/color-picker";
 import { KEYS } from "platejs";
 import { useEditorRef, useEditorSelector } from "platejs/react";
 
+import ColorPicker from "@/components/ui/color-picker";
 import { ToolbarButton } from "./toolbar";
 
 export function FontColorPickerToolbarButton() {
@@ -26,7 +26,7 @@ export function FontColorPickerToolbarButton() {
     <ColorPicker value={color} onChange={handleColorChange}>
       <ToolbarButton tooltip="Font color">
         <div
-          className="h-5 w-5 rounded border border-border"
+          className="size-5 rounded border border-border"
           style={{ backgroundColor: color }}
         />
       </ToolbarButton>

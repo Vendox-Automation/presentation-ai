@@ -1,6 +1,7 @@
-import { cn } from "@/lib/utils";
 import { NodeApi, PathApi } from "platejs";
 import { SlateElement, type SlateElementProps } from "platejs/static";
+
+import { cn } from "@/lib/utils";
 import { type TSequenceArrowGroupElement } from "../../plugins/sequence-arrow-plugin";
 import { getAlignmentClasses } from "../../utils";
 
@@ -49,6 +50,7 @@ export function SequenceArrowItemStatic(props: SlateElementProps) {
 
       {!isLast && orientation === "vertical" && (
         <div
+          data-decor="true"
           className={cn("mx-auto h-0 w-0")}
           style={{
             borderLeft: "13px solid transparent",
@@ -61,6 +63,7 @@ export function SequenceArrowItemStatic(props: SlateElementProps) {
 
       {!isLast && orientation === "horizontal" && (
         <div
+          data-decor="true"
           className={cn("my-auto h-0 w-0")}
           style={{
             borderTop: "13px solid transparent",
@@ -73,5 +76,3 @@ export function SequenceArrowItemStatic(props: SlateElementProps) {
     </div>
   );
 }
-
-

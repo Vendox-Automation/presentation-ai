@@ -1,5 +1,6 @@
 // font-step/types.ts
 import { type Control, type UseFormSetValue } from "react-hook-form";
+
 import { type ThemeFormValues } from "../../types";
 
 export interface FontStepProps {
@@ -24,11 +25,4 @@ export interface LocalFont {
   cased: string;
   variants: string[];
   isLocal: boolean;
-}
-
-export interface FontPairSelection {
-  heading: string;
-  body: string;
-  headingUrl?: string;
-  bodyUrl?: string;
 }

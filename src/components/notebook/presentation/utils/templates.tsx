@@ -1,23 +1,28 @@
-﻿import {
+import {
   ArrowRight,
   BarChart3,
-  Circle as CircleIcon,
   CreditCard,
+  Flower,
+  GitCompare,
   Grid3x3,
   Hash,
   ImageIcon,
   List,
   ListOrdered,
   Quote,
+  Shapes,
   Square,
   Triangle,
 } from "lucide-react";
 import { nanoid } from "nanoid";
+
 import {
   AREA_CHART_ELEMENT,
   ARROW_LIST,
   ARROW_LIST_ITEM,
   BAR_CHART_ELEMENT,
+  BEFORE_AFTER_GROUP,
+  BEFORE_AFTER_SIDE,
   BOX_GROUP,
   BOX_ITEM,
   BOX_PLOT_CHART_ELEMENT,
@@ -25,23 +30,34 @@ import {
   BULLET_GROUP,
   BULLET_ITEM,
   CANDLESTICK_CHART_ELEMENT,
-  CHART_TYPES,
   CHORD_CHART_ELEMENT,
+  CIRCULAR_GRID_GROUP,
+  CIRCULAR_GRID_ITEM,
   COLUMN_GROUP,
   COLUMN_ITEM,
+  COMPARE_GROUP,
+  COMPARE_SIDE,
   COMPOSED_CHART_ELEMENT,
   CONE_FUNNEL_CHART_ELEMENT,
+  CONNECTED_CIRCLES_GROUP,
+  CONNECTED_CIRCLES_ITEM,
+  CONS_ITEM,
   CYCLE_GROUP,
   CYCLE_ITEM,
-  DEFAULT_CHART_DATA,
   FUNNEL_CHART_ELEMENT,
+  getDefaultChartDataForType,
   HEATMAP_CHART_ELEMENT,
   HISTOGRAM_CHART_ELEMENT,
+  ICON_LIST,
+  ICON_LIST_ITEM,
   LINE_CHART_ELEMENT,
   LINEAR_GAUGE_ELEMENT,
   NIGHTINGALE_CHART_ELEMENT,
   OHLC_CHART_ELEMENT,
   PIE_CHART_ELEMENT,
+  PRESENTATION_TITLE_ELEMENT,
+  PROS_CONS_GROUP,
+  PROS_ITEM,
   PYRAMID_CHART_ELEMENT,
   PYRAMID_GROUP,
   PYRAMID_ITEM,
@@ -56,10 +72,16 @@ import {
   SCATTER_CHART_ELEMENT,
   SEQUENCE_ARROW_GROUP,
   SEQUENCE_ARROW_ITEM,
+  SLOPE_GROUP,
+  SLOPE_ITEM,
+  SNAKE_GROUP,
+  SNAKE_ITEM,
   STAIR_ITEM,
   STAIRCASE_GROUP,
   STATS_GROUP,
   STATS_ITEM,
+  STEPS_GROUP,
+  STEPS_ITEM,
   SUNBURST_CHART_ELEMENT,
   TIMELINE_GROUP,
   TIMELINE_ITEM,
@@ -77,15 +99,42 @@ export interface TemplateCategory {
 
 export interface TemplateDefinition {
   id: string;
+  legacyIds?: string[];
   name: string;
   categoryId: string;
   preview: React.ReactNode;
   template: Omit<PlateSlide, "id">;
 }
 
+export function getTemplateSelectionIds(
+  template: TemplateDefinition,
+): string[] {
+  return [template.id, ...(template.legacyIds ?? [])];
+}
+
+export function isTemplateSelected(
+  selectedTemplateIds: readonly string[],
+  template: TemplateDefinition,
+): boolean {
+  const templateIds = new Set(getTemplateSelectionIds(template));
+
+  return selectedTemplateIds.some((templateId) => templateIds.has(templateId));
+}
+
+export function removeTemplateSelection(
+  selectedTemplateIds: readonly string[],
+  template: TemplateDefinition,
+): string[] {
+  const templateIds = new Set(getTemplateSelectionIds(template));
+
+  return selectedTemplateIds.filter(
+    (templateId) => !templateIds.has(templateId),
+  );
+}
+
 const createBaseContent = (
-  title: string = "Title",
-  desc: string = "Description",
+  title: string = "Main message",
+  desc: string = "One concise supporting sentence that explains the point.",
 ) => [
   { type: "h2", id: nanoid(), children: [{ text: title }] },
   {
@@ -94,6 +143,61 @@ const createBaseContent = (
     children: [{ text: desc }],
   },
 ];
+
+const createTitleDescriptionContent = (
+  title: string = "Title",
+  desc: string = "A short supporting description that explains the main point.",
+) => [
+  {
+    type: PRESENTATION_TITLE_ELEMENT,
+    id: nanoid(),
+    variant: "title",
+    children: [{ text: title }],
+  },
+  {
+    type: "p",
+    id: nanoid(),
+    children: [{ text: desc }],
+  },
+];
+
+const createTextImageColumnContent = ({
+  imageFirst,
+}: {
+  imageFirst: boolean;
+}) => {
+  const textColumn = {
+    type: COLUMN_ITEM,
+    id: nanoid(),
+    children: createTitleDescriptionContent(
+      "Title",
+      "Description text goes here.",
+    ),
+  };
+  const imageColumn = {
+    type: COLUMN_ITEM,
+    id: nanoid(),
+    children: [
+      {
+        type: "img",
+        query: "relevant topic visual",
+        id: nanoid(),
+        children: [{ text: "" }],
+      },
+    ],
+  };
+
+  return [
+    {
+      type: COLUMN_GROUP,
+      id: nanoid(),
+      layout: [1, 1],
+      children: imageFirst
+        ? [imageColumn, textColumn]
+        : [textColumn, imageColumn],
+    },
+  ];
+};
 
 const createListContent = ({
   type = "basic",
@@ -107,16 +211,31 @@ const createListContent = ({
     type: BULLET_GROUP,
     id: nanoid(),
     bulletType: type, // Default to basic
-    children: Array.from({ length: items }).map(() => ({
+    children: Array.from({ length: items }).map((_, index) => ({
       type: BULLET_ITEM,
       id: nanoid(),
-      children: [{ text: "List item" }],
+      children: createDiagramTextChildren(
+        `Point ${index + 1}`,
+        "Short evidence or implication.",
+      ),
     })),
   },
 ];
 
 const createBoxContent = (
-  variant: "solid" | "outline" | "icon" | "sideline" | "joined" | "leaf",
+  variant:
+    | "solid"
+    | "outline"
+    | "icon"
+    | "sideline"
+    | "side-label"
+    | "top-label"
+    | "top-circle"
+    | "joined"
+    | "joined-icon"
+    | "leaf"
+    | "labeled"
+    | "alternating",
   items: number = 4,
 ) => [
   { type: "h2", id: nanoid(), children: [{ text: "Box Layout" }] },
@@ -124,37 +243,25 @@ const createBoxContent = (
     type: BOX_GROUP,
     id: nanoid(),
     boxType: variant,
-    columnSize: "sm",
-    children: Array.from({ length: items }).map(() => ({
+    columnSize: "md",
+    children: Array.from({ length: items }).map((_, index) => ({
       type: BOX_ITEM,
       id: nanoid(),
-      children: [{ text: "Box Content" }],
+      icon: variant.includes("icon") ? "idea" : undefined,
+      children: createDiagramTextChildren(
+        `Card ${index + 1}`,
+        "Compact supporting detail.",
+      ),
     })),
   },
 ];
 const createChartContent = (type: string, title: string, variant?: string) => {
-  const isCoordinate = CHART_TYPES.COORDINATE_CHARTS.includes(
-    type as (typeof CHART_TYPES.COORDINATE_CHARTS)[number],
-  );
-  const isOHLC =
-    type === CANDLESTICK_CHART_ELEMENT || type === OHLC_CHART_ELEMENT;
-  const isBoxPlot = type === BOX_PLOT_CHART_ELEMENT;
-
-  // Determine the correct default data based on chart type
-  const data = isCoordinate
-    ? DEFAULT_CHART_DATA.scatter
-    : isOHLC
-      ? DEFAULT_CHART_DATA.ohlc
-      : isBoxPlot
-        ? DEFAULT_CHART_DATA.boxPlot
-        : DEFAULT_CHART_DATA.labelValue;
-
   return [
     { type: "h2", id: nanoid(), children: [{ text: title }] },
     {
       type,
       id: nanoid(),
-      data,
+      data: getDefaultChartDataForType(type),
       variant,
       children: [{ text: "" }], // Void element
     },
@@ -174,15 +281,102 @@ const createCycleContent = (items: number = 4) => [
   },
 ];
 
+const createDiagramTextChildren = (title: string, desc: string) => [
+  { type: "h3", id: nanoid(), children: [{ text: title }] },
+  { type: "p", id: nanoid(), children: [{ text: desc }] },
+];
+
+const createSlopeContent = () => [
+  { type: "h2", id: nanoid(), children: [{ text: "Growth Path" }] },
+  {
+    type: SLOPE_GROUP,
+    id: nanoid(),
+    children: ["Ideate", "Prototype", "Validate", "Scale"].map((title) => ({
+      type: SLOPE_ITEM,
+      id: nanoid(),
+      icon: "idea",
+      children: [{ type: "h4", id: nanoid(), children: [{ text: title }] }],
+    })),
+  },
+];
+
+const createConnectedCirclesContent = () => [
+  { type: "h2", id: nanoid(), children: [{ text: "Connected Priorities" }] },
+  {
+    type: CONNECTED_CIRCLES_GROUP,
+    id: nanoid(),
+    children: (
+      [
+        ["Plan", "Define goals and align stakeholders."],
+        ["Build", "Develop features while iterating."],
+        ["Validate", "Test assumptions and refine direction."],
+        ["Scale", "Expand reach while preserving quality."],
+      ] satisfies ReadonlyArray<readonly [string, string]>
+    ).map(([title, desc]) => ({
+      type: CONNECTED_CIRCLES_ITEM,
+      id: nanoid(),
+      children: createDiagramTextChildren(title, desc),
+    })),
+  },
+];
+
+const createCircularGridContent = () => [
+  { type: "h2", id: nanoid(), children: [{ text: "Smart Diagram" }] },
+  {
+    type: CIRCULAR_GRID_GROUP,
+    id: nanoid(),
+    centerText: "Smart Diagram",
+    children: (
+      [
+        ["Objective", "Define the main goal."],
+        ["Signals", "Capture the inputs that matter."],
+        ["Actions", "Translate insights into work."],
+        ["Metrics", "Track the change over time."],
+        ["Risks", "Surface assumptions early."],
+        ["Learning", "Feed results into the next cycle."],
+      ] satisfies ReadonlyArray<readonly [string, string]>
+    ).map(([title, desc]) => ({
+      type: CIRCULAR_GRID_ITEM,
+      id: nanoid(),
+      children: createDiagramTextChildren(title, desc),
+    })),
+  },
+];
+
+const createSnakeContent = () => [
+  { type: "h2", id: nanoid(), children: [{ text: "Delivery Flow" }] },
+  {
+    type: SNAKE_GROUP,
+    id: nanoid(),
+    children: (
+      [
+        ["Assess", "Evaluate needs and current state."],
+        ["Plan", "Define strategy and roadmap."],
+        ["Build", "Develop solutions and integrations."],
+        ["Validate", "Test, iterate, and refine."],
+        ["Scale", "Deploy broadly and optimize."],
+      ] satisfies ReadonlyArray<readonly [string, string]>
+    ).map(([title, desc]) => ({
+      type: SNAKE_ITEM,
+      id: nanoid(),
+      children: createDiagramTextChildren(title, desc),
+    })),
+  },
+];
+
 const createStaircaseContent = (items: number = 4) => [
   { type: "h2", id: nanoid(), children: [{ text: "Staircase" }] },
   {
     type: STAIRCASE_GROUP,
     id: nanoid(),
-    children: Array.from({ length: items }).map(() => ({
+    variant: "inside",
+    children: Array.from({ length: items }).map((_, index) => ({
       type: STAIR_ITEM,
       id: nanoid(),
-      children: [{ text: "Step" }],
+      children: createDiagramTextChildren(
+        `Level ${index + 1}`,
+        "Progress marker.",
+      ),
     })),
   },
 ];
@@ -197,10 +391,14 @@ const createPyramidContent = (variant: "pyramid" | "funnel") => [
     type: PYRAMID_GROUP,
     id: nanoid(),
     isFunnel: variant === "funnel",
-    children: Array.from({ length: 4 }).map(() => ({
+    variant: "inside",
+    children: Array.from({ length: 4 }).map((_, index) => ({
       type: PYRAMID_ITEM,
       id: nanoid(),
-      children: [{ text: "Level" }],
+      children: createDiagramTextChildren(
+        variant === "pyramid" ? `Layer ${index + 1}` : `Stage ${index + 1}`,
+        "Short label.",
+      ),
     })),
   },
 ];
@@ -236,10 +434,16 @@ const createTimelineContent = (
       type: groupType,
       id: nanoid(),
       ...extraProps,
-      children: Array.from({ length: items }).map(() => ({
+      orientation: variant === "arrow-vertical" ? "vertical" : "horizontal",
+      numbered: true,
+      showLine: true,
+      children: Array.from({ length: items }).map((_, index) => ({
         type: itemType,
         id: nanoid(),
-        children: [{ text: "Step" }],
+        children: createDiagramTextChildren(
+          `Step ${index + 1}`,
+          "Outcome of this stage.",
+        ),
       })),
     },
   ];
@@ -262,24 +466,56 @@ const createStatsContent = (
     id: nanoid(),
     statsType: variant,
     columnSize: "md",
-    children: Array.from({ length: items }).map(() => ({
+    children: Array.from({ length: items }).map((_, index) => ({
       type: STATS_ITEM,
       id: nanoid(),
-      children: [{ text: "Stat" }],
+      stat: `${72 + index * 8}%`,
+      children: [
+        {
+          type: "p",
+          id: nanoid(),
+          children: [{ text: `Metric ${index + 1}` }],
+        },
+      ],
     })),
   },
 ];
 
-const createColumnContent = (cols: number = 2) => [
+const createColumnContent = (
+  cols: number = 2,
+  options: { includeImages?: boolean } = {},
+) => [
   { type: "h2", id: nanoid(), children: [{ text: "Columns Layout" }] },
   {
     type: COLUMN_GROUP,
     id: nanoid(),
+    columnSize: "md",
     layout: Array(cols).fill(1),
-    children: Array.from({ length: cols }).map(() => ({
+    children: Array.from({ length: cols }).map((_, index) => ({
       type: COLUMN_ITEM,
       id: nanoid(),
-      children: [{ type: "p", children: [{ text: "Column content" }] }],
+      children: [
+        ...(options.includeImages
+          ? [
+              {
+                type: "img",
+                query: `topic image ${index + 1}`,
+                id: nanoid(),
+                children: [{ text: "" }],
+              },
+            ]
+          : []),
+        {
+          type: "h3",
+          id: nanoid(),
+          children: [{ text: `Column ${index + 1}` }],
+        },
+        {
+          type: "p",
+          id: nanoid(),
+          children: [{ text: "Parallel supporting detail." }],
+        },
+      ],
     })),
   },
 ];
@@ -300,6 +536,126 @@ const createQuoteContent = (
   },
 ];
 
+const createCompareContent = (variant: "compare" | "before-after") => {
+  const groupType = variant === "compare" ? COMPARE_GROUP : BEFORE_AFTER_GROUP;
+  const sideType = variant === "compare" ? COMPARE_SIDE : BEFORE_AFTER_SIDE;
+  const labels =
+    variant === "compare"
+      ? (["Option A", "Option B"] as const)
+      : (["Before", "After"] as const);
+
+  return [
+    { type: "h2", id: nanoid(), children: [{ text: "Comparison" }] },
+    {
+      type: groupType,
+      id: nanoid(),
+      children: labels.map((label) => ({
+        type: sideType,
+        id: nanoid(),
+        children: [
+          { type: "h3", id: nanoid(), children: [{ text: label }] },
+          { type: "p", id: nanoid(), children: [{ text: "Key difference." }] },
+          {
+            type: "p",
+            id: nanoid(),
+            children: [{ text: "Important implication." }],
+          },
+        ],
+      })),
+    },
+  ];
+};
+
+const createProsConsContent = () => [
+  { type: "h2", id: nanoid(), children: [{ text: "Trade-offs" }] },
+  {
+    type: PROS_CONS_GROUP,
+    id: nanoid(),
+    children: [
+      {
+        type: PROS_ITEM,
+        id: nanoid(),
+        children: [
+          { type: "h3", id: nanoid(), children: [{ text: "Pros" }] },
+          {
+            type: "p",
+            id: nanoid(),
+            indent: 1,
+            listStyleType: "disc",
+            children: [{ text: "Positive impact." }],
+          },
+          {
+            type: "p",
+            id: nanoid(),
+            indent: 1,
+            listStyleType: "disc",
+            children: [{ text: "Why it helps." }],
+          },
+        ],
+      },
+      {
+        type: CONS_ITEM,
+        id: nanoid(),
+        children: [
+          { type: "h3", id: nanoid(), children: [{ text: "Cons" }] },
+          {
+            type: "p",
+            id: nanoid(),
+            indent: 1,
+            listStyleType: "disc",
+            children: [{ text: "Potential limitation." }],
+          },
+          {
+            type: "p",
+            id: nanoid(),
+            indent: 1,
+            listStyleType: "disc",
+            children: [{ text: "What to watch." }],
+          },
+        ],
+      },
+    ],
+  },
+];
+
+const createIconListContent = () => [
+  { type: "h2", id: nanoid(), children: [{ text: "Key Signals" }] },
+  {
+    type: ICON_LIST,
+    id: nanoid(),
+    orientation: "side",
+    variant: "icon",
+    children: (
+      [
+        ["analytics", "Signal one", "What the signal tells us."],
+        ["shield", "Signal two", "Why it matters."],
+        ["growth", "Signal three", "Expected effect."],
+      ] satisfies ReadonlyArray<readonly [string, string, string]>
+    ).map(([icon, title, desc]) => ({
+      type: ICON_LIST_ITEM,
+      id: nanoid(),
+      icon,
+      children: createDiagramTextChildren(title, desc),
+    })),
+  },
+];
+
+const createStepsContent = () => [
+  { type: "h2", id: nanoid(), children: [{ text: "Action Plan" }] },
+  {
+    type: STEPS_GROUP,
+    id: nanoid(),
+    variant: "arrow",
+    columnSize: "md",
+    children: ["Discover", "Build", "Launch"].map((title, index) => ({
+      type: STEPS_ITEM,
+      id: nanoid(),
+      icon: ["search", "settings", "growth"][index],
+      children: createDiagramTextChildren(title, "Short action detail."),
+    })),
+  },
+];
+
 export const TEMPLATE_CATEGORIES: TemplateCategory[] = [
   { id: "basic", name: "Basic", icon: <Grid3x3 className="size-4" /> },
   { id: "boxes", name: "Boxes", icon: <Square className="size-4" /> },
@@ -314,7 +670,13 @@ export const TEMPLATE_CATEGORIES: TemplateCategory[] = [
     name: "Charts & data",
     icon: <BarChart3 className="size-4" />,
   },
-  { id: "circles", name: "Circles", icon: <CircleIcon className="size-4" /> },
+  {
+    id: "comparison",
+    name: "Comparison",
+    icon: <GitCompare className="size-4" />,
+  },
+  { id: "circles", name: "Circles", icon: <Flower className="size-4" /> },
+  { id: "icons", name: "Icons", icon: <Shapes className="size-4" /> },
   { id: "images", name: "Images", icon: <ImageIcon className="size-4" /> },
   { id: "numbers", name: "Numbers", icon: <Hash className="size-4" /> },
   { id: "pyramids", name: "Pyramids", icon: <Triangle className="size-4" /> },
@@ -326,12 +688,17 @@ export const TEMPLATE_CATEGORIES: TemplateCategory[] = [
 export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
   // Basic
   {
-    id: "text-boxes",
+    id: "text-and-heading",
+    legacyIds: ["text-boxes"],
     name: "Text and Heading",
     categoryId: "basic",
     preview: <Previews.TextAndHeadingPreview />,
     template: {
-      content: createColumnContent(2),
+      layoutType: "vertical",
+      content: createTitleDescriptionContent(
+        "Title",
+        "A concise description introduces the slide and frames the main point.",
+      ),
     },
   },
   {
@@ -340,86 +707,22 @@ export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
     categoryId: "basic",
     preview: <Previews.TextAndImagePreview />,
     template: {
-      content: [
-        {
-          type: COLUMN_GROUP,
-          id: nanoid(),
-          layout: [1, 1],
-          children: [
-            {
-              type: COLUMN_ITEM,
-              id: nanoid(),
-              children: [
-                { type: "h3", id: nanoid(), children: [{ text: "Title" }] },
-                {
-                  type: "p",
-                  id: nanoid(),
-                  children: [{ text: "Description text goes here." }],
-                },
-              ],
-            },
-            {
-              type: COLUMN_ITEM,
-              id: nanoid(),
-              children: [
-                {
-                  type: "img", // or generic image placeholder
-                  url: "https://placehold.co/600x400",
-                  id: nanoid(),
-                  children: [{ text: "" }],
-                },
-              ],
-            },
-          ],
-        },
-      ],
+      content: createTextImageColumnContent({ imageFirst: false }),
     },
   },
   {
     id: "image-and-text",
-    name: "Text and image",
+    name: "Image and text",
     categoryId: "basic",
     preview: <Previews.ImageAndTextPreview />,
     template: {
-      content: [
-        {
-          type: COLUMN_GROUP,
-          id: nanoid(),
-          layout: [1, 1],
-          children: [
-            {
-              type: COLUMN_ITEM,
-              id: nanoid(),
-              children: [
-                {
-                  type: "img", // or generic image placeholder
-                  url: "https://placehold.co/600x400",
-                  id: nanoid(),
-                  children: [{ text: "" }],
-                },
-              ],
-            },
-            {
-              type: COLUMN_ITEM,
-              id: nanoid(),
-              children: [
-                { type: "h3", id: nanoid(), children: [{ text: "Title" }] },
-                {
-                  type: "p",
-                  id: nanoid(),
-                  children: [{ text: "Description text goes here." }],
-                },
-              ],
-            },
-          ],
-        },
-      ],
+      content: createTextImageColumnContent({ imageFirst: true }),
     },
   },
   {
     id: "two-columns",
     name: "Two columns",
-    categoryId: "basic",
+    categoryId: "comparison",
     preview: <Previews.TwoColumnsPreview />,
     template: {
       content: [
@@ -468,7 +771,7 @@ export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
   {
     id: "two-columns-with-heading",
     name: "Two columns with heading",
-    categoryId: "basic",
+    categoryId: "comparison",
     preview: <Previews.TwoColumnsWithHeadingPreview />,
     template: {
       content: [
@@ -538,7 +841,27 @@ export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
     preview: <Previews.SideLineBoxesPreview />,
     template: { content: createBoxContent("sideline") },
   },
-
+  {
+    id: "side-line-text",
+    name: "Side line text",
+    categoryId: "boxes",
+    preview: <Previews.SideLineTextPreview />,
+    template: { content: createBoxContent("side-label", 3) },
+  },
+  {
+    id: "top-line-text",
+    name: "Top line text",
+    categoryId: "boxes",
+    preview: <Previews.TopLineTextPreview />,
+    template: { content: createBoxContent("top-label", 3) },
+  },
+  {
+    id: "top-circle-boxes",
+    name: "Top circle boxes",
+    categoryId: "boxes",
+    preview: <Previews.TopCircleBoxesPreview />,
+    template: { content: createBoxContent("top-circle", 3) },
+  },
   {
     id: "joined-boxes",
     name: "Joined boxes",
@@ -548,10 +871,10 @@ export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
   },
   {
     id: "boxes-with-icons",
-    name: "Boxes with icons",
+    name: "Joined boxes with icons",
     categoryId: "boxes",
     preview: <Previews.BoxesWithIconsPreview />,
-    template: { content: createBoxContent("joined") },
+    template: { content: createBoxContent("joined-icon", 3) },
   },
   {
     id: "leaf-boxes",
@@ -559,6 +882,20 @@ export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
     categoryId: "boxes",
     preview: <Previews.LeafBoxesPreview />,
     template: { content: createBoxContent("leaf") },
+  },
+  {
+    id: "labeled-boxes",
+    name: "Labeled boxes",
+    categoryId: "boxes",
+    preview: <Previews.LabeledBoxesPreview />,
+    template: { content: createBoxContent("labeled", 3) },
+  },
+  {
+    id: "alternating-boxes",
+    name: "Alternating boxes",
+    categoryId: "boxes",
+    preview: <Previews.AlternatingBoxesPreview />,
+    template: { content: createBoxContent("alternating", 3) },
   },
 
   // Bullets
@@ -594,8 +931,7 @@ export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
       layoutType: "left",
       content: createBaseContent(),
       rootImage: {
-        query: "accent-left",
-        url: "https://placehold.co/600x400",
+        query: "relevant vertical accent visual",
         layoutType: "left",
       },
     },
@@ -609,8 +945,7 @@ export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
       content: createBaseContent(),
       layoutType: "right",
       rootImage: {
-        query: "accent-right",
-        url: "https://placehold.co/600x400",
+        query: "relevant vertical accent visual",
         layoutType: "right",
       },
     },
@@ -624,8 +959,7 @@ export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
       content: createBaseContent(),
       layoutType: "vertical",
       rootImage: {
-        query: "accent-top",
-        url: "https://placehold.co/600x400",
+        query: "relevant wide header visual",
         layoutType: "vertical",
       },
     },
@@ -639,8 +973,7 @@ export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
       content: createBaseContent(),
       layoutType: "right",
       rootImage: {
-        query: "accent-right-fit",
-        url: "https://placehold.co/600x400",
+        query: "relevant contained visual",
         layoutType: "right",
         cropSettings: {
           objectFit: "contain",
@@ -661,8 +994,7 @@ export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
       content: createBaseContent(),
       layoutType: "left",
       rootImage: {
-        query: "accent-left-fit",
-        url: "https://placehold.co/600x400",
+        query: "relevant contained visual",
         layoutType: "left",
         cropSettings: {
           objectFit: "contain",
@@ -683,8 +1015,7 @@ export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
       content: createBaseContent(),
       layoutType: "background",
       rootImage: {
-        query: "accent-background",
-        url: "https://placehold.co/600x400",
+        query: "relevant full slide background",
         layoutType: "background",
       },
     },
@@ -975,11 +1306,55 @@ export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
   },
 
   {
+    id: "comparison",
+    name: "Comparison",
+    categoryId: "comparison",
+    preview: <Previews.TwoColumnsPreview />,
+    template: { content: createCompareContent("compare") },
+  },
+  {
+    id: "before-after",
+    name: "Before and after",
+    categoryId: "comparison",
+    preview: <Previews.TwoColumnsWithHeadingPreview />,
+    template: { content: createCompareContent("before-after") },
+  },
+  {
+    id: "pros-cons",
+    name: "Pros and cons",
+    categoryId: "comparison",
+    preview: <Previews.SideLineBoxesPreview />,
+    template: { content: createProsConsContent() },
+  },
+
+  {
     id: "cycle",
     name: "Cycle",
     categoryId: "circles",
     preview: <Previews.CyclePreview />,
     template: { content: createCycleContent(4) },
+  },
+  {
+    id: "connected-circles",
+    name: "Connected circles",
+    categoryId: "circles",
+    preview: <Previews.ConnectedCirclesDiagramPreview />,
+    template: { content: createConnectedCirclesContent() },
+  },
+  {
+    id: "circular-grid",
+    name: "Circular grid",
+    categoryId: "circles",
+    preview: <Previews.CircularGridDiagramPreview />,
+    template: { content: createCircularGridContent() },
+  },
+
+  {
+    id: "icon-list",
+    name: "Icon list",
+    categoryId: "icons",
+    preview: <Previews.BoxesWithIconsPreview />,
+    template: { content: createIconListContent() },
   },
 
   {
@@ -987,42 +1362,42 @@ export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
     name: "2 Image columns",
     categoryId: "images",
     preview: <Previews.TwoImageColumnsPreview />,
-    template: { content: createColumnContent(2) },
+    template: { content: createColumnContent(2, { includeImages: true }) },
   },
   {
     id: "three-image-columns",
     name: "3 Image columns",
     categoryId: "images",
     preview: <Previews.ThreeImageColumnsCardPreview />,
-    template: { content: createColumnContent(3) },
+    template: { content: createColumnContent(3, { includeImages: true }) },
   },
   {
     id: "four-image-columns",
     name: "4 image columns",
     categoryId: "images",
     preview: <Previews.FourImageColumnsPreview />,
-    template: { content: createColumnContent(4) },
+    template: { content: createColumnContent(4, { includeImages: true }) },
   },
   {
     id: "images-with-text",
     name: "Images with text",
     categoryId: "images",
     preview: <Previews.ImagesWithTextPreview />,
-    template: { content: createColumnContent(3) }, // Assumed 3 based on name/preview usually
+    template: { content: createColumnContent(3, { includeImages: true }) },
   },
   {
     id: "image-gallery",
     name: "Image gallery",
     categoryId: "images",
     preview: <Previews.ImageGalleryPreview />,
-    template: { content: createColumnContent(3) }, // Gallery grid
+    template: { content: createColumnContent(3, { includeImages: true }) },
   },
   {
     id: "team-photos",
     name: "Team photos",
     categoryId: "images",
     preview: <Previews.TeamPhotosPreview />,
-    template: { content: createColumnContent(4) }, // Team usually small cards
+    template: { content: createColumnContent(4, { includeImages: true }) },
   },
 
   {
@@ -1135,6 +1510,13 @@ export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
     preview: <Previews.SlantedLabelsPreview />,
     template: { content: createTimelineContent("parallelogram") },
   },
+  {
+    id: "snake-flow",
+    name: "Snake flow",
+    categoryId: "sequence",
+    preview: <Previews.SnakeDiagramPreview />,
+    template: { content: createSnakeContent() },
+  },
 
   // Steps
   {
@@ -1145,11 +1527,25 @@ export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
     template: { content: createStaircaseContent() },
   },
   {
+    id: "steps",
+    name: "Steps",
+    categoryId: "steps",
+    preview: <Previews.LargeBulletsPreview />,
+    template: { content: createStepsContent() },
+  },
+  {
     id: "sequence-arrow",
     name: "Sequence Arrow",
     categoryId: "steps",
     preview: <Previews.SequenceArrowPreview />,
     template: { content: createTimelineContent("arrow-vertical") },
+  },
+  {
+    id: "slope",
+    name: "Slope",
+    categoryId: "steps",
+    preview: <Previews.SlopeDiagramPreview />,
+    template: { content: createSlopeContent() },
   },
 
   // Quotes

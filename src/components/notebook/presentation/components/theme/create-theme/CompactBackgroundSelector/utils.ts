@@ -5,7 +5,7 @@ import {
   type LinearPreset,
 } from "./types";
 
-export function buildStopsCss(stops: GradientStop[]) {
+function buildStopsCss(stops: GradientStop[]) {
   return [...stops]
     .sort((a, b) => a.position - b.position)
     .map(
@@ -15,7 +15,7 @@ export function buildStopsCss(stops: GradientStop[]) {
     .join(", ");
 }
 
-export function toLinearCss(g: Pick<BackgroundGradient, "angle" | "stops">) {
+function toLinearCss(g: Pick<BackgroundGradient, "angle" | "stops">) {
   const angle = Math.round(g.angle ?? 135);
   return `linear-gradient(${angle}deg, ${buildStopsCss(g.stops ?? [])})`;
 }
@@ -37,7 +37,7 @@ export async function loadGradients(): Promise<JsonGradient[]> {
   }
 }
 
-export function normalizeColors(colors: unknown): string[] {
+function normalizeColors(colors: unknown): string[] {
   return colors as string[];
 }
 

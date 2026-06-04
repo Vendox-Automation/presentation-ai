@@ -1,19 +1,18 @@
 "use client";
 
-import * as React from "react";
-
 import { formatCodeBlock, isLangSupported } from "@platejs/code-block";
 import { BracesIcon, Check, CheckIcon, CopyIcon } from "lucide-react";
-import { type TCodeBlockElement, type TCodeSyntaxLeaf, NodeApi } from "platejs";
+import { NodeApi, type TCodeBlockElement, type TCodeSyntaxLeaf } from "platejs";
 import {
-  type PlateElementProps,
-  type PlateLeafProps,
   PlateElement,
   PlateLeaf,
   useEditorRef,
   useElement,
   useReadOnly,
+  type PlateElementProps,
+  type PlateLeafProps,
 } from "platejs/react";
+import * as React from "react";
 
 import { Button } from "@/components/plate/ui/button";
 import {
@@ -90,6 +89,7 @@ export function CodeBlockElement(props: PlateElementProps<TCodeBlockElement>) {
 
 function CodeBlockCombobox() {
   const [open, setOpen] = React.useState(false);
+  const commandListId = React.useId();
   const readOnly = useReadOnly();
   const editor = useEditorRef();
   const element = useElement<TCodeBlockElement>();
@@ -116,6 +116,7 @@ function CodeBlockCombobox() {
           variant="ghost"
           className="h-6 justify-between gap-1 px-2 text-xs text-muted-foreground select-none"
           aria-expanded={open}
+          aria-controls={commandListId}
           role="combobox"
         >
           {languages.find((language) => language.value === value)?.label ??
@@ -123,7 +124,7 @@ function CodeBlockCombobox() {
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[200px] p-0"
+        className="w-50 p-0"
         onCloseAutoFocus={() => setSearchValue("")}
       >
         <Command shouldFilter={false}>
@@ -135,7 +136,7 @@ function CodeBlockCombobox() {
           />
           <CommandEmpty>No language found.</CommandEmpty>
 
-          <CommandList className="h-[344px] overflow-y-auto">
+          <CommandList id={commandListId} className="h-86 overflow-y-auto">
             <CommandGroup>
               {items.map((language) => (
                 <CommandItem
@@ -177,9 +178,17 @@ function CopyButton({
   const [hasCopied, setHasCopied] = React.useState(false);
 
   React.useEffect(() => {
-    setTimeout(() => {
+    if (!hasCopied) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
       setHasCopied(false);
     }, 2000);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [hasCopied]);
 
   return (

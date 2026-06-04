@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ChartNoAxesColumnIncreasing,
   Code,
   Figma,
   Image as ImageIcon,
@@ -11,8 +12,8 @@ import {
   Video,
   Youtube,
 } from "lucide-react";
+import { nanoid } from "nanoid";
 import { KEYS, type TElement } from "platejs";
-
 // NOTE: These are React components now!
 import { type ReactElement } from "react";
 
@@ -33,7 +34,7 @@ export type EmbedTypeConfigItem = {
 };
 
 // Filtered EMBED_CONFIGS that only includes embed types defined in mediaEmbedItems
-export const EMBED_CONFIGS: Record<string, EmbedConfig> = {
+const EMBED_CONFIGS: Record<string, EmbedConfig> = {
   youtube: {
     name: "YouTube",
     // Supports: youtube.com/watch?v=, youtu.be/, youtube.com/embed/, youtube.com/v/, youtube.com/shorts/
@@ -126,6 +127,11 @@ export const EMBED_CONFIGS: Record<string, EmbedConfig> = {
     urlPattern: /^https?:\/\/.+/i,
     embedUrlGenerator: (url: string) => url,
   },
+  infographic: {
+    name: "Infographic",
+    urlPattern: /^https?:\/\/.+/i,
+    embedUrlGenerator: (url: string) => url,
+  },
 };
 
 export type MediaEmbedItem = {
@@ -141,63 +147,70 @@ export const mediaEmbedItems: MediaEmbedItem[] = [
     key: "youtube",
     label: "YouTube",
     embedType: "youtube",
-    icon: <Youtube className="h-7 w-7" />,
+    icon: <Youtube className="size-7" />,
     description: "Embed YouTube videos",
   },
   {
     key: "vimeo",
     label: "Vimeo",
     embedType: "vimeo",
-    icon: <Video className="h-7 w-7" />,
+    icon: <Video className="size-7" />,
     description: "Embed Vimeo videos",
   },
   {
     key: "loom",
     label: "Loom",
     embedType: "loom",
-    icon: <Play className="h-7 w-7" />,
+    icon: <Play className="size-7" />,
     description: "Embed Loom recordings",
   },
   {
     key: "twitter",
     label: "Twitter",
     embedType: "twitter",
-    icon: <Twitter className="h-7 w-7" />,
+    icon: <Twitter className="size-7" />,
     description: "Embed Twitter posts",
   },
   {
     key: "figma",
     label: "Figma",
     embedType: "figma",
-    icon: <Figma className="h-7 w-7" />,
+    icon: <Figma className="size-7" />,
     description: "Embed Figma designs",
   },
   {
     key: "maps",
     label: "Google Maps",
     embedType: "maps",
-    icon: <MapPin className="h-7 w-7" />,
+    icon: <MapPin className="size-7" />,
     description: "Embed Google Maps",
   },
   {
     key: "codepen",
     label: "CodePen",
     embedType: "codepen",
-    icon: <Code className="h-7 w-7" />,
+    icon: <Code className="size-7" />,
     description: "Embed CodePen demos",
   },
   {
     key: "image",
     label: "Image",
     embedType: "image",
-    icon: <ImageIcon className="h-7 w-7" />,
+    icon: <ImageIcon className="size-7" />,
     description: "Embed an image from a URL",
+  },
+  {
+    key: "infographic",
+    label: "Infographic",
+    embedType: "infographic",
+    icon: <ChartNoAxesColumnIncreasing className="size-7" />,
+    description: "Generate an AI infographic",
   },
   {
     key: "website",
     label: "Website",
     embedType: "website",
-    icon: <Link className="h-7 w-7" />,
+    icon: <Link className="size-7" />,
     description: "Embed any website link",
   },
 ];
@@ -207,7 +220,7 @@ export function createMediaEmbedNode(embedType: string): TElement {
     type: KEYS.mediaEmbed,
     url: "",
     provider: embedType,
-    id: "",
+    id: nanoid(),
     children: [{ text: "" }],
   } as TElement;
 }
@@ -284,22 +297,22 @@ export function extractYouTubeVideoId(url: string): string | null {
   return match?.[1] || null;
 }
 
-export function extractTwitterTweetId(url: string): string | null {
+function extractTwitterTweetId(url: string): string | null {
   const match = url.match(/(?:twitter\.com|x\.com)\/([^/]+)\/status\/(\d+)/i);
   return match?.[2] || null;
 }
 
-export function extractLoomVideoId(url: string): string | null {
+function extractLoomVideoId(url: string): string | null {
   const match = url.match(/loom\.com\/(?:share|embed)\/([a-zA-Z0-9]+)/i);
   return match?.[1] || null;
 }
 
-export function extractVimeoVideoId(url: string): string | null {
+function extractVimeoVideoId(url: string): string | null {
   const match = url.match(/vimeo\.com\/(?:video\/)?(\d+)/i);
   return match?.[1] || null;
 }
 
-export function extractCodePenId(url: string): string | null {
+function extractCodePenId(url: string): string | null {
   const match = url.match(
     /codepen\.io\/([^/]+)\/(?:pen|embed)\/([a-zA-Z0-9]+)/i,
   );

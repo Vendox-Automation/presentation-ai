@@ -1,8 +1,9 @@
+import type React from "react";
+
 import {
   calculateHeightFromRatio,
   getSlideBaseWidth,
 } from "@/config/slideFormats";
-import type React from "react";
 import { type PlateSlide } from "../../utils/parser";
 import { getTypographyCSSVariables } from "./typography";
 
@@ -19,8 +20,11 @@ export function getLayoutClasses(layoutType: PlateSlide["layoutType"]): string {
       return "flex-row-reverse";
     case "background":
       return "flex-col";
+    case "none":
+    case undefined:
+      return "flex-col";
     default:
-      return "";
+      return "flex-col";
   }
 }
 
@@ -34,7 +38,7 @@ export function getPresentingClasses(
   formatCategory?: PlateSlide["formatCategory"],
 ): string {
   if (!isPresenting) {
-    return "min-h-[500px] h-full overflow-clip border border-(--presentation-accent)";
+    return "min-h-125 border border-(--presentation-accent)";
   }
 
   // For social format, don't force w-full so the aspect ratio is preserved
@@ -43,8 +47,11 @@ export function getPresentingClasses(
     return "border-0";
   }
 
-  // For presentation/fluid formats, take full width
-  return "min-h-dvh! w-full border-0";
+  // For presentation/fluid formats, take full width.
+  // On larger screens (md+), force min-h-dvh so slide fills the viewport.
+  // On phones (below md), maintain a 16:9 aspect ratio so the slide acts
+  // like `object-fit: contain` and preserves its layout.
+  return "w-full border-0 md:min-h-dvh max-md:aspect-video";
 }
 
 /**

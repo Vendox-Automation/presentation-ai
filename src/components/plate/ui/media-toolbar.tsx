@@ -1,9 +1,5 @@
 "use client";
 
-import * as React from "react";
-
-import { KEYS, type WithRequiredKey } from "platejs";
-
 import {
   FloatingMedia as FloatingMediaPrimitive,
   FloatingMediaStore,
@@ -12,6 +8,7 @@ import {
 } from "@platejs/media/react";
 import { cva } from "class-variance-authority";
 import { Link, Trash2Icon, X } from "lucide-react";
+import { KEYS, type WithRequiredKey } from "platejs";
 import {
   useEditorRef,
   useEditorSelector,
@@ -20,6 +17,7 @@ import {
   useRemoveNodeButton,
   useSelected,
 } from "platejs/react";
+import * as React from "react";
 
 import { Button, buttonVariants } from "@/components/plate/ui/button";
 import {
@@ -28,6 +26,7 @@ import {
   PopoverContent,
 } from "@/components/plate/ui/popover";
 import { Separator } from "@/components/plate/ui/separator";
+import { TooltipButton } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -35,13 +34,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-import { TooltipButton } from "@/components/ui/button";
 import { CaptionButton } from "./caption";
 import { getAllEmbedTypes } from "./media-embeds";
 
 const inputVariants = cva(
-  "flex h-[28px] w-full rounded-md border-none bg-transparent px-1.5 py-1 text-base placeholder:text-muted-foreground focus-visible:ring-transparent focus-visible:outline-hidden md:text-sm",
+  "flex h-7 w-full rounded-md border-none bg-transparent px-1.5 py-1 text-base placeholder:text-muted-foreground focus-visible:ring-transparent focus-visible:outline-hidden md:text-sm",
 );
 
 export function MediaToolbar({
@@ -130,7 +127,7 @@ export function MediaToolbar({
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         {isEditing ? (
-          <div className="flex w-[330px] flex-col">
+          <div className="flex w-82.5 flex-col">
             <div className="flex items-center">
               <div className="flex items-center pr-1 pl-2 text-muted-foreground">
                 <Link className="size-4" />
@@ -165,7 +162,7 @@ export function MediaToolbar({
                   value={currentProvider}
                   onValueChange={handleProviderChange}
                 >
-                  <SelectTrigger className="flex h-8 w-auto min-w-[120px] items-center border-none bg-transparent px-2 py-1 text-sm">
+                  <SelectTrigger className="flex h-8 w-auto min-w-30 items-center border-none bg-transparent px-2 py-1 text-sm">
                     <SelectValue placeholder="Provider" />
                   </SelectTrigger>
                   <SelectContent>
@@ -184,7 +181,7 @@ export function MediaToolbar({
                   variant="ghost"
                   onClick={handleRemoveUrl}
                 >
-                  <X className="h-4 w-4" />
+                  <X className="size-4" />
                 </TooltipButton>
               </>
             )}

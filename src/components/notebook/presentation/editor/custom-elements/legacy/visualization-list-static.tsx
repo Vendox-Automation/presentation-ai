@@ -1,5 +1,5 @@
 import { type TElement } from "platejs";
-import { type SlateElementProps, SlateElement } from "platejs/static";
+import { SlateElement, type SlateElementProps } from "platejs/static";
 
 import { ARROW_LIST, PYRAMID_GROUP, TIMELINE_GROUP } from "../../lib";
 import { type TArrowListElement } from "../../plugins/arrow-plugin";
@@ -82,5 +82,3 @@ export default function VisualizationListElementStatic(
     </SlateElement>
   );
 }
-
-

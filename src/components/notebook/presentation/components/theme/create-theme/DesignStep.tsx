@@ -1,8 +1,9 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import { Shapes } from "lucide-react";
-import { type Control, type UseFormSetValue, useWatch } from "react-hook-form";
+import { useWatch, type Control, type UseFormSetValue } from "react-hook-form";
+
+import { cn } from "@/lib/utils";
 import { type ThemeFormValues } from "../types";
 import { type DesignStyle } from "./create-theme-types";
 
@@ -16,28 +17,28 @@ const designStyles: {
   {
     id: "standard",
     name: "Standard",
-    description: "Small border radius with minimal shadow-sm",
-    preview: "rounded-lg shadow-xs",
-    innerPreview: "rounded-md shadow-xs",
+    description: "Small border radius with minimal shadow",
+    preview: "rounded-lg shadow",
+    innerPreview: "rounded-md shadow",
   },
   {
     id: "flat",
     name: "Flat",
-    description: "No shadow-sm and no border radius",
+    description: "No shadow and no border radius",
     preview: "rounded-none shadow-none",
     innerPreview: "rounded-none shadow-none",
   },
   {
     id: "outline",
     name: "Outline",
-    description: "Outline-like effect using shadow-sm",
+    description: "Outline-like effect using shadow",
     preview: "rounded-none shadow-[0_0_0_2px_rgba(37,99,235,1)]",
     innerPreview: "rounded-none shadow-[0_0_0_2px_rgba(37,99,235,1)]",
   },
   {
     id: "blocky",
     name: "Blocky",
-    description: "3D effect using unblurred box shadow-sm",
+    description: "3D effect using unblurred box shadow",
     preview: "rounded-none shadow-[4px_4px_0_0_rgba(0,0,0,0.2)]",
     innerPreview: "rounded-none shadow-[3px_3px_0_0_rgba(0,0,0,0.2)]",
   },
@@ -45,8 +46,8 @@ const designStyles: {
     id: "rounded",
     name: "Rounded",
     description: "Just rounded with gentle shadows",
-    preview: "rounded-3xl shadow-xs",
-    innerPreview: "rounded-full shadow-xs",
+    preview: "rounded-3xl shadow",
+    innerPreview: "rounded-full shadow",
   },
 ];
 
@@ -150,7 +151,7 @@ export function DesignStep({ setValue, control }: DesignStepProps) {
     <div className="flex h-full flex-col">
       <div className="border-b border-border p-6">
         <div className="text-center">
-          <Shapes className="mx-auto mb-4 h-12 w-12 text-blue-600" />
+          <Shapes className="mx-auto mb-4 size-12 text-blue-600" />
           <h3 className="mb-2 text-xl font-semibold text-foreground">
             Choose a style for your content
           </h3>
@@ -161,6 +162,7 @@ export function DesignStep({ setValue, control }: DesignStepProps) {
         <div className="grid grid-cols-1 gap-4">
           {designStyles.map((style) => (
             <button
+              type="button"
               key={style.id}
               onClick={() => handleStyleSelect(style.id)}
               className={cn(

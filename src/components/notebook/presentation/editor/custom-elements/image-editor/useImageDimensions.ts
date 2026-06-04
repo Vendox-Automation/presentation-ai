@@ -1,9 +1,9 @@
+import { useEffect, useState } from "react";
+
 import {
   BASE_HEIGHT,
   BASE_WIDTH_PERCENTAGE,
 } from "@/hooks/presentation/useRootImageActions";
-import { type TElement } from "platejs";
-import { useEffect, useState } from "react";
 import { type RootImage as RootImageType } from "../../../utils/parser";
 
 const MAX_HEIGHT_RATIO_WITH_WINDOW = 0.6;
@@ -12,7 +12,7 @@ const HORIZONTAL_PADDING = 48; // Padding for horizontal images (vertical layout
 const DEFAULT_DIMENSIONS = { width: 800, height: 450 };
 
 interface UseImageDimensionsProps {
-  element: TElement & RootImageType;
+  element: RootImageType;
   slideId?: string;
   layoutType: string;
 }

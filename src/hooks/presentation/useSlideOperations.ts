@@ -1,27 +1,38 @@
 "use client";
 
-import { type PlateSlide } from "@/components/notebook/presentation/utils/parser";
-import { usePresentationState } from "@/states/presentation-state";
 import { nanoid } from "nanoid";
+
+import { type PlateSlide } from "@/components/notebook/presentation/utils/parser";
+import { getSlideAspectRatioForGenerationAspectRatio } from "@/lib/presentation/aspect-ratio";
+import { usePresentationState } from "@/states/presentation-state";
 
 export type InsertPosition = "before" | "after";
 
 export function useSlideOperations() {
   const setSlides = usePresentationState((s) => s.setSlides);
   const setCurrentSlideId = usePresentationState((s) => s.setCurrentSlideId);
-  const buildSlide = (slide?: PlateSlide): PlateSlide =>
-    slide
-      ? slide
-      : {
-          content: [
-            {
-              type: "h1",
-              children: [{ text: "" }],
-            },
-          ],
-          id: nanoid(),
-          alignment: "center",
-        };
+  const buildSlide = (slide?: PlateSlide): PlateSlide => {
+    if (slide) {
+      return slide;
+    }
+
+    const { generationAspectRatio } = usePresentationState.getState();
+
+    return {
+      content: [
+        {
+          type: "h1",
+          children: [{ text: "" }],
+        },
+      ],
+      id: nanoid(),
+      alignment: "center",
+      formatCategory: "presentation",
+      aspectRatio: getSlideAspectRatioForGenerationAspectRatio(
+        generationAspectRatio,
+      ),
+    };
+  };
 
   const addSlide = (
     position: InsertPosition,

@@ -1,18 +1,15 @@
 "use client";
 
-import { type PlateSlide } from "@/components/notebook/presentation/utils/parser";
-import {
-  calculateHeightFromRatio,
-  getSlideBaseWidth,
-} from "@/config/slideFormats";
 import debounce from "lodash.debounce";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import { type PlateSlide } from "@/components/notebook/presentation/utils/parser";
+import { getSlideBaseWidth } from "@/config/slideFormats";
+import { DEFAULT_PRESENTATION_SLIDE_ASPECT_RATIO } from "@/lib/presentation/aspect-ratio";
+import { type SlideScalingConfig } from "./scaling";
 import { getPresentModeViewportDimensions } from "./usePresentModeOrientation";
-import { resolveAspectRatio, type SlideScalingConfig } from "./scaling";
 
 // Re-export for backward compatibility
-export { baseWidths } from "./scaling";
-
 /**
  * useSlideContentScaling
  *
@@ -36,9 +33,9 @@ export { baseWidths } from "./scaling";
  *   - Measures the unscaled content via `contentRef` and returns `scaledHeight`
  *     so the outer wrapper can adopt the correct layout height.
  * - Present mode (isPresenting = true):
- *   - Scales width and font size based on viewport width and zoom level.
- *   - If the slide height slightly exceeds the viewport, reduce the font scale
- *     to fit (up to 20% overage). Larger overflows rely on scrolling.
+ *   - Scales the slide frame width to the viewport.
+ *   - Keeps presentation-format text at the base font size because the editor
+ *     surface applies region-aware transform scaling for present mode.
  *   - `scaledHeight` is undefined (full-screen layout is expected in present mode).
  *   - Only the active slide performs calculations to reduce memory usage.
  */
@@ -91,7 +88,7 @@ export function useSlideContentScaling(
   slideWidthSize: "S" | "M" | "L" = "M",
   isPresenting: boolean = false,
   formatCategory: PlateSlide["formatCategory"] = "presentation",
-  aspectRatio: PlateSlide["aspectRatio"] = { type: "fluid" },
+  aspectRatio: PlateSlide["aspectRatio"] = DEFAULT_PRESENTATION_SLIDE_ASPECT_RATIO,
   containerRefOverride?: React.RefObject<HTMLDivElement | null>,
   zoomLevel: number = 1, // Zoom multiplier (1 = 100%, 1.4 = 140%, etc.)
 ): SlideScalingConfig {
@@ -144,7 +141,7 @@ export function useSlideContentScaling(
 
     let scale = 1;
     let fontSize = 16;
-    let presentFitScale = 1;
+    const presentFitScale = 1;
 
     // Get base width using centralized config
     const slideWidth = getSlideBaseWidth(
@@ -154,54 +151,21 @@ export function useSlideContentScaling(
     );
 
     if (isPresenting) {
-      const { width: viewportWidth, height: viewportHeight } =
-        getPresentModeViewportDimensions();
+      const { width: viewportWidth } = getPresentModeViewportDimensions();
       const availableWidth = Math.max(1, viewportWidth);
-      const widthScale = (availableWidth / slideWidth) * zoomLevel;
+      const widthScale = availableWidth / slideWidth;
 
       // For social format: cap scale so slide fits within viewport but doesn't stretch
       // beyond its natural size. This keeps the slide centered and proportional.
       // For presentation/fluid: scale to fill viewport width as before.
       if (formatCategory === "social") {
-        // Cap scale at 1 * zoomLevel to prevent stretching beyond base width
-        scale = Math.min(widthScale, 1 * zoomLevel);
+        // Cap scale at 1 to prevent stretching beyond the base width
+        scale = Math.min(widthScale, 1);
         fontSize = 16 * scale;
         // Social format allows scroll for tall content, no presentFitScale adjustment needed
       } else {
         scale = widthScale;
-
-        const resolvedRatio = resolveAspectRatio(slideWidth, aspectRatio);
-        const qualifiesForFontScaling =
-          aspectRatio.type === "fluid" ||
-          (resolvedRatio?.widthToHeight ?? 0) <= 16 / 9;
-
-        if (qualifiesForFontScaling) {
-          fontSize = 16 * widthScale;
-          const fallbackHeight =
-            resolveAspectRatio(slideWidth, aspectRatio)?.heightPx ||
-            calculateHeightFromRatio(slideWidth, aspectRatio).minHeightPx ||
-            0;
-          const contentHeight =
-            measuredContentHeight > 0
-              ? measuredContentHeight
-              : fallbackHeight * widthScale;
-          if (contentHeight > 0 && contentHeight > viewportHeight) {
-            if (contentHeight <= viewportHeight * 1.5) {
-              // Calculate how much to shrink to fit viewport
-              presentFitScale = viewportHeight / contentHeight;
-              // Lock after applying scale - definitive decision
-              hasSettledScaleRef.current = true;
-            } else {
-              // Lock - we've decided to allow scroll - definitive decision
-              hasSettledScaleRef.current = true;
-            }
-          }
-          // NOTE: Do NOT lock when content fits - allow re-measurement
-          // as charts/images may still be loading
-        } else {
-          fontSize = 16;
-          // Non-qualifying aspect ratio - don't lock, allow re-measurement
-        }
+        fontSize = 16;
       }
     } else {
       // Cache the container element to avoid repeated DOM queries
@@ -270,16 +234,9 @@ export function useSlideContentScaling(
     formatCategory,
     slideWidthSize,
     aspectRatio,
+    containerRefOverride,
     zoomLevel,
-    resolveAspectRatio,
-    measuredContentHeight,
   ]);
-
-  // Debounced version for resize events (150ms debounce)
-  const debouncedCalculateScaling = useMemo(
-    () => debounce(calculateScaling, 150),
-    [calculateScaling],
-  );
 
   // Reset the settled flag when entering/exiting present mode
   useEffect(() => {
@@ -305,9 +262,7 @@ export function useSlideContentScaling(
           document.querySelector(".presentation-slides"));
 
       if (presentationContainer) {
-        resizeObserverRef.current = new ResizeObserver(
-          debouncedCalculateScaling,
-        );
+        resizeObserverRef.current = new ResizeObserver(calculateScaling);
         resizeObserverRef.current.observe(presentationContainer);
       }
     }
@@ -316,7 +271,7 @@ export function useSlideContentScaling(
       if (isPresenting) {
         resetPresentingScaleLock();
       }
-      debouncedCalculateScaling();
+      calculateScaling();
     };
 
     // For present mode, react to viewport changes including mobile rotation.
@@ -341,7 +296,6 @@ export function useSlideContentScaling(
   }, [
     isPresenting,
     calculateScaling,
-    debouncedCalculateScaling,
     containerRefOverride,
     resetPresentingScaleLock,
   ]);
@@ -411,8 +365,24 @@ export function useSlideContentScaling(
     ? Math.max(0, Math.ceil(measuredContentHeight * (scaling.scale || 1)))
     : undefined;
 
+  // In present mode, if the content at full-width exceeds viewport height,
+  // compute a fit scale so the entire slide is visible without scrolling.
+  // This is applied as a CSS transform in SlideWrapper (not just fontSize).
+  let computedPresentFitScale = scaling.presentFitScale;
+  if (
+    isPresenting &&
+    measuredContentHeight > 0 &&
+    formatCategory !== "social"
+  ) {
+    const { height: vpHeight } = getPresentModeViewportDimensions();
+    if (vpHeight > 0 && measuredContentHeight > vpHeight) {
+      computedPresentFitScale = vpHeight / measuredContentHeight;
+    }
+  }
+
   return {
     ...scaling,
+    presentFitScale: computedPresentFitScale,
     scaledHeight,
     contentHeight: measuredContentHeight,
     contentRef,

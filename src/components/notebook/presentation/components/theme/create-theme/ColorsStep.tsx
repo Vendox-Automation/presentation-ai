@@ -1,10 +1,11 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import { Edit2, Heart } from "lucide-react";
 import { useState } from "react";
-import { type Control, Controller, useWatch } from "react-hook-form";
+import { Controller, useWatch, type Control } from "react-hook-form";
 
+import { type ThemeColors } from "@/lib/presentation/themes";
+import { cn } from "@/lib/utils";
 import { type ColorKey, type ThemeFormValues } from "../types";
 import { ColorSettingsPanel } from "./ColorSettingsPanel";
 import { ColorThemeGrid } from "./ColorThemeGrid";
@@ -15,6 +16,7 @@ interface ColorsStepProps {
   selectedColorTheme: string;
   onColorChange: (key: ColorKey, value: string) => void;
   onSelectColorTheme: (themeId: string) => void;
+  defaultColors?: Partial<ThemeColors>;
 }
 
 export function ColorsStep({
@@ -22,6 +24,7 @@ export function ColorsStep({
   selectedColorTheme,
   onColorChange,
   onSelectColorTheme,
+  defaultColors,
 }: ColorsStepProps) {
   // Use useWatch to properly subscribe to form changes
   const watchColors = useWatch({ control, name: "colors" });
@@ -80,6 +83,7 @@ export function ColorsStep({
                 <ColorSettingsPanel
                   colors={watchColors}
                   onColorChange={onColorChange}
+                  defaultColors={defaultColors}
                   background={field.value}
                   onBackgroundChange={(value) => {
                     field.onChange(value);

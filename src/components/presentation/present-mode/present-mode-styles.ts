@@ -10,27 +10,27 @@ import { type PlateSlide } from "@/components/notebook/presentation/utils/parser
  * Classes applied to the slide wrapper when in present mode (presentation/fluid format).
  * Creates a fixed fullscreen overlay with centered content, scrollable.
  */
-export const PRESENT_MODE_OVERLAY_CLASSES =
+const PRESENT_MODE_OVERLAY_CLASSES =
   "fixed inset-0 pb-0 grid place-items-center overflow-y-auto overflow-x-hidden max-h-dvh w-dvw";
 
 /**
  * Classes applied to the slide wrapper when in present mode (social format).
  * Creates a fixed fullscreen overlay with horizontally centered content, scrollable.
  */
-export const PRESENT_MODE_OVERLAY_CLASSES_SOCIAL =
+const PRESENT_MODE_OVERLAY_CLASSES_SOCIAL =
   "fixed inset-0 pb-0 flex flex-col items-center overflow-y-auto overflow-x-hidden max-h-dvh w-dvw";
 
 /**
  * Classes for the slide content container in present mode (presentation format).
  * Ensures content scales from top center.
  */
-export const PRESENT_MODE_SLIDE_CLASSES = "origin-top";
+const PRESENT_MODE_SLIDE_CLASSES = "origin-top";
 
 /**
  * Classes for the slide content container in present mode (social format).
  * Ensures content scales from center and is centered within the container.
  */
-export const PRESENT_MODE_SLIDE_CLASSES_SOCIAL = "origin-top my-auto";
+const PRESENT_MODE_SLIDE_CLASSES_SOCIAL = "origin-top my-auto";
 
 /**
  * Get the appropriate overlay classes based on format category.

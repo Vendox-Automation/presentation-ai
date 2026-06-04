@@ -1,16 +1,14 @@
 "use client";
 
-import * as React from "react";
-
-import { type DropdownMenuProps } from "@radix-ui/react-dropdown-menu";
-
 import { MarkdownPlugin } from "@platejs/markdown";
+import { type DropdownMenuProps } from "@radix-ui/react-dropdown-menu";
 import { ArrowDownToLineIcon } from "lucide-react";
 import { useEditorRef } from "platejs/react";
 import {
   createStaticEditor as createSlateEditor,
   serializeHtml,
 } from "platejs/static";
+import * as React from "react";
 
 import { BaseEditorKit } from "@/components/plate/editor-base-kit";
 import {
@@ -20,9 +18,26 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/plate/ui/dropdown-menu";
-
+import { loadHtml2Canvas, loadPdfLib } from "@/lib/dynamic-imports";
 import { EditorStatic } from "./editor-static";
 import { ToolbarButton } from "./toolbar";
+
+const downloadFile = async (url: string, filename: string) => {
+  const response = await fetch(url);
+
+  const blob = await response.blob();
+  const blobUrl = window.URL.createObjectURL(blob);
+
+  const link = document.createElement("a");
+  link.href = blobUrl;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+
+  // Clean up the blob URL
+  window.URL.revokeObjectURL(blobUrl);
+};
 
 const siteUrl = "https://platejs.org";
 
@@ -31,7 +46,7 @@ export function ExportToolbarButton(props: DropdownMenuProps) {
   const [open, setOpen] = React.useState(false);
 
   const getCanvas = async () => {
-    const { default: html2canvas } = await import("html2canvas-pro");
+    const html2canvas = await loadHtml2Canvas();
 
     const style = document.createElement("style");
     document.head.append(style);
@@ -57,27 +72,8 @@ export function ExportToolbarButton(props: DropdownMenuProps) {
     return canvas;
   };
 
-  const downloadFile = async (url: string, filename: string) => {
-    const response = await fetch(url);
-
-    const blob = await response.blob();
-    const blobUrl = window.URL.createObjectURL(blob);
-
-    const link = document.createElement("a");
-    link.href = blobUrl;
-    link.download = filename;
-    document.body.append(link);
-    link.click();
-    link.remove();
-
-    // Clean up the blob URL
-    window.URL.revokeObjectURL(blobUrl);
-  };
-
   const exportToPdf = async () => {
-    const canvas = await getCanvas();
-
-    const PDFLib = await import("pdf-lib");
+    const [canvas, PDFLib] = await Promise.all([getCanvas(), loadPdfLib()]);
     const pdfDoc = await PDFLib.PDFDocument.create();
     const page = pdfDoc.addPage([canvas.width, canvas.height]);
     const imageEmbed = await pdfDoc.embedPng(canvas.toDataURL("PNG"));
@@ -176,5 +172,3 @@ export function ExportToolbarButton(props: DropdownMenuProps) {
     </DropdownMenu>
   );
 }
-
-

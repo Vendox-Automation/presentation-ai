@@ -1,8 +1,9 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
 import { usePresentationHistoryState } from "@/states/presentation-history-state";
 import { usePresentationState } from "@/states/presentation-state";
-import { useEffect, useRef } from "react";
 
 /**
  * Simplified history hook - only handles keyboard shortcuts and initialization.

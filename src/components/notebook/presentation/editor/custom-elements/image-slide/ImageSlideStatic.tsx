@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { usePresentationState } from "@/states/presentation-state";
@@ -14,13 +16,21 @@ export default function ImageSlideStatic({
   image,
   slideId,
 }: ImageSlideStaticProps) {
-  const computedImageUrl = image.url;
   const rootImageGeneration = usePresentationState(
     (s) => s.rootImageGeneration,
   );
-  const computedGen = rootImageGeneration[slideId];
+  const rawComputedGen = rootImageGeneration[slideId];
+  const imageQuery = image.query.trim();
+  const computedGen =
+    rawComputedGen &&
+    (!imageQuery || rawComputedGen.query.trim() === imageQuery)
+      ? rawComputedGen
+      : undefined;
+  const computedImageUrl = computedGen?.url ?? image.url;
   const isGenerating =
-    computedGen?.status === "queued" || computedGen?.status === "generating";
+    image.isQueryStreaming ||
+    computedGen?.status === "queued" ||
+    computedGen?.status === "generating";
 
   return (
     <div
@@ -31,13 +41,22 @@ export default function ImageSlideStatic({
       data-slide-id={slideId}
     >
       {isGenerating ? (
-        <div className="absolute inset-0 z-10 flex h-full w-full flex-col items-center justify-center bg-muted/30 p-4">
-          <Spinner className="mb-2 h-8 w-8" />
-          <p className="text-sm text-muted-foreground">Generating image...</p>
+        <div className="absolute inset-0 z-10 flex h-full w-full flex-col items-center justify-center gap-3 bg-muted/30 p-4 text-center">
+          <Spinner className="size-8" />
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-foreground">
+              Generating image
+            </p>
+            <p className="text-xs text-muted-foreground">
+              This can take a moment.
+            </p>
+          </div>
         </div>
       ) : computedImageUrl ? (
-        // biome-ignore lint/performance/noImgElement: Valid use case for img element
-        <img
+        <Image
+          unoptimized
+          width={400}
+          height={300}
           src={computedImageUrl}
           alt={image.query}
           className="h-full w-full"
@@ -50,7 +69,9 @@ export default function ImageSlideStatic({
         />
       ) : (
         <div className="flex items-center justify-center text-muted-foreground">
-          <span>No image</span>
+          <span>
+            {computedGen?.status === "error" ? "Image not found" : "No image"}
+          </span>
         </div>
       )}
     </div>

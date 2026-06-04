@@ -1,9 +1,11 @@
 "use client";
 
+import { useMemo, type ReactNode } from "react";
+
 import { FontLoader } from "@/components/plate/utils/font-loader";
 import { cn } from "@/lib/utils";
-import { type ReactNode, useMemo } from "react";
 import { type PlateSlide } from "../../utils/parser";
+import { PresentationRenderProvider } from "../context/PresentationRenderContext";
 import ImageSlide from "../custom-elements/image-slide/ImageSlide";
 import ImageSlideStatic from "../custom-elements/image-slide/ImageSlideStatic";
 import {
@@ -77,22 +79,27 @@ export function PresentationRoot({
           onActivateSlide?.(initialContent.id);
       }}
     >
-      <FontLoader fontsToLoad={fontsToLoad} />
-      {initialContent?.isImageSlide && initialContent.rootImage ? (
-        readOnly ? (
-          <ImageSlideStatic
-            image={initialContent.rootImage}
-            slideId={initialContent.id}
-          />
+      <PresentationRenderProvider
+        layoutType={initialContent?.layoutType}
+        isStatic={isStatic}
+      >
+        <FontLoader fontsToLoad={fontsToLoad} />
+        {initialContent?.isImageSlide && initialContent.rootImage ? (
+          readOnly ? (
+            <ImageSlideStatic
+              image={initialContent.rootImage}
+              slideId={initialContent.id}
+            />
+          ) : (
+            <ImageSlide
+              image={initialContent.rootImage}
+              slideId={initialContent.id}
+            />
+          )
         ) : (
-          <ImageSlide
-            image={initialContent.rootImage}
-            slideId={initialContent.id}
-          />
-        )
-      ) : (
-        children
-      )}
+          children
+        )}
+      </PresentationRenderProvider>
     </div>
   );
 }

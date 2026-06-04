@@ -1,5 +1,8 @@
 "use client";
 
+import { Loader2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+
 import { Button } from "@/components/ui/button";
 import ColorPicker from "@/components/ui/color-picker";
 import { Label } from "@/components/ui/label";
@@ -14,8 +17,6 @@ import {
   executeToolAction,
   getSlidesToUpdate,
 } from "@/hooks/presentation/agentTools";
-import { Loader2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
 
 type Scope = "all" | undefined;
 
@@ -49,10 +50,7 @@ export function PresentationEditSlidePropertiesCall({
   });
 
   useEffect(() => {
-    if (!bgColor && !alignment && !layoutType && !width) {
-      return;
-    }
-
+    if (!bgColor && !alignment && !layoutType && !width) return;
     setForm({
       bgColor: bgColor ?? "",
       alignment: alignment ?? undefined,
@@ -69,16 +67,20 @@ export function PresentationEditSlidePropertiesCall({
   const [isEditing, setIsEditing] = useState(false);
 
   const apply = () => {
-    executeToolAction({
-      action: "edit_slide_properties",
-      scope,
-      slideIds: scope === "all" ? undefined : targetSlides,
-      ...(form.bgColor ? { bgColor: form.bgColor } : {}),
-      ...(form.alignment ? { alignment: form.alignment } : {}),
-      ...(form.layoutType ? { layoutType: form.layoutType } : {}),
-      ...(form.width ? { width: form.width } : {}),
-    });
-    setIsEditing(false);
+    try {
+      executeToolAction({
+        action: "edit_slide_properties",
+        scope,
+        slideIds: scope === "all" ? undefined : targetSlides,
+        ...(form.bgColor ? { bgColor: form.bgColor } : {}),
+        ...(form.alignment ? { alignment: form.alignment } : {}),
+        ...(form.layoutType ? { layoutType: form.layoutType } : {}),
+        ...(form.width ? { width: form.width } : {}),
+      });
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Error applying slide properties:", error);
+    }
   };
 
   const slideCount =
@@ -88,13 +90,8 @@ export function PresentationEditSlidePropertiesCall({
 
   const summaryText = useMemo(() => {
     const parts: string[] = [];
-
-    if (form.bgColor) {
-      parts.push(`background to ${form.bgColor}`);
-    }
-    if (form.layoutType) {
-      parts.push(`layout to ${form.layoutType}`);
-    }
+    if (form.bgColor) parts.push(`background to ${form.bgColor}`);
+    if (form.layoutType) parts.push(`layout to ${form.layoutType}`);
     if (form.width) {
       const widthWord =
         form.width === "S" ? "small" : form.width === "M" ? "medium" : "large";
@@ -110,20 +107,15 @@ export function PresentationEditSlidePropertiesCall({
       parts.push(alignmentWord);
     }
 
-    if (parts.length === 0) {
-      return "No changes selected";
-    }
-
-    if (parts.length === 1) {
-      const onlyPart = parts[0] ?? "";
-      return onlyPart.charAt(0).toUpperCase() + onlyPart.slice(1);
-    }
-
-    const lastPart = parts[parts.length - 1] ?? "";
-    const body = `Updated ${parts.slice(0, -1).join(", ")} and ${lastPart}`;
-    return body.charAt(0).toUpperCase() + body.slice(1);
+    if (parts.length === 0) return "No changes selected";
+    const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+    if (parts.length === 1) return capitalize(parts[0] ?? "");
+    const last = parts[parts.length - 1] ?? "";
+    const body = `Updated ${parts.slice(0, -1).join(", ")} and ${last}`;
+    return capitalize(body);
   }, [form]);
 
+  // Show loading state when no properties are available
   if (
     !bgColor &&
     !alignment &&
@@ -133,7 +125,7 @@ export function PresentationEditSlidePropertiesCall({
     !form.alignment &&
     !form.layoutType &&
     !form.width
-  ) {
+  )
     return (
       <div className="w-full rounded-lg border bg-card p-3">
         <div className="flex items-center gap-2">
@@ -144,7 +136,6 @@ export function PresentationEditSlidePropertiesCall({
         </div>
       </div>
     );
-  }
 
   if (isEditing) {
     return (
@@ -166,9 +157,7 @@ export function PresentationEditSlidePropertiesCall({
             <Label className="text-xs">Background</Label>
             <ColorPicker
               value={form.bgColor || "#ffffff"}
-              onChange={(value) =>
-                setForm((current) => ({ ...current, bgColor: value || "" }))
-              }
+              onChange={(v) => setForm((f) => ({ ...f, bgColor: v || "" }))}
             >
               <Button
                 variant="outline"
@@ -188,10 +177,10 @@ export function PresentationEditSlidePropertiesCall({
               <Label className="text-xs">Layout</Label>
               <Select
                 value={form.layoutType}
-                onValueChange={(value) =>
-                  setForm((current) => ({
-                    ...current,
-                    layoutType: value as typeof current.layoutType,
+                onValueChange={(v) =>
+                  setForm((f) => ({
+                    ...f,
+                    layoutType: v as typeof f.layoutType,
                   }))
                 }
               >
@@ -211,11 +200,8 @@ export function PresentationEditSlidePropertiesCall({
               <Label className="text-xs">Width</Label>
               <Select
                 value={form.width}
-                onValueChange={(value) =>
-                  setForm((current) => ({
-                    ...current,
-                    width: value as typeof current.width,
-                  }))
+                onValueChange={(v) =>
+                  setForm((f) => ({ ...f, width: v as typeof f.width }))
                 }
               >
                 <SelectTrigger className="h-9">
@@ -234,10 +220,10 @@ export function PresentationEditSlidePropertiesCall({
             <Label className="text-xs">Alignment</Label>
             <Select
               value={form.alignment}
-              onValueChange={(value) =>
-                setForm((current) => ({
-                  ...current,
-                  alignment: value as typeof current.alignment,
+              onValueChange={(v) =>
+                setForm((f) => ({
+                  ...f,
+                  alignment: v as typeof f.alignment,
                 }))
               }
             >
@@ -268,12 +254,12 @@ export function PresentationEditSlidePropertiesCall({
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          {form.bgColor ? (
+          {form.bgColor && (
             <div
-              className="h-4 w-4 rounded border shadow-2xs"
+              className="h-4 w-4 rounded border shadow-xs"
               style={{ backgroundColor: form.bgColor }}
             />
-          ) : null}
+          )}
           <span className="truncate text-sm">{summaryText}</span>
           <span className="shrink-0 text-xs text-muted-foreground">
             ({slideCount} {slideCount === 1 ? "slide" : "slides"})

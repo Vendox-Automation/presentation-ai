@@ -1,15 +1,14 @@
-import { type PlateEditor } from "platejs/react";
-import { type DropTargetMonitor } from "react-dnd";
-
-import { NodeApi, PathApi, type Path, type TElement } from "platejs";
-
 import {
   DndPlugin,
   type DragItemNode,
   type ElementDragItemNode,
 } from "@platejs/dnd";
-import { type UseDropNodeOptions } from "../hooks/useDropNode";
+import { NodeApi, PathApi, type Path, type TElement } from "platejs";
+import { type PlateEditor } from "platejs/react";
+import { type DropTargetMonitor } from "react-dnd";
 
+import { type UseDropNodeOptions } from "../hooks/useDropNode";
+import { getActiveFreeformDropTarget } from "../utils/freeformDrop";
 import { getDropPath } from "../utils/getDropPath";
 import { getHoverDirection } from "../utils/getHoverDirection";
 
@@ -30,9 +29,19 @@ export const onHoverNode = (
     monitor: DropTargetMonitor;
   } & Pick<UseDropNodeOptions, "canDropNode" | "element" | "nodeRef">,
 ) => {
-  const { _isOver, dropTarget } = editor.getOptions(DndPlugin);
+  const { dropTarget } = editor.getOptions(DndPlugin);
   const currentId = dropTarget?.id ?? null;
   const currentLine = dropTarget?.line ?? "";
+  const freeformTarget = getActiveFreeformDropTarget(editor);
+
+  if (freeformTarget) {
+    if (editor.api.isExpanded()) {
+      editor.tf.focus();
+      editor.tf.collapse();
+    }
+
+    return;
+  }
 
   // Check if the drop would actually move the node
   const result = getDropPath(editor, {
@@ -86,9 +95,7 @@ export const onHoverNode = (
               newDropTarget.id !== currentId ||
               newDropTarget.line !== currentLine
             ) {
-              if (_isOver) {
-                editor.setOption(DndPlugin, "dropTarget", newDropTarget);
-              }
+              editor.setOption(DndPlugin, "dropTarget", newDropTarget);
             }
             return;
           }
@@ -107,11 +114,6 @@ export const onHoverNode = (
   const newDropTarget = { id: element.id as string, line: direction };
 
   if (newDropTarget.id !== currentId || newDropTarget.line !== currentLine) {
-    // Only set if there's a real change
-    if (!_isOver) {
-      return;
-    }
-
     // For top positioning, adjust to show line at bottom of previous element
     // This makes the visual indicator appear between elements
     if (newDropTarget.line === "top") {

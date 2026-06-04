@@ -1,5 +1,11 @@
 "use client";
 
+import { DRAG_ITEM_BLOCK } from "@platejs/dnd";
+import { GripVertical } from "lucide-react";
+import { useMemo, useState } from "react";
+import { useDrag } from "react-dnd";
+import { toast } from "sonner";
+
 import {
   createMediaEmbedNode,
   mediaEmbedItems,
@@ -8,18 +14,53 @@ import {
 import { useDebouncedSave } from "@/hooks/presentation/useDebouncedSave";
 import { cn } from "@/lib/utils";
 import { usePresentationState } from "@/states/presentation-state";
-import { DRAG_ITEM_BLOCK } from "@platejs/dnd";
-import { GripVertical } from "lucide-react";
-import { useDrag } from "react-dnd";
-import { toast } from "sonner";
+import { PanelSearchFilter } from "./PanelSearchFilter";
+import { matchesPanelSearch } from "./PanelSearchFilter";
+
+function getMediaFilterValue(item: MediaEmbedItem): string {
+  if (["youtube", "vimeo", "loom"].includes(item.embedType)) return "video";
+  if (["twitter"].includes(item.embedType)) return "social";
+  if (["figma", "codepen"].includes(item.embedType)) return "design";
+  if (["image", "infographic"].includes(item.embedType)) return "media";
+  return "web";
+}
 
 export function MediaEmbedPanel() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const filteredItems = useMemo(
+    () =>
+      mediaEmbedItems.filter((item) => {
+        const category = getMediaFilterValue(item);
+
+        return matchesPanelSearch(searchQuery, [
+          item.label,
+          item.description,
+          item.embedType,
+          category,
+        ]);
+      }),
+    [searchQuery],
+  );
+
   return (
-    <div className="scrollbar-thin flex h-full flex-col gap-6 overflow-y-auto px-4 py-4 scrollbar-thumb-primary scrollbar-track-transparent">
-      <div className="grid grid-cols-2 gap-4">
-        {mediaEmbedItems.map((item) => (
-          <MediaEmbedCard key={item.key} item={item} />
-        ))}
+    <div className="flex h-full flex-col overflow-hidden">
+      <PanelSearchFilter
+        onQueryChange={setSearchQuery}
+        placeholder="Search embeds..."
+        query={searchQuery}
+      />
+      <div className="scrollbar-thin flex-1 overflow-y-auto px-4 py-4 scrollbar-thumb-primary scrollbar-track-transparent">
+        {filteredItems.length > 0 ? (
+          <div className="grid grid-cols-2 gap-4">
+            {filteredItems.map((item) => (
+              <MediaEmbedCard key={item.key} item={item} />
+            ))}
+          </div>
+        ) : (
+          <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
+            No embeds match your search.
+          </div>
+        )}
       </div>
     </div>
   );
@@ -29,6 +70,9 @@ function MediaEmbedCard({ item }: { item: MediaEmbedItem }) {
   const currentSlideId = usePresentationState((s) => s.currentSlideId);
   const slides = usePresentationState((s) => s.slides);
   const setSlides = usePresentationState((s) => s.setSlides);
+  const openInfographicGenerationEditor = usePresentationState(
+    (s) => s.openInfographicGenerationEditor,
+  );
   const { saveImmediately } = useDebouncedSave();
 
   const [{ isDragging }, drag] = useDrag(() => ({
@@ -40,23 +84,17 @@ function MediaEmbedCard({ item }: { item: MediaEmbedItem }) {
     collect: (monitor) => ({ isDragging: monitor.isDragging() }),
   }));
 
-  const handleClick = () => {
+  const selectEmbedType = () => {
     const currentSlide = slides.find((s) => s.id === currentSlideId);
-    const rootImage = currentSlide?.rootImage;
 
-    // Check if there's an existing root image (with url, embedType, or chartType)
-    if (
-      rootImage &&
-      (rootImage.url || rootImage.embedType || rootImage.chartType)
-    ) {
-      // Transform root image to this embed type
+    if (currentSlide) {
       setSlides(
         slides.map((slide) =>
           slide.id === currentSlideId
             ? {
                 ...slide,
                 rootImage: {
-                  ...slide.rootImage!,
+                  ...(slide.rootImage ?? { query: "" }),
                   embedType: item.embedType,
                   url: "", // Clear URL so user can enter a new one
                   chartType: undefined, // Clear chart type since we're switching to embed
@@ -69,6 +107,9 @@ function MediaEmbedCard({ item }: { item: MediaEmbedItem }) {
       );
       void saveImmediately();
       toast.success(`Changed to ${item.label} embed`);
+      if (item.embedType === "infographic") {
+        openInfographicGenerationEditor();
+      }
     } else {
       toast.error("Please select a root image first");
     }
@@ -79,7 +120,7 @@ function MediaEmbedCard({ item }: { item: MediaEmbedItem }) {
       ref={(el) => {
         if (el) drag(el);
       }}
-      onClick={handleClick}
+      onClick={selectEmbedType}
       className={cn(
         "group relative flex cursor-pointer flex-col items-center justify-center space-y-3 rounded-xl border border-border/50 p-5 transition-all duration-300 hover:shadow-lg",
         "bg-card hover:bg-secondary/50",
@@ -88,11 +129,11 @@ function MediaEmbedCard({ item }: { item: MediaEmbedItem }) {
       )}
     >
       <div className="absolute top-2 left-2">
-        <GripVertical className="h-4 w-4 cursor-grab text-muted-foreground transition-colors group-hover:text-foreground active:cursor-grabbing" />
+        <GripVertical className="size-4 cursor-grab text-muted-foreground transition-colors group-hover:text-foreground active:cursor-grabbing" />
       </div>
       <div
         className={cn(
-          "flex h-14 w-14 items-center justify-center rounded-lg text-3xl shadow-xs transition-all duration-300 group-hover:scale-110",
+          "flex size-14 items-center justify-center rounded-lg text-3xl shadow transition-all duration-300 group-hover:scale-110",
           "bg-muted",
         )}
       >

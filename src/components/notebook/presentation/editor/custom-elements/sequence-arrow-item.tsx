@@ -1,28 +1,39 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import { NodeApi, PathApi } from "platejs";
 import { PlateElement, type PlateElementProps } from "platejs/react";
+
+import { cn } from "@/lib/utils";
 import { type TSequenceArrowGroupElement } from "../plugins/sequence-arrow-plugin";
 import { getAlignmentClasses } from "../utils";
+import { getPresentationAccentColor } from "./color-utils";
+import { getSiblingIndexContext } from "./sibling-index";
 
 export const SequenceArrowItem = (props: PlateElementProps) => {
-  const parentPath = PathApi.parent(props.path);
-  const parentElement = NodeApi.get(
+  const { index, parentElement } =
+    getSiblingIndexContext<TSequenceArrowGroupElement>(
+      props.editor,
+      props.element,
+      props.path,
+    );
+  const fallbackParentPath = PathApi.parent(props.path);
+  const fallbackParentElement = NodeApi.get(
     props.editor,
-    parentPath,
-  ) as TSequenceArrowGroupElement;
-  const index = props.path.at(-1) ?? 0;
-  const total = parentElement?.children?.length ?? 0;
+    fallbackParentPath,
+  ) as TSequenceArrowGroupElement | undefined;
+  const resolvedParentElement = parentElement ?? fallbackParentElement;
+  const total = resolvedParentElement?.children?.length ?? 0;
   const isLast = index === total - 1;
 
-  const { orientation = "vertical" } = parentElement;
-  const triangleColor =
-    (parentElement.color as string) ||
-    "var(--presentation-card-background, var(--presentation-primary))";
-
+  const { orientation = "vertical" } = resolvedParentElement ?? {};
+  const triangleColor = getPresentationAccentColor(
+    props.element,
+    resolvedParentElement,
+    "var(--presentation-card-background, var(--presentation-primary))",
+  );
   return (
-    <div
+    <PlateElement
+      {...props}
       className={cn(
         "relative h-full w-full flex-1",
         orientation === "horizontal" && "flex items-stretch",
@@ -40,16 +51,16 @@ export const SequenceArrowItem = (props: PlateElementProps) => {
           color: "var(--presentation-background)",
         }}
       >
-        <PlateElement
-          {...props}
-          className={cn(getAlignmentClasses(parentElement.alignment))}
+        <div
+          className={cn(getAlignmentClasses(resolvedParentElement?.alignment))}
         >
           {props.children}
-        </PlateElement>
+        </div>
       </div>
 
       {!isLast && orientation === "vertical" && (
         <div
+          data-decor="true"
           className={cn("mx-auto h-0 w-0")}
           style={{
             borderLeft: "13px solid transparent",
@@ -62,6 +73,7 @@ export const SequenceArrowItem = (props: PlateElementProps) => {
 
       {!isLast && orientation === "horizontal" && (
         <div
+          data-decor="true"
           className={cn("my-auto h-0 w-0")}
           style={{
             borderTop: "13px solid transparent",
@@ -71,6 +83,6 @@ export const SequenceArrowItem = (props: PlateElementProps) => {
           }}
         />
       )}
-    </div>
+    </PlateElement>
   );
 };

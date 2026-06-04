@@ -1,5 +1,16 @@
 "use client";
 
+import {
+  AlertTriangle,
+  ExternalLink,
+  Loader2,
+  Trash2,
+  Upload,
+} from "lucide-react";
+import Image from "next/image";
+import { type TElement } from "platejs";
+import { useEffect, useRef, useState } from "react";
+
 import { useUploadFile } from "@/components/plate/hooks/use-upload-file";
 import {
   detectEmbedType,
@@ -17,15 +28,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  AlertTriangle,
-  ExternalLink,
-  Loader2,
-  Trash2,
-  Upload,
-} from "lucide-react";
-import { type TElement } from "platejs";
-import { useEffect, useRef, useState } from "react";
 import { type RootImage as RootImageType } from "../../../utils/parser";
 import { type ImageCropSettings } from "../../../utils/types";
 import { EmbedRenderer } from "../embeds/EmbedRenderer";
@@ -163,11 +165,11 @@ export function EmbedControls({
   const isImageType = selectedType === "image";
 
   return (
-    <div className="flex w-90 flex-col space-y-6 overflow-clip">
+    <div className="flex w-90 flex-col gap-y-6 overflow-clip">
       {/* Mini Preview */}
       <div className="flex flex-col gap-2">
         <div className="flex justify-center">
-          <div className="relative flex size-90 items-center justify-center overflow-hidden rounded-md border bg-muted shadow-xs">
+          <div className="relative flex size-90 items-center justify-center overflow-hidden rounded-md border bg-muted shadow">
             {isImageType ? (
               imageDimensions ? (
                 <ImagePreview
@@ -184,11 +186,13 @@ export function EmbedControls({
                   hideControls={true}
                 />
               ) : url ? (
-                // biome-ignore lint/performance/noImgElement: This is necessary to support different types of thing
-                <img
+                <Image
+                  unoptimized
+                  width={400}
+                  height={300}
                   src={url}
                   alt="Preview"
-                  className="h-full w-full object-cover"
+                  className="size-full object-cover"
                 />
               ) : (
                 <div className="flex items-center justify-center text-sm text-muted-foreground">
@@ -206,7 +210,7 @@ export function EmbedControls({
                 <EmbedRenderer
                   embedType={selectedType}
                   url={url}
-                  className="pointer-events-none h-full w-full"
+                  className="pointer-events-none size-full"
                 />
               </div>
             )}
@@ -271,14 +275,15 @@ export function EmbedControls({
               className="shrink-0"
             >
               {isUploading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="size-4 animate-spin" />
               ) : (
-                <Upload className="h-4 w-4" />
+                <Upload className="size-4" />
               )}
             </Button>
           )}
           {/* Hidden file input */}
           <input
+            aria-label="embed controls control"
             ref={fileInputRef}
             type="file"
             accept="image/*"
@@ -288,12 +293,12 @@ export function EmbedControls({
         </div>
         {isUploading && (
           <div className="text-xs text-muted-foreground">
-            Uploading... {Math.round(progress)}%
+            Uploading… {Math.round(progress)}%
           </div>
         )}
         {error && (
           <Alert variant="destructive">
-            <AlertTriangle className="h-4 w-4" />
+            <AlertTriangle className="size-4" />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
@@ -314,7 +319,7 @@ export function EmbedControls({
             onClick={handleClear}
             className="w-full text-destructive hover:text-destructive"
           >
-            <Trash2 className="mr-2 h-4 w-4" />
+            <Trash2 className="mr-2 size-4" />
             Remove Embed
           </Button>
         )}
@@ -322,7 +327,7 @@ export function EmbedControls({
 
       {url && (
         <div className="flex items-center gap-2 overflow-hidden rounded-md bg-muted/50 p-3 text-xs text-muted-foreground">
-          <ExternalLink className="h-3 w-3 shrink-0" />
+          <ExternalLink className="size-3 shrink-0" />
           <a
             href={url}
             target="_blank"

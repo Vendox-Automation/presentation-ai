@@ -1,20 +1,19 @@
 "use client";
 
+import React from "react";
+
 import { SlideGenerationProvider } from "@/components/notebook/presentation/editor/context/SlideGenerationContext";
 import PresentationEditor from "@/components/notebook/presentation/editor/presentation-editor";
 import StaticPresentationEditor from "@/components/notebook/presentation/editor/presentation-editor-static";
 import { SlideWrapper } from "@/components/presentation/slides/SlideWrapper";
 import { cn } from "@/lib/utils";
 import { usePresentationState } from "@/states/presentation-state";
-import React from "react";
 
 interface SlideItemProps {
   slideId: string;
   isGeneratingPresentation: boolean;
   slidesCount: number;
   isReadOnly?: boolean;
-  forceLandscapePresentMode?: boolean;
-  forceLandscapeRotationDeg?: 90 | -90;
 }
 
 /**
@@ -26,8 +25,6 @@ export const SlideItem = React.memo(function SlideItem({
   isGeneratingPresentation,
   slidesCount,
   isReadOnly = false,
-  forceLandscapePresentMode = false,
-  forceLandscapeRotationDeg = -90,
 }: SlideItemProps) {
   // Each slide item fetches its own data - stable reference unless THIS slide changes
   const slide = usePresentationState((s) =>
@@ -47,8 +44,6 @@ export const SlideItem = React.memo(function SlideItem({
           slideWidth={slide.width}
           slidesCount={slidesCount}
           isReadOnly={isReadOnly}
-          forceLandscapePresentMode={forceLandscapePresentMode}
-          forceLandscapeRotationDeg={forceLandscapeRotationDeg}
         >
           <div
             className={cn(`slide-container-${slide.id}`)}
@@ -58,7 +53,7 @@ export const SlideItem = React.memo(function SlideItem({
               <StaticPresentationEditor
                 initialContent={slide}
                 className={cn(
-                  "min-h-[300px] rounded-md border",
+                  "min-h-75 rounded-md border",
                   !isPresenting &&
                     slide.id === currentSlideId &&
                     "border-primary ring-4! ring-primary ring-offset-2!",
@@ -69,7 +64,7 @@ export const SlideItem = React.memo(function SlideItem({
               <PresentationEditor
                 initialContent={slide}
                 className={cn(
-                  "min-h-[300px] rounded-md border",
+                  "min-h-75 rounded-md border",
                   !isPresenting &&
                     slide.id === currentSlideId &&
                     "border-primary ring-2! ring-primary",

@@ -1,5 +1,6 @@
-import { cn } from "@/lib/utils";
 import { SlateElement, type SlateElementProps } from "platejs/static";
+
+import { cn } from "@/lib/utils";
 import { type TArrowListElement } from "../../plugins/arrow-plugin";
 import { arrowItemVariants } from "../arrow-list";
 
@@ -36,5 +37,3 @@ export default function ArrowListStatic(
     </SlateElement>
   );
 }
-
-

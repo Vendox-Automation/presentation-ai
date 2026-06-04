@@ -1,12 +1,32 @@
 "use client";
 
-import { getUserImages } from "@/app/_actions/apps/image-studio/fetch";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  Clapperboard,
+  ImageIcon,
+  Images,
+  Loader2,
+  Scissors,
+  Search,
+  Sparkles,
+  Upload,
+  X,
+} from "lucide-react";
+import Image from "next/image";
+import { useRef, useState } from "react";
+import { toast } from "sonner";
+
+import { CropModal } from "@/components/notebook/presentation/editor/custom-elements/image-editor/CropModal";
+import { GeneratedImagesGrid } from "@/components/notebook/presentation/editor/custom-elements/image-editor/GeneratedImagesGrid";
+import { UploadedImagesGrid } from "@/components/notebook/presentation/editor/custom-elements/image-editor/UploadedImagesGrid";
+import { getPresentationImageCropStyles } from "@/components/notebook/presentation/editor/custom-elements/presentation-image-layout";
+import { PALETTE_DROP_MUTABLE_KEY } from "@/components/notebook/presentation/editor/utils/paletteDrop";
+import { type ImageCropSettings } from "@/components/notebook/presentation/utils/types";
 import { useUploadFile } from "@/components/plate/hooks/use-upload-file";
 import { SharedGenerateControls } from "@/components/presentation/shared/SharedGenerateControls";
 import { SharedGifSearchControls } from "@/components/presentation/shared/SharedGifSearchControls";
 import { SharedImageSearchControls } from "@/components/presentation/shared/SharedImageSearchControls";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -15,24 +35,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
+import { getPresentationTitleSearchQuery } from "@/lib/presentation/title-search-query";
 import {
-  type ImageEditorMode,
   usePresentationState,
+  type ImageEditorMode,
+  type PresentationStockImageProvider,
 } from "@/states/presentation-state";
-import { useInfiniteQuery } from "@tanstack/react-query";
-import {
-  Clapperboard,
-  ImageIcon,
-  Images,
-  Loader2,
-  Search,
-  Upload,
-  X,
-} from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { useInView } from "react-intersection-observer";
-import { toast } from "sonner";
 
 // Define tab options with icons (excluding embed since this is for presentation images)
 const TAB_OPTIONS: {
@@ -43,15 +51,20 @@ const TAB_OPTIONS: {
   {
     value: "generate",
     label: "AI Generate",
-    icon: <ImageIcon className="h-4 w-4" />,
+    icon: <ImageIcon className="size-4" />,
   },
   {
     value: "your-images",
-    label: "Your Images",
-    icon: <Images className="h-4 w-4" />,
+    label: "Uploaded Images",
+    icon: <Images className="size-4" />,
   },
-  { value: "search", label: "Search", icon: <Search className="h-4 w-4" /> },
-  { value: "gif", label: "GIFs", icon: <Clapperboard className="h-4 w-4" /> },
+  {
+    value: "generated-images",
+    label: "Generated Images",
+    icon: <Sparkles className="size-4" />,
+  },
+  { value: "search", label: "Search", icon: <Search className="size-4" /> },
+  { value: "gif", label: "GIFs", icon: <Clapperboard className="size-4" /> },
 ];
 
 export function PresentationImageEditorPanel() {
@@ -62,20 +75,89 @@ export function PresentationImageEditorPanel() {
     (s) => s.closePresentationImageEditor,
   );
   const boundUpdateElement = usePresentationState((s) => s.boundUpdateElement);
+  const presentationImageEditorElement = usePresentationState(
+    (s) => s.presentationImageEditorElement,
+  );
+  const presentationImageEditorFrame = usePresentationState(
+    (s) => s.presentationImageEditorFrame,
+  );
+  const currentPresentationTitle = usePresentationState(
+    (s) => s.currentPresentationTitle,
+  );
+  const setPaletteDropTarget = usePresentationState(
+    (s) => s.setPaletteDropTarget,
+  );
   const initialMode = presentationImageEditorInitialMode ?? "generate";
+  const initialSearchQuery = getPresentationTitleSearchQuery(
+    currentPresentationTitle,
+  );
 
-  const [currentMode, setCurrentMode] = useState<ImageEditorMode>(initialMode);
+  const [modeState, setModeState] = useState<{
+    mode: ImageEditorMode;
+    sourceMode: ImageEditorMode;
+  }>(() => ({ mode: initialMode, sourceMode: initialMode }));
+  const currentMode =
+    modeState.sourceMode === initialMode ? modeState.mode : initialMode;
+  const editorElementKey = getImageEditorElementKey(
+    presentationImageEditorElement,
+  );
+  const [currentElementState, setCurrentElementState] = useState<{
+    element: Record<string, unknown> | null;
+    key: string;
+  }>(() => ({
+    element: presentationImageEditorElement,
+    key: editorElementKey,
+  }));
+  const currentElement =
+    currentElementState.key === editorElementKey
+      ? currentElementState.element
+      : presentationImageEditorElement;
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
+  const currentImageUrl =
+    typeof currentElement?.url === "string" ? currentElement.url : undefined;
+  const currentImageQuery =
+    typeof currentElement?.query === "string"
+      ? currentElement.query
+      : typeof currentElement?.prompt === "string"
+        ? currentElement.prompt
+        : "";
+  const currentCropSettings = getImageCropSettings(
+    currentElement?.cropSettings,
+  );
+  const previewFrame = getImagePreviewFrame(presentationImageEditorFrame);
 
   // Upload file hook
   const { uploadFile, isUploading, progress } = useUploadFile({
     onUploadComplete: (file) => {
+      if (!file.ufsUrl) {
+        toast.error("Uploaded image URL was not returned");
+        return;
+      }
+
       if (boundUpdateElement) {
+        setPaletteDropTarget(null);
         boundUpdateElement({
           url: file.ufsUrl,
           query: "",
+          imageSource: "upload",
+          [PALETTE_DROP_MUTABLE_KEY]: false,
         });
+        setCurrentElementState(({ element }) => ({
+          key: editorElementKey,
+          element: {
+            ...(element ?? {}),
+            url: file.ufsUrl,
+            query: "",
+            prompt: "",
+            imageSource: "upload",
+          },
+        }));
       }
+      void queryClient.invalidateQueries({
+        queryKey: ["presentation-uploaded-images"],
+      });
     },
     onUploadError: (error) => {
       toast.error("Failed to upload image");
@@ -98,34 +180,55 @@ export function PresentationImageEditorPanel() {
     }
   };
 
-  // Sync mode when initial mode changes
-  useEffect(() => {
-    if (presentationImageEditorInitialMode) {
-      setCurrentMode(presentationImageEditorInitialMode);
-    }
-  }, [presentationImageEditorInitialMode]);
-
   const handleImageSelect = (
     url: string,
     prompt?: string,
-    imageSource?: "generate" | "search" | "gif",
+    imageSource?: "generate" | "search" | "gif" | "upload",
+    stockImageProvider?: PresentationStockImageProvider,
   ) => {
-    console.log("[PresentationImageEditorPanel] handleImageSelect:", {
-      url,
-      prompt,
-      imageSource,
-    });
     if (boundUpdateElement) {
+      setPaletteDropTarget(null);
       boundUpdateElement({
         url,
         query: prompt ?? "",
         imageSource,
+        ...(stockImageProvider ? { stockImageProvider } : {}),
+        [PALETTE_DROP_MUTABLE_KEY]: false,
       });
+      setCurrentElementState(({ element }) => ({
+        key: editorElementKey,
+        element: {
+          ...(element ?? {}),
+          url,
+          query: prompt ?? "",
+          prompt: prompt ?? "",
+          imageSource,
+          ...(stockImageProvider ? { stockImageProvider } : {}),
+        },
+      }));
     }
   };
 
+  const handleCropSave = (settings: ImageCropSettings) => {
+    if (!boundUpdateElement) return;
+
+    setPaletteDropTarget(null);
+    boundUpdateElement({
+      cropSettings: settings,
+      [PALETTE_DROP_MUTABLE_KEY]: false,
+    });
+    setCurrentElementState(({ element }) => ({
+      key: editorElementKey,
+      element: {
+        ...(element ?? {}),
+        cropSettings: settings,
+      },
+    }));
+    setIsCropModalOpen(false);
+  };
+
   const handleModeChange = (value: string) => {
-    setCurrentMode(value as ImageEditorMode);
+    setModeState({ mode: value as ImageEditorMode, sourceMode: initialMode });
   };
 
   // Get current tab info
@@ -136,46 +239,64 @@ export function PresentationImageEditorPanel() {
   }
 
   // Render content based on current mode
+  const renderCurrentImagePreview = () => {
+    if (!currentImageUrl) {
+      return null;
+    }
+
+    return (
+      <div className="space-y-3">
+        <div
+          className="relative mx-auto flex items-center justify-center overflow-hidden rounded-md border bg-muted shadow"
+          style={{
+            aspectRatio: `${previewFrame.width} / ${previewFrame.height}`,
+            maxWidth: previewFrame.width,
+            width: "100%",
+          }}
+        >
+          <Image
+            unoptimized
+            width={400}
+            height={300}
+            src={currentImageUrl}
+            alt={currentImageQuery}
+            className="size-full"
+            style={getPresentationImageCropStyles(currentCropSettings)}
+          />
+        </div>
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => setIsCropModalOpen(true)}
+          >
+            <Scissors className="size-4" />
+            Crop
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   const renderContent = () => {
     switch (currentMode) {
       case "generate":
         return (
           <div className="flex h-full flex-col">
             <div className="flex-none space-y-1 px-6 py-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="leading-none font-medium">Generate Image</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Create unique images using AI.
-                  </p>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleUploadClick}
-                  disabled={isUploading}
-                  className="gap-2"
-                >
-                  {isUploading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      {progress}%
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-4 w-4" />
-                      Upload
-                    </>
-                  )}
-                </Button>
-              </div>
+              <h3 className="leading-none font-medium">Generate Image</h3>
+              <p className="text-sm text-muted-foreground">
+                Create unique images using AI.
+              </p>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">
+            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 pb-6">
+              {renderCurrentImagePreview()}
               <SharedGenerateControls
                 onImageSelect={(url, prompt) =>
                   handleImageSelect(url, prompt, "generate")
                 }
-                initialPrompt={""}
+                initialPrompt={currentImageQuery}
               />
             </div>
           </div>
@@ -183,16 +304,55 @@ export function PresentationImageEditorPanel() {
       case "your-images":
         return (
           <div className="flex h-full flex-col">
+            <div className="flex flex-none items-start justify-between gap-3 px-6 py-4">
+              <div className="min-w-0 space-y-1">
+                <h3 className="leading-none font-medium">Uploaded Images</h3>
+                <p className="text-sm text-muted-foreground">
+                  Select from your uploaded images.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleUploadClick}
+                disabled={isUploading}
+                className="shrink-0 gap-2"
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    {Math.trunc(progress)}%
+                  </>
+                ) : (
+                  <>
+                    <Upload className="size-4" />
+                    Upload
+                  </>
+                )}
+              </Button>
+            </div>
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 pb-6">
+              <UploadedImagesGrid
+                onImageSelect={(image) =>
+                  handleImageSelect(image.url, image.name, "upload")
+                }
+              />
+            </div>
+          </div>
+        );
+      case "generated-images":
+        return (
+          <div className="flex h-full flex-col">
             <div className="flex-none space-y-1 px-6 py-4">
-              <h3 className="leading-none font-medium">Your Images</h3>
+              <h3 className="leading-none font-medium">Generated Images</h3>
               <p className="text-sm text-muted-foreground">
-                Select from your generated images.
+                Select from your AI-generated images.
               </p>
             </div>
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 pb-6">
-              <YourImagesGrid
-                onImageSelect={(url, prompt) =>
-                  handleImageSelect(url, prompt, "generate")
+              <GeneratedImagesGrid
+                onImageSelect={(image) =>
+                  handleImageSelect(image.url, image.prompt, "generate")
                 }
               />
             </div>
@@ -204,14 +364,17 @@ export function PresentationImageEditorPanel() {
             <div className="flex-none space-y-1 px-6 py-4">
               <h3 className="leading-none font-medium">Search Images</h3>
               <p className="text-sm text-muted-foreground">
-                Find images from Unsplash or Pixabay.
+                Find images from Unsplash, Pixabay, or live web results.
               </p>
             </div>
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 pb-6">
               <SharedImageSearchControls
-                onImageSelect={(url) =>
-                  handleImageSelect(url, undefined, "search")
+                onImageSelect={(url, provider) =>
+                  handleImageSelect(url, undefined, "search", provider)
                 }
+                initialQuery={initialSearchQuery}
+                initialQueryKey={currentPresentationTitle ?? undefined}
+                disableTrendingFallback={true}
                 className="h-full"
               />
             </div>
@@ -240,7 +403,7 @@ export function PresentationImageEditorPanel() {
   };
 
   return (
-    <div className="flex h-full w-full flex-col border-l bg-background">
+    <div className="flex size-full flex-col border-l bg-background">
       {/* Header */}
       <div className="flex items-center justify-between border-b px-4 py-2">
         <h2 className="text-sm font-semibold">Image Editor</h2>
@@ -256,6 +419,7 @@ export function PresentationImageEditorPanel() {
 
       {/* Hidden file input */}
       <input
+        aria-label="presentation image editor panel control"
         ref={fileInputRef}
         type="file"
         accept="image/*"
@@ -297,90 +461,73 @@ export function PresentationImageEditorPanel() {
 
       {/* Content Area */}
       <div className="min-h-0 flex-1 overflow-hidden">{renderContent()}</div>
+
+      {currentImageUrl ? (
+        <CropModal
+          open={isCropModalOpen}
+          onOpenChange={setIsCropModalOpen}
+          imageUrl={currentImageUrl}
+          initialCropSettings={currentCropSettings}
+          onSave={handleCropSave}
+          imageDimensions={{
+            height: previewFrame.height,
+            scale: 1,
+            width: previewFrame.width,
+          }}
+        />
+      ) : null}
     </div>
   );
 }
 
-// Inline YourImages grid component
-function YourImagesGrid({
-  onImageSelect,
-}: {
-  onImageSelect: (url: string, prompt: string) => void;
-}) {
-  const { ref, inView } = useInView();
+function getImagePreviewFrame(
+  value: { height: number; width: number } | null,
+): { height: number; width: number } {
+  if (
+    value &&
+    Number.isFinite(value.height) &&
+    Number.isFinite(value.width) &&
+    value.height > 0 &&
+    value.width > 0
+  ) {
+    return value;
+  }
 
-  const {
-    data: userImagesData,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isLoading: isLoadingUserImages,
-  } = useInfiniteQuery({
-    queryKey: ["user-generated-images"],
-    queryFn: async ({ pageParam = 1 }) => {
-      const images = await getUserImages({ page: pageParam, limit: 20 });
-      return images;
-    },
-    initialPageParam: 1,
-    getNextPageParam: (lastPage, allPages) => {
-      return lastPage.length === 20 ? allPages.length + 1 : undefined;
-    },
-  });
+  return { height: 450, width: 800 };
+}
 
-  useEffect(() => {
-    if (inView && hasNextPage) {
-      void fetchNextPage();
-    }
-  }, [inView, fetchNextPage, hasNextPage]);
+function getImageEditorElementKey(
+  element: Record<string, unknown> | null,
+): string {
+  if (typeof element?.id === "string") {
+    return element.id;
+  }
 
-  return (
-    <ScrollArea className="-mx-2 flex-1 px-2">
-      <div className="grid grid-cols-3 gap-2 pb-4">
-        {userImagesData?.pages.map((page) =>
-          page.map((img) => (
-            <div
-              key={img.id}
-              onClick={() => onImageSelect(img.url, img.prompt)}
-              className="group relative aspect-square cursor-pointer overflow-hidden rounded-lg border border-border bg-muted/30"
-            >
-              {/* biome-ignore lint/performance/noImgElement: Cannot use image links with next Image component */}
-              <img
-                src={img.url}
-                alt={img.prompt}
-                className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                loading="lazy"
-              />
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/40 p-2 opacity-0 transition-opacity group-hover:opacity-100">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="h-8 w-full text-xs"
-                  onClick={() => onImageSelect(img.url, img.prompt)}
-                >
-                  Use Image
-                </Button>
-              </div>
-            </div>
-          )),
-        )}
+  return "";
+}
 
-        {/* Loading skeletons */}
-        {(isLoadingUserImages || isFetchingNextPage) &&
-          Array(6)
-            .fill(0)
-            .map((_, i) => (
-              <Skeleton key={i} className="aspect-square rounded-lg" />
-            ))}
+function getImageCropSettings(value: unknown): ImageCropSettings {
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "objectPosition" in value
+  ) {
+    const cropSettings = value as Partial<ImageCropSettings>;
+    const objectPosition = cropSettings.objectPosition;
 
-        {/* Infinite scroll trigger */}
-        <div ref={ref} className="col-span-3 h-4" />
+    return {
+      objectFit: cropSettings.objectFit ?? "cover",
+      objectPosition: {
+        x: objectPosition?.x ?? 50,
+        y: objectPosition?.y ?? 50,
+      },
+      zoom: cropSettings.zoom ?? 1,
+    };
+  }
 
-        {!isLoadingUserImages && userImagesData?.pages[0]?.length === 0 && (
-          <div className="col-span-3 flex flex-col items-center justify-center py-12 text-muted-foreground">
-            <p>No generated images found.</p>
-          </div>
-        )}
-      </div>
-    </ScrollArea>
-  );
+  return {
+    objectFit: "cover",
+    objectPosition: { x: 50, y: 50 },
+    zoom: 1,
+  };
 }

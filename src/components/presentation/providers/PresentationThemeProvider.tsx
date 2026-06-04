@@ -1,14 +1,7 @@
 "use client";
 
-import type * as React from "react";
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
-const STORAGE_KEY = "presentation-theme";
+import { useTheme as useGlobalTheme } from "next-themes";
+import { createContext, use, useCallback, useEffect, useState } from "react";
 
 type Theme = "light" | "dark";
 
@@ -26,72 +19,103 @@ const PresentationThemeContext = createContext<
  * Custom hook to access the presentation theme context.
  * This is a drop-in replacement for next-themes' useTheme within the presentation route.
  *
- * @throws Error if used outside of PresentationThemeProvider
+ * If used outside of a PresentationThemeProvider (e.g., globally under RootLayout),
+ * it seamlessly falls back to using the global next-themes system, avoiding runtime errors.
  */
 export function usePresentationTheme() {
-  const context = useContext(PresentationThemeContext);
+  const context = use(PresentationThemeContext);
+  const globalTheme = useGlobalTheme();
+
   if (context === undefined) {
-    throw new Error(
-      "usePresentationTheme must be used within a PresentationThemeProvider",
-    );
+    const theme = (globalTheme.theme === "dark" ? "dark" : "light") as Theme;
+    const resolvedTheme = (
+      globalTheme.resolvedTheme === "dark" ? "dark" : "light"
+    ) as Theme;
+
+    return {
+      theme,
+      setTheme: (newTheme: Theme) => {
+        globalTheme.setTheme(newTheme);
+      },
+      resolvedTheme,
+    };
   }
   return context;
 }
 
 /**
  * A custom theme provider for the presentation section.
- * This creates a completely isolated theme context that doesn't affect the global app theme.
+ * This creates a completely isolated theme context that doesn't affect other browser tabs.
  *
- * Unlike next-themes, this provider:
- * - Uses its own localStorage key ("presentation-theme")
- * - Doesn't touch the global <html> element
- * - Provides the same API as next-themes for easy migration
+ * Unlike the previous version, this provider:
+ * - Does not use localStorage or listen to storage events, eliminating cross-tab flickering.
+ * - Manages theme state completely in-memory per tab.
+ * - Dynamically updates the global <html> element's dark class for the current tab only,
+ *   ensuring portals (dialogs, dropdowns, etc.) receive the correct theme.
+ * - Safely restores the original html element classes and color scheme when unmounted.
  */
 export function PresentationThemeProvider({
   children,
   defaultTheme = "dark",
+  storageKey: _storageKey, // kept for backward compatibility (ignored/unused now)
+  syncWithDefaultTheme = false,
 }: {
   children: React.ReactNode;
   defaultTheme?: Theme;
+  storageKey?: string | null;
+  syncWithDefaultTheme?: boolean;
 }) {
   const [theme, setThemeState] = useState<Theme>(defaultTheme);
-  const [mounted, setMounted] = useState(false);
 
-  // Load theme from localStorage on mount
+  // Sync state if syncWithDefaultTheme is true and defaultTheme changes
   useEffect(() => {
-    setMounted(true);
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored === "light" || stored === "dark") {
-        setThemeState(stored);
-      }
-    } catch {
-      // localStorage might not be available (SSR, privacy mode, etc.)
+    if (syncWithDefaultTheme) {
+      setThemeState(defaultTheme);
     }
+  }, [defaultTheme, syncWithDefaultTheme]);
+
+  const setTheme = useCallback(
+    (newTheme: Theme) => {
+      setThemeState(newTheme);
+    },
+    [],
+  );
+
+  // Capture original document classes and color scheme, and restore on unmount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const root = window.document.documentElement;
+    const originalClass = root.className;
+    const originalColorScheme = root.style.colorScheme;
+
+    return () => {
+      root.className = originalClass;
+      root.style.colorScheme = originalColorScheme;
+    };
   }, []);
 
-  // Save theme to localStorage when it changes
-  const setTheme = useCallback((newTheme: Theme) => {
-    setThemeState(newTheme);
-    try {
-      localStorage.setItem(STORAGE_KEY, newTheme);
-      window.dispatchEvent(new CustomEvent("presentation-theme-change"));
-    } catch {
-      // localStorage might not be available
+  // Update HTML class and color-scheme for the current tab
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const root = window.document.documentElement;
+    if (theme === "dark") {
+      root.classList.add("dark");
+      root.style.colorScheme = "dark";
+    } else {
+      root.classList.remove("dark");
+      root.style.colorScheme = "light";
     }
-  }, []);
+  }, [theme]);
 
   const value: PresentationThemeContextValue = {
     theme,
     setTheme,
-    resolvedTheme: theme, // In our case, resolved is always the same as theme (no "system" option)
+    resolvedTheme: theme,
   };
 
   return (
     <PresentationThemeContext.Provider value={value}>
-      <PresentationThemeWrapper mounted={mounted} theme={theme}>
-        {children}
-      </PresentationThemeWrapper>
+      <PresentationThemeWrapper>{children}</PresentationThemeWrapper>
     </PresentationThemeContext.Provider>
   );
 }
@@ -100,12 +124,17 @@ export function PresentationThemeProvider({
  * Inner wrapper that applies the theme class to a div element.
  * This ensures Tailwind's dark: variants work correctly within the presentation.
  */
-function PresentationThemeWrapper({
-  children,
-}: {
-  children: React.ReactNode;
-  mounted: boolean;
-  theme: Theme;
-}) {
-  return children;
+function PresentationThemeWrapper({ children }: { children: React.ReactNode }) {
+  const { theme } = usePresentationTheme();
+  return (
+    <div
+      className={
+        theme === "dark"
+          ? "dark bg-background text-foreground h-full w-full"
+          : "bg-background text-foreground h-full w-full"
+      }
+    >
+      {children}
+    </div>
+  );
 }

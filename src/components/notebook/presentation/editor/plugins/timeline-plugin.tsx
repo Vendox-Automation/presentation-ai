@@ -1,5 +1,6 @@
 import { type TElement } from "platejs";
 import { createTPlatePlugin } from "platejs/react";
+
 import Timeline from "../custom-elements/timeline";
 import { TimelineItem } from "../custom-elements/timeline-item";
 import { TIMELINE_GROUP, TIMELINE_ITEM } from "../lib";
@@ -26,6 +27,7 @@ export const TimelineItemPlugin = createTPlatePlugin({
     type: TIMELINE_ITEM,
     isElement: true,
     isContainer: true,
+    isStrictSiblings: true,
   },
 });
 export interface TTimelineGroupElement extends TElement {
@@ -35,9 +37,11 @@ export interface TTimelineGroupElement extends TElement {
   numbered: boolean;
   showLine: boolean;
   alignment?: "left" | "center" | "right";
+  variant?: "default" | "boxes";
 }
 
 export interface TTimelineItemElement extends TElement {
   type: typeof TIMELINE_ITEM;
   alignment?: "left" | "center" | "right";
+  icon?: string;
 }

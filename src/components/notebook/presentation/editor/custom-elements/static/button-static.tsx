@@ -1,14 +1,25 @@
-import { cn } from "@/lib/utils";
 import { type TElement } from "platejs";
 import { SlateElement, type SlateElementProps } from "platejs/static";
 import type * as React from "react";
+
+import { cn } from "@/lib/utils";
 import { type BUTTON_ELEMENT } from "../../lib";
 
 type ButtonStaticElement = TElement & {
+  alignment?: "center" | "left" | "right";
+  backgroundColor?: string;
+  color?: string;
+  textColor?: string;
   type: typeof BUTTON_ELEMENT;
   variant?: "filled" | "outline" | "ghost";
   size?: "sm" | "md" | "lg";
 };
+
+function getJustifyClass(alignment: ButtonStaticElement["alignment"]) {
+  if (alignment === "left") return "justify-start";
+  if (alignment === "right") return "justify-end";
+  return "justify-center";
+}
 
 export default function ButtonStatic(
   props: SlateElementProps<ButtonStaticElement>,
@@ -16,6 +27,11 @@ export default function ButtonStatic(
   const element = props.element as ButtonStaticElement;
   const variant = element.variant ?? "filled";
   const size = element.size ?? "md";
+  const alignment = element.alignment ?? "left";
+  const accentColor = element.backgroundColor ?? "var(--presentation-primary)";
+  const textColor = element.textColor ?? element.color;
+  const backgroundColor =
+    element.backgroundColor ?? "var(--presentation-primary)";
 
   const sizeClasses =
     size === "sm"
@@ -42,22 +58,22 @@ export default function ButtonStatic(
     if (variant === "outline") {
       return {
         ...baseStyle,
-        color: element.color || "var(--presentation-primary)",
+        color: textColor ?? accentColor,
         backgroundColor: "transparent",
-        borderColor: element.color || "var(--presentation-primary)",
+        borderColor: accentColor,
       } as React.CSSProperties;
     }
     if (variant === "ghost") {
       return {
         ...baseStyle,
-        color: element.color || "var(--presentation-primary)",
+        color: textColor ?? accentColor,
         backgroundColor: "transparent",
       } as React.CSSProperties;
     }
     return {
       ...baseStyle,
-      backgroundColor: element.color || "var(--presentation-primary)",
-      color: "var(--presentation-background)",
+      backgroundColor,
+      color: textColor ?? "var(--presentation-background)",
       boxShadow: "var(--presentation-button-shadow, 0 2px 4px rgba(0,0,0,0.1))",
     } as React.CSSProperties;
   })();
@@ -65,7 +81,11 @@ export default function ButtonStatic(
   return (
     <SlateElement
       {...props}
-      className={cn("transition-all duration-300", props.className)}
+      className={cn(
+        "relative my-1 flex w-full transition-all duration-300",
+        getJustifyClass(alignment),
+        props.className,
+      )}
     >
       <div
         className={cn(
@@ -81,4 +101,3 @@ export default function ButtonStatic(
     </SlateElement>
   );
 }
-

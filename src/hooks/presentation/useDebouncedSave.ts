@@ -12,6 +12,10 @@ interface UseDebouncedSaveOptions {
   delay?: number;
 }
 
+type SaveOptions = {
+  includeMetadata?: boolean;
+};
+
 /**
  * Custom hook for debounced saving of presentation slides
  * Automatically saves when slides are changed after the specified delay
@@ -38,6 +42,7 @@ export const useDebouncedSave = (options: UseDebouncedSaveOptions = {}) => {
           thumbnailUrl,
           customThemeData,
           pageStyle,
+          generationAspectRatio,
           textContent,
           tone,
           audience,
@@ -64,6 +69,7 @@ export const useDebouncedSave = (options: UseDebouncedSaveOptions = {}) => {
               customThemeData,
               pageStyle,
               presentationStyle: presentationStyle ?? "",
+              generationAspectRatio,
               textContent,
               tone,
               audience,
@@ -96,7 +102,7 @@ export const useDebouncedSave = (options: UseDebouncedSaveOptions = {}) => {
   }, [debouncedSave]);
 
   // Save slides immediately (useful for manual saves)
-  const saveImmediately = useCallback(async () => {
+  const saveImmediately = useCallback(async (_options?: SaveOptions) => {
     debouncedSave.cancel();
 
     // Get the latest state directly from the store
@@ -112,6 +118,7 @@ export const useDebouncedSave = (options: UseDebouncedSaveOptions = {}) => {
       thumbnailUrl,
       customThemeData,
       pageStyle,
+      generationAspectRatio,
       textContent,
       tone,
       audience,
@@ -139,6 +146,7 @@ export const useDebouncedSave = (options: UseDebouncedSaveOptions = {}) => {
           customThemeData,
           pageStyle,
           presentationStyle: presentationStyle ?? "",
+          generationAspectRatio,
           textContent,
           tone,
           audience,
@@ -159,7 +167,7 @@ export const useDebouncedSave = (options: UseDebouncedSaveOptions = {}) => {
   }, [debouncedSave, setSavingStatus]);
 
   // Trigger save function
-  const save = useCallback(() => {
+  const save = useCallback((_options?: SaveOptions) => {
     setSavingStatus("saving");
     void debouncedSave();
   }, [debouncedSave, setSavingStatus]);

@@ -1,5 +1,16 @@
 "use client";
 
+import {
+  Check,
+  Layers,
+  MoveDown,
+  MoveUp,
+  Plus,
+  RotateCcw,
+  Trash2,
+} from "lucide-react";
+import { useCallback, useState } from "react";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,16 +28,6 @@ import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
-import {
-  Check,
-  Layers,
-  MoveDown,
-  MoveUp,
-  Plus,
-  RotateCcw,
-  Trash2,
-} from "lucide-react";
-import { useCallback, useState } from "react";
 
 interface ColorStop {
   id: string;
@@ -169,28 +170,6 @@ export function GradientMaker({
   }, [layers, generateLayerCSS]);
 
   const backgroundBlendModes = layers.map((l) => l.blendMode).join(", ");
-
-  const _copyCSS = async () => {
-    const cssLines: string[] = [];
-    cssLines.push(`background: ${generateBackgroundImage()};`);
-    if (backgroundBlendModes && /[^,]*[^n]ormal/.test(backgroundBlendModes)) {
-      cssLines.push(`background-blend-mode: ${backgroundBlendModes};`);
-    }
-    const cssString = cssLines.join("\n");
-    try {
-      await navigator.clipboard.writeText(cssString);
-      toast({
-        title: "CSS copied!",
-        description: "Background CSS copied to clipboard.",
-      });
-    } catch {
-      toast({
-        title: "Failed to copy",
-        description: "Could not copy CSS.",
-        variant: "destructive",
-      });
-    }
-  };
 
   const applyToBackground = () => {
     if (onApply) onApply(generateBackgroundImage(), backgroundBlendModes);

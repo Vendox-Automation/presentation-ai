@@ -1,5 +1,5 @@
 import { type TCommentText } from "platejs";
-import { type SlateLeafProps, SlateLeaf } from "platejs/static";
+import { SlateLeaf, type SlateLeafProps } from "platejs/static";
 
 export function CommentLeafStatic(props: SlateLeafProps<TCommentText>) {
   return (
@@ -11,5 +11,3 @@ export function CommentLeafStatic(props: SlateLeafProps<TCommentText>) {
     </SlateLeaf>
   );
 }
-
-

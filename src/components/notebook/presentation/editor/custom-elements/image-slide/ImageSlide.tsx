@@ -1,15 +1,5 @@
 "use client";
 
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
-import { Spinner } from "@/components/ui/spinner";
-import { cn } from "@/lib/utils";
-import { usePresentationState } from "@/states/presentation-state";
 import { DRAG_ITEM_BLOCK, type ElementDragItemNode } from "@platejs/dnd";
 import {
   Copy,
@@ -21,8 +11,23 @@ import {
   Maximize2,
   Trash2,
 } from "lucide-react";
+import Image from "next/image";
 import { useDrop } from "react-dnd";
 import { toast } from "sonner";
+
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/utils";
+import {
+  usePresentationState,
+  type ImageEditorMode,
+} from "@/states/presentation-state";
 import { type RootImage } from "../../../utils/parser";
 
 interface ImageSlideProps {
@@ -35,14 +40,26 @@ export default function ImageSlide({ image, slideId }: ImageSlideProps) {
   const setSlides = usePresentationState((s) => s.setSlides);
   const setCurrentSlide = usePresentationState((s) => s.setCurrentSlideId);
   const openImageEditor = usePresentationState((s) => s.openImageEditor);
+  const stockImageProvider = usePresentationState((s) => s.stockImageProvider);
+  const setImageSearchState = usePresentationState(
+    (s) => s.setImageSearchState,
+  );
   const rootImageGeneration = usePresentationState(
     (s) => s.rootImageGeneration,
   );
 
-  const computedImageUrl = image.url;
-  const computedGen = rootImageGeneration[slideId];
+  const rawComputedGen = rootImageGeneration[slideId];
+  const imageQuery = image.query.trim();
+  const computedGen =
+    rawComputedGen &&
+    (!imageQuery || rawComputedGen.query.trim() === imageQuery)
+      ? rawComputedGen
+      : undefined;
+  const computedImageUrl = computedGen?.url ?? image.url;
   const isGenerating =
-    computedGen?.status === "queued" || computedGen?.status === "generating";
+    image.isQueryStreaming ||
+    computedGen?.status === "queued" ||
+    computedGen?.status === "generating";
 
   const handleAction = (action: string) => {
     switch (action) {
@@ -82,13 +99,18 @@ export default function ImageSlide({ image, slideId }: ImageSlideProps) {
         break;
       case "replace":
         setCurrentSlide(slideId);
-        openImageEditor(
+        const mode: ImageEditorMode =
           image.imageSource === "search"
             ? "search"
             : image.imageSource === "gif"
               ? "gif"
-              : "generate",
-        );
+              : "generate";
+        if (mode === "search") {
+          setImageSearchState({
+            mode: image.stockImageProvider ?? stockImageProvider,
+          });
+        }
+        openImageEditor(mode);
         break;
       case "fit":
         updateCropSettings({
@@ -203,33 +225,45 @@ export default function ImageSlide({ image, slideId }: ImageSlideProps) {
         <ContextMenuTrigger asChild>
           <div
             className={cn(
-              "flex h-full w-full cursor-pointer items-center justify-center",
+              "flex size-full cursor-pointer items-center justify-center",
               "relative overflow-hidden",
             )}
             onDoubleClick={() => {
               setCurrentSlide(slideId);
-              openImageEditor(
+              const mode: ImageEditorMode =
                 image.imageSource === "search"
                   ? "search"
                   : image.imageSource === "gif"
                     ? "gif"
-                    : "generate",
-              );
+                    : "generate";
+              if (mode === "search") {
+                setImageSearchState({
+                  mode: image.stockImageProvider ?? stockImageProvider,
+                });
+              }
+              openImageEditor(mode);
             }}
           >
             {isGenerating ? (
-              <div className="absolute inset-0 z-10 flex h-full w-full flex-col items-center justify-center bg-muted/30 p-4">
-                <Spinner className="mb-2 h-8 w-8" />
-                <p className="text-sm text-muted-foreground">
-                  Generating image...
-                </p>
+              <div className="absolute inset-0 z-10 flex size-full flex-col items-center justify-center gap-3 bg-muted/30 p-4 text-center">
+                <Spinner className="size-8" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-foreground">
+                    Generating image
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    This can take a moment.
+                  </p>
+                </div>
               </div>
             ) : computedImageUrl ? (
-              // biome-ignore lint/performance/noImgElement: Valid use case for img element
-              <img
+              <Image
+                unoptimized
+                width={400}
+                height={300}
                 src={computedImageUrl}
                 alt={image.query}
-                className="h-full w-full"
+                className="size-full"
                 style={{
                   objectFit: image.cropSettings?.objectFit ?? "cover",
                   objectPosition: image.cropSettings?.objectPosition
@@ -239,7 +273,11 @@ export default function ImageSlide({ image, slideId }: ImageSlideProps) {
               />
             ) : (
               <div className="flex items-center justify-center text-muted-foreground">
-                <span>No image</span>
+                <span>
+                  {computedGen?.status === "error"
+                    ? "Image not found"
+                    : "No image"}
+                </span>
               </div>
             )}
             {/* Drop indicator overlay */}
@@ -256,35 +294,35 @@ export default function ImageSlide({ image, slideId }: ImageSlideProps) {
         </ContextMenuTrigger>
         <ContextMenuContent className="w-64">
           <ContextMenuItem onClick={() => handleAction("copy")}>
-            <Copy className="mr-2 h-4 w-4" />
+            <Copy className="mr-2 size-4" />
             Copy
           </ContextMenuItem>
           <ContextMenuItem onClick={() => handleAction("copyAddress")}>
-            <Link2 className="mr-2 h-4 w-4" />
+            <Link2 className="mr-2 size-4" />
             Copy image address
           </ContextMenuItem>
           <ContextMenuItem onClick={() => handleAction("openNewTab")}>
-            <ExternalLink className="mr-2 h-4 w-4" />
+            <ExternalLink className="mr-2 size-4" />
             Open image in new tab
           </ContextMenuItem>
           <ContextMenuItem onClick={() => handleAction("download")}>
-            <Download className="mr-2 h-4 w-4" />
+            <Download className="mr-2 size-4" />
             Download image
           </ContextMenuItem>
           <ContextMenuSeparator />
           <ContextMenuItem onClick={() => handleAction("replace")}>
-            <Edit className="mr-2 h-4 w-4" />
-            Replace image...
+            <Edit className="mr-2 size-4" />
+            Replace image…
           </ContextMenuItem>
           <ContextMenuItem onClick={() => handleAction("fit")}>
-            <Maximize2 className="mr-2 h-4 w-4" />
+            <Maximize2 className="mr-2 size-4" />
             {image.cropSettings?.objectFit === "contain"
               ? "Cover Image"
               : "Fit Image"}
           </ContextMenuItem>
           <ContextMenuSeparator />
           <ContextMenuItem onClick={() => handleAction("convertToSlide")}>
-            <FileText className="mr-2 h-4 w-4" />
+            <FileText className="mr-2 size-4" />
             Convert to slide
           </ContextMenuItem>
           <ContextMenuSeparator />
@@ -292,7 +330,7 @@ export default function ImageSlide({ image, slideId }: ImageSlideProps) {
             onClick={() => handleAction("removeSlide")}
             className="text-red-500 focus:bg-red-50 focus:text-red-500"
           >
-            <Trash2 className="mr-2 h-4 w-4" />
+            <Trash2 className="mr-2 size-4" />
             Remove slide
           </ContextMenuItem>
         </ContextMenuContent>

@@ -1,21 +1,60 @@
 import {
+  KEYS,
   type Descendant,
   type TColumnElement,
   type TColumnGroupElement,
+  type TElement,
   type TTableCellElement,
   type TTableElement,
   type TTableRowElement,
   type TText,
 } from "platejs";
+
 import {
+  ANTV_INFOGRAPHIC,
   AREA_CHART_ELEMENT,
   BAR_CHART_ELEMENT,
+  BOX_PLOT_CHART_ELEMENT,
+  BUBBLE_CHART_ELEMENT,
+  CANDLESTICK_CHART_ELEMENT,
+  CHORD_CHART_ELEMENT,
+  CIRCULAR_GRID_GROUP,
+  COMPOSED_CHART_ELEMENT,
+  CONE_FUNNEL_CHART_ELEMENT,
+  CONNECTED_CIRCLES_GROUP,
+  CONTRIBUTOR_ELEMENT,
+  DONUT_CHART_ELEMENT,
+  FUNNEL_CHART_ELEMENT,
+  HEATMAP_CHART_ELEMENT,
+  HISTOGRAM_CHART_ELEMENT,
+  LABEL_ELEMENT,
   LINE_CHART_ELEMENT,
+  LINEAR_GAUGE_ELEMENT,
+  NIGHTINGALE_CHART_ELEMENT,
+  OHLC_CHART_ELEMENT,
   PIE_CHART_ELEMENT,
+  PRESENTATION_TITLE_ELEMENT,
+  PYRAMID_CHART_ELEMENT,
   QUOTE_ELEMENT,
   RADAR_CHART_ELEMENT,
+  RADIAL_BAR_CHART_ELEMENT,
+  RADIAL_COLUMN_CHART_ELEMENT,
+  RADIAL_GAUGE_ELEMENT,
+  RANGE_AREA_CHART_ELEMENT,
+  RANGE_BAR_CHART_ELEMENT,
+  SANKEY_CHART_ELEMENT,
   SCATTER_CHART_ELEMENT,
+  SLOPE_GROUP,
+  SNAKE_GROUP,
+  STEPS_GROUP,
+  SUNBURST_CHART_ELEMENT,
+  TREEMAP_CHART_ELEMENT,
+  WATERFALL_CHART_ELEMENT,
+  type TContributorElement,
+  type TLabelElement,
+  type TPresentationTitleElement,
 } from "../editor/lib";
+import { type TAntvInfographicElement } from "../editor/plugins/antv-infographic-plugin";
 import {
   type TArrowListElement,
   type TArrowListItemElement,
@@ -33,6 +72,7 @@ import {
   type TBulletItemElement,
 } from "../editor/plugins/bullet-plugin";
 import { type TButtonElement } from "../editor/plugins/button-plugin";
+import { type TChartNode } from "../editor/plugins/chart-plugin";
 import {
   type TCompareGroupElement,
   type TCompareSideElement,
@@ -41,6 +81,16 @@ import {
   type TCycleGroupElement,
   type TCycleItemElement,
 } from "../editor/plugins/cycle-plugin";
+import {
+  type TCircularGridGroupElement,
+  type TCircularGridItemElement,
+  type TConnectedCirclesGroupElement,
+  type TConnectedCirclesItemElement,
+  type TSlopeGroupElement,
+  type TSlopeItemElement,
+  type TSnakeGroupElement,
+  type TSnakeItemElement,
+} from "../editor/plugins/diagram-components-plugin";
 import {
   type TIconListElement,
   type TIconListItemElement,
@@ -69,21 +119,161 @@ import {
   type TStatsItemElement,
 } from "../editor/plugins/stats-plugin";
 import {
+  type TStepsGroupElement,
+  type TStepsItemElement,
+} from "../editor/plugins/steps-plugin";
+import {
   type TTimelineGroupElement,
   type TTimelineItemElement,
 } from "../editor/plugins/timeline-plugin";
-import { type PlateNode, type PlateSlide } from "./parser";
+import { type PlateNode, type PlateSlide, type RootImage } from "./parser";
 import {
   type HeadingElement,
   type ImageElement,
   type ParagraphElement,
-  type TChartElement,
 } from "./types";
+
+function parseColumnWidth(width: unknown): number | null {
+  if (width === undefined || width === null) return null;
+
+  const parsed = Number.parseFloat(String(width));
+
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+
+  return Math.round(parsed * 100) / 100;
+}
+
+const CHART_ELEMENT_TO_XML_TYPE: Record<string, string> = {
+  [PIE_CHART_ELEMENT]: "pie",
+  [BAR_CHART_ELEMENT]: "bar",
+  [AREA_CHART_ELEMENT]: "area",
+  [RADAR_CHART_ELEMENT]: "radar",
+  [SCATTER_CHART_ELEMENT]: "scatter",
+  [LINE_CHART_ELEMENT]: "line",
+  [RADIAL_BAR_CHART_ELEMENT]: "radial-bar",
+  [COMPOSED_CHART_ELEMENT]: "composed",
+  [TREEMAP_CHART_ELEMENT]: "treemap",
+  [BUBBLE_CHART_ELEMENT]: "bubble",
+  [DONUT_CHART_ELEMENT]: "donut",
+  [HISTOGRAM_CHART_ELEMENT]: "histogram",
+  [HEATMAP_CHART_ELEMENT]: "heatmap",
+  [RANGE_BAR_CHART_ELEMENT]: "range-bar",
+  [RANGE_AREA_CHART_ELEMENT]: "range-area",
+  [WATERFALL_CHART_ELEMENT]: "waterfall",
+  [BOX_PLOT_CHART_ELEMENT]: "box-plot",
+  [CANDLESTICK_CHART_ELEMENT]: "candlestick",
+  [OHLC_CHART_ELEMENT]: "ohlc",
+  [NIGHTINGALE_CHART_ELEMENT]: "nightingale",
+  [RADIAL_COLUMN_CHART_ELEMENT]: "radial-column",
+  [SUNBURST_CHART_ELEMENT]: "sunburst",
+  [SANKEY_CHART_ELEMENT]: "sankey",
+  [CHORD_CHART_ELEMENT]: "chord",
+  [FUNNEL_CHART_ELEMENT]: "funnel",
+  [CONE_FUNNEL_CHART_ELEMENT]: "cone-funnel",
+  [PYRAMID_CHART_ELEMENT]: "pyramid",
+  [RADIAL_GAUGE_ELEMENT]: "radial-gauge",
+  [LINEAR_GAUGE_ELEMENT]: "linear-gauge",
+};
+
+const CHART_OPTION_EXCLUDED_KEYS = new Set([
+  "type",
+  "children",
+  "data",
+  "chartType",
+  "charttype",
+]);
+
+const BASIC_BLOCK_ATTRIBUTE_KEYS = new Set([
+  "alignment",
+  "backgroundColor",
+  "color",
+  "textColor",
+]);
+
+type SlideSerializerMode = "content" | "layoutPrompt";
+
+export interface SlideSerializerOptions {
+  mode?: SlideSerializerMode;
+}
+
+const LAYOUT_PROMPT_PLACEHOLDERS = {
+  author: "Name or role if relevant",
+  body: "Write slide-specific supporting text.",
+  centerText: "short slide-specific center label",
+  heading: "Write a slide-specific heading.",
+  icon: "relevant-keyword",
+  imageQuery: "write an English image query for the slide-specific visual",
+  infographic:
+    "Describe the exact slide-specific visual: labels, entities, sequence, relationships, values, orientation, and takeaway.",
+  itemHeading: "Write a concise item heading.",
+  itemLabel: "Write a concise slide-specific item label.",
+  listItem: "Write a concise slide-specific list item.",
+  quote: "Write a slide-specific quote or testimonial.",
+  stat: "slide-specific metric",
+  title: "Write a slide-specific title.",
+} as const;
+
+const LAYOUT_PROMPT_CHART_DATA = `| label | value |
+| --- | --- |
+| Slide-specific category | numeric value |
+| Slide-specific category | numeric value |`;
+
+function getChartXmlType(elementType: string): string {
+  return (
+    CHART_ELEMENT_TO_XML_TYPE[elementType] ?? elementType.replace(/^chart-/, "")
+  );
+}
+
+function isPrimitiveXmlValue(
+  value: unknown,
+): value is string | number | boolean {
+  return (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  );
+}
+
+function stringifyJson(value: unknown): string | null {
+  if (value === undefined) return null;
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return null;
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isMarkdownChartDataValue(
+  value: unknown,
+): value is string | number | boolean | null | undefined {
+  return (
+    value === null ||
+    value === undefined ||
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  );
+}
 
 /**
  * Class to serialize PlateSlide objects back to XML format
  */
-export class SlideSerializer {
+class SlideSerializer {
+  private readonly mode: SlideSerializerMode;
+
+  public constructor(options: SlideSerializerOptions = {}) {
+    this.mode = options.mode ?? "content";
+  }
+
+  private get isLayoutPrompt(): boolean {
+    return this.mode === "layoutPrompt";
+  }
+
   /**
    * Serialize an array of PlateSlide objects to XML string
    * @param slides Array of PlateSlide objects
@@ -129,7 +319,7 @@ export class SlideSerializer {
       attributes.width = slide.width;
     }
 
-    if (slide.id) {
+    if (slide.id && !this.isLayoutPrompt) {
       attributes.id = slide.id;
     }
 
@@ -152,29 +342,8 @@ export class SlideSerializer {
       }
     }
 
-    // Add root image at the end if present
     if (slide.rootImage) {
-      const imgAttrs: Record<string, string> = {
-        query: slide.rootImage.query,
-      };
-
-      if (slide.rootImage.url) {
-        imgAttrs.url = slide.rootImage.url;
-      }
-
-      if (slide.rootImage.layoutType) {
-        imgAttrs.layoutType = slide.rootImage.layoutType;
-      }
-
-      if (slide.rootImage.size?.w) {
-        imgAttrs.width = slide.rootImage.size.w;
-      }
-
-      if (slide.rootImage.size?.h) {
-        imgAttrs.height = slide.rootImage.size.h.toString();
-      }
-
-      contentParts.push(`  <IMG${this.serializeAttributes(imgAttrs)} />`);
+      contentParts.push(this.serializeRootImage(slide.rootImage, 1));
     }
 
     return `${openTag}\n${contentParts.join("\n")}\n</SECTION>`;
@@ -195,6 +364,52 @@ export class SlideSerializer {
     );
   }
 
+  private getLayoutPromptAttributeValue(key: string): string | undefined {
+    if (!this.isLayoutPrompt) {
+      return undefined;
+    }
+
+    switch (key.toLowerCase()) {
+      case "author":
+        return LAYOUT_PROMPT_PLACEHOLDERS.author;
+      case "centertext":
+        return LAYOUT_PROMPT_PLACEHOLDERS.centerText;
+      case "icon":
+        return LAYOUT_PROMPT_PLACEHOLDERS.icon;
+      case "prompt":
+      case "query":
+        return LAYOUT_PROMPT_PLACEHOLDERS.imageQuery;
+      case "stat":
+        return LAYOUT_PROMPT_PLACEHOLDERS.stat;
+      default:
+        return undefined;
+    }
+  }
+
+  private setAttribute(
+    attributes: Record<string, string>,
+    key: string,
+    value: unknown,
+  ): void {
+    if (!isPrimitiveXmlValue(value)) {
+      return;
+    }
+
+    if (this.isLayoutPrompt && (key === "id" || key === "url")) {
+      return;
+    }
+
+    attributes[key] = this.getLayoutPromptAttributeValue(key) ?? String(value);
+  }
+
+  private getHeadingLayoutPromptPlaceholder(tag: string): string {
+    if (tag === "H1" || tag === "H2") {
+      return LAYOUT_PROMPT_PLACEHOLDERS.heading;
+    }
+
+    return LAYOUT_PROMPT_PLACEHOLDERS.itemHeading;
+  }
+
   /**
    * Escape special XML characters
    */
@@ -205,6 +420,124 @@ export class SlideSerializer {
       ?.replace(/>/g, "&gt;")
       ?.replace(/"/g, "&quot;")
       ?.replace(/'/g, "&apos;");
+  }
+
+  private serializeJsonChild(
+    tagName: string,
+    value: unknown,
+    indent: number,
+  ): string | null {
+    const json = stringifyJson(value);
+    if (!json) return null;
+
+    const indentStr = "  ".repeat(indent);
+    return `${indentStr}<${tagName}>${this.escapeXml(json)}</${tagName}>`;
+  }
+
+  private serializeMarkdownCell(value: unknown): string {
+    return String(value ?? "")
+      .replace(/\r?\n/g, " ")
+      .replace(/\|/g, "\\|");
+  }
+
+  private serializeMarkdownChartData(
+    value: unknown,
+    indent: number,
+  ): string | null {
+    if (!Array.isArray(value) || value.length === 0) {
+      return null;
+    }
+
+    const rows = value.filter(isRecord);
+    if (rows.length !== value.length) {
+      return null;
+    }
+
+    const keys = Array.from(
+      new Set(rows.flatMap((row) => Object.keys(row))),
+    ).filter((key) => rows.every((row) => isMarkdownChartDataValue(row[key])));
+
+    if (keys.length === 0) {
+      return null;
+    }
+
+    const indentStr = "  ".repeat(indent);
+    const header = `| ${keys.map((key) => this.serializeMarkdownCell(key)).join(" | ")} |`;
+    const separator = `| ${keys.map(() => "---").join(" | ")} |`;
+    const tableRows = rows.map(
+      (row) =>
+        `| ${keys.map((key) => this.serializeMarkdownCell(row[key])).join(" | ")} |`,
+    );
+
+    return [header, separator, ...tableRows]
+      .map((line) => `${indentStr}${this.escapeXml(line)}`)
+      .join("\n");
+  }
+
+  private serializeChartDataChild(
+    value: unknown,
+    indent: number,
+  ): string | null {
+    return this.serializeMarkdownChartData(value, indent);
+  }
+
+  private serializeRootImage(image: RootImage, indent: number): string {
+    const indentStr = "  ".repeat(indent);
+    const attributes: Record<string, string> = {};
+
+    this.setAttribute(attributes, "query", image.query);
+    this.setAttribute(attributes, "url", image.url);
+    this.setAttribute(attributes, "embedType", image.embedType);
+    this.setAttribute(attributes, "imageSource", image.imageSource);
+    this.setAttribute(
+      attributes,
+      "stockImageProvider",
+      image.stockImageProvider,
+    );
+    this.setAttribute(attributes, "layoutType", image.layoutType);
+    this.setAttribute(attributes, "width", image.size?.w);
+    this.setAttribute(attributes, "height", image.size?.h);
+    this.setAttribute(
+      attributes,
+      "paletteDropMutable",
+      image.paletteDropMutable,
+    );
+    this.setAttribute(
+      attributes,
+      "charttype",
+      image.chartType ? getChartXmlType(image.chartType) : undefined,
+    );
+
+    const childParts = this.isLayoutPrompt
+      ? []
+      : [
+          this.serializeJsonChild("CROP", image.cropSettings, indent + 1),
+          this.serializeChartDataChild(image.chartData, indent + 1),
+          this.serializeJsonChild("OPTIONS", image.chartOptions, indent + 1),
+        ].filter((part): part is string => Boolean(part));
+
+    if (childParts.length === 0) {
+      return `${indentStr}<IMG${this.serializeAttributes(attributes)} />`;
+    }
+
+    return `${indentStr}<IMG${this.serializeAttributes(attributes)}>\n${childParts.join("\n")}\n${indentStr}</IMG>`;
+  }
+
+  private serializeBasicBlockAttributes(
+    node: Record<string, unknown>,
+    extraKeys: readonly string[] = [],
+  ): Record<string, string> {
+    const attributes: Record<string, string> = {};
+    const allowedKeys = new Set([...BASIC_BLOCK_ATTRIBUTE_KEYS, ...extraKeys]);
+
+    for (const key of allowedKeys) {
+      const value = node[key];
+      if (isPrimitiveXmlValue(value)) {
+        this.setAttribute(attributes, key, value);
+      }
+    }
+
+    return attributes;
   }
 
   /**
@@ -230,6 +563,27 @@ export class SlideSerializer {
           indent,
         );
 
+      case PRESENTATION_TITLE_ELEMENT:
+        return this.serializePresentationTitle(
+          node as TPresentationTitleElement,
+          indent,
+        );
+
+      case LABEL_ELEMENT:
+        return this.serializeLabel(node as TLabelElement, indent);
+
+      case CONTRIBUTOR_ELEMENT:
+        return this.serializeContributor(node as TContributorElement, indent);
+
+      case KEYS.blockquote:
+        return this.serializeBlockquote(node as TElement, indent);
+
+      case KEYS.callout:
+        return this.serializeCallout(node as TElement, indent);
+
+      case KEYS.codeBlock:
+        return this.serializeCodeBlock(node as TElement, indent);
+
       case "p":
         return this.serializeParagraph(node as ParagraphElement, indent);
 
@@ -248,6 +602,9 @@ export class SlideSerializer {
       case "cycle":
         return this.serializeCycle(node as TCycleGroupElement, indent);
 
+      case STEPS_GROUP:
+        return this.serializeSteps(node as TStepsGroupElement, indent);
+
       case "staircase":
         return this.serializeStaircase(node as TStairGroupElement, indent);
 
@@ -259,6 +616,24 @@ export class SlideSerializer {
 
       case "timeline":
         return this.serializeTimeline(node as TTimelineGroupElement, indent);
+
+      case SLOPE_GROUP:
+        return this.serializeSlope(node as TSlopeGroupElement, indent);
+
+      case SNAKE_GROUP:
+        return this.serializeSnake(node as TSnakeGroupElement, indent);
+
+      case CONNECTED_CIRCLES_GROUP:
+        return this.serializeConnectedCircles(
+          node as TConnectedCirclesGroupElement,
+          indent,
+        );
+
+      case CIRCULAR_GRID_GROUP:
+        return this.serializeCircularGrid(
+          node as TCircularGridGroupElement,
+          indent,
+        );
 
       case "boxes":
         return this.serializeBoxes(node as TBoxGroupElement, indent);
@@ -296,10 +671,39 @@ export class SlideSerializer {
       case RADAR_CHART_ELEMENT:
       case SCATTER_CHART_ELEMENT:
       case LINE_CHART_ELEMENT:
-        return this.serializeChart(node as TChartElement, nodeType, indent);
+      case RADIAL_BAR_CHART_ELEMENT:
+      case COMPOSED_CHART_ELEMENT:
+      case TREEMAP_CHART_ELEMENT:
+      case BUBBLE_CHART_ELEMENT:
+      case DONUT_CHART_ELEMENT:
+      case HISTOGRAM_CHART_ELEMENT:
+      case HEATMAP_CHART_ELEMENT:
+      case RANGE_BAR_CHART_ELEMENT:
+      case RANGE_AREA_CHART_ELEMENT:
+      case WATERFALL_CHART_ELEMENT:
+      case BOX_PLOT_CHART_ELEMENT:
+      case CANDLESTICK_CHART_ELEMENT:
+      case OHLC_CHART_ELEMENT:
+      case NIGHTINGALE_CHART_ELEMENT:
+      case RADIAL_COLUMN_CHART_ELEMENT:
+      case SUNBURST_CHART_ELEMENT:
+      case SANKEY_CHART_ELEMENT:
+      case CHORD_CHART_ELEMENT:
+      case FUNNEL_CHART_ELEMENT:
+      case CONE_FUNNEL_CHART_ELEMENT:
+      case PYRAMID_CHART_ELEMENT:
+      case RADIAL_GAUGE_ELEMENT:
+      case LINEAR_GAUGE_ELEMENT:
+        return this.serializeChart(node as TChartNode, nodeType, indent);
 
       case QUOTE_ELEMENT:
         return this.serializeQuote(node as TQuoteElement, indent);
+
+      case ANTV_INFOGRAPHIC:
+        return this.serializeInfographic(
+          node as TAntvInfographicElement,
+          indent,
+        );
 
       default:
         console.warn(`Unknown node type: ${nodeType}`);
@@ -316,8 +720,102 @@ export class SlideSerializer {
     indent: number,
   ): string {
     const indentStr = "  ".repeat(indent);
-    const content = this.serializeDescendants(node.children);
+    const content = this.isLayoutPrompt
+      ? this.getHeadingLayoutPromptPlaceholder(tag)
+      : this.serializeDescendants(node.children);
     return `${indentStr}<${tag}>${content}</${tag}>`;
+  }
+
+  private serializePresentationTitle(
+    node: TPresentationTitleElement,
+    indent: number,
+  ): string {
+    const indentStr = "  ".repeat(indent);
+    const attributes = this.serializeBasicBlockAttributes(
+      node as unknown as Record<string, unknown>,
+      ["variant"],
+    );
+    const content = this.isLayoutPrompt
+      ? LAYOUT_PROMPT_PLACEHOLDERS.title
+      : this.serializeDescendants(node.children as Descendant[]);
+
+    return `${indentStr}<TITLE${this.serializeAttributes(attributes)}>${content}</TITLE>`;
+  }
+
+  private serializeLabel(node: TLabelElement, indent: number): string {
+    const indentStr = "  ".repeat(indent);
+    const attributes = this.serializeBasicBlockAttributes(
+      node as unknown as Record<string, unknown>,
+    );
+    const content = this.isLayoutPrompt
+      ? LAYOUT_PROMPT_PLACEHOLDERS.itemLabel
+      : this.serializeDescendants(node.children as Descendant[]);
+
+    return `${indentStr}<LABEL${this.serializeAttributes(attributes)}>${content}</LABEL>`;
+  }
+
+  private serializeContributor(
+    _node: TContributorElement,
+    indent: number,
+  ): string {
+    const indentStr = "  ".repeat(indent);
+
+    return `${indentStr}<CONTRIBUTOR />`;
+  }
+
+  private serializeBlockquote(node: TElement, indent: number): string {
+    const indentStr = "  ".repeat(indent);
+    const attributes = this.serializeBasicBlockAttributes(
+      node as unknown as Record<string, unknown>,
+      ["author"],
+    );
+    const content = this.isLayoutPrompt
+      ? LAYOUT_PROMPT_PLACEHOLDERS.quote
+      : this.serializeDescendants(node.children as Descendant[]);
+
+    return `${indentStr}<BLOCKQUOTE${this.serializeAttributes(attributes)}>${content}</BLOCKQUOTE>`;
+  }
+
+  private serializeCallout(node: TElement, indent: number): string {
+    const indentStr = "  ".repeat(indent);
+    const attributes = this.serializeBasicBlockAttributes(
+      node as unknown as Record<string, unknown>,
+      ["icon", "variant"],
+    );
+    const content = this.isLayoutPrompt
+      ? LAYOUT_PROMPT_PLACEHOLDERS.body
+      : (node.children as Descendant[])
+          .map((child) => this.serializeDescendant(child, indent + 1))
+          .filter(Boolean)
+          .join("\n");
+
+    return `${indentStr}<CALLOUT${this.serializeAttributes(attributes)}>\n${content}\n${indentStr}</CALLOUT>`;
+  }
+
+  private serializeCodeBlock(node: TElement, indent: number): string {
+    const indentStr = "  ".repeat(indent);
+    const nodeRecord = node as unknown as Record<string, unknown>;
+    const attributes: Record<string, string> = {};
+    const language = nodeRecord.lang ?? nodeRecord.language;
+
+    if (isPrimitiveXmlValue(language)) {
+      attributes.language = String(language);
+    }
+
+    const lines = (node.children as Descendant[]).map((child) => {
+      if (
+        typeof child === "object" &&
+        child !== null &&
+        "children" in child &&
+        Array.isArray(child.children)
+      ) {
+        return this.serializeDescendants(child.children as Descendant[]);
+      }
+
+      return this.serializeDescendant(child, 0) ?? "";
+    });
+
+    return `${indentStr}<CODE${this.serializeAttributes(attributes)}>${lines.join("\n")}</CODE>`;
   }
 
   /**
@@ -333,11 +831,15 @@ export class SlideSerializer {
     };
 
     if (nodeWithList.indent && nodeWithList.listStyleType) {
-      const content = this.serializeDescendants(node.children);
+      const content = this.isLayoutPrompt
+        ? LAYOUT_PROMPT_PLACEHOLDERS.listItem
+        : this.serializeDescendants(node.children);
       return `${indentStr}<LI>${content}</LI>`;
     }
 
-    const content = this.serializeDescendants(node.children);
+    const content = this.isLayoutPrompt
+      ? LAYOUT_PROMPT_PLACEHOLDERS.body
+      : this.serializeDescendants(node.children);
     return `${indentStr}<P>${content}</P>`;
   }
 
@@ -346,13 +848,10 @@ export class SlideSerializer {
    */
   private serializeImage(node: ImageElement, indent: number): string {
     const indentStr = "  ".repeat(indent);
-    const attributes: Record<string, string> = {
-      query: node.query,
-    };
+    const attributes: Record<string, string> = {};
 
-    if (node.url) {
-      attributes.url = node.url;
-    }
+    this.setAttribute(attributes, "query", node.query);
+    this.setAttribute(attributes, "url", node.url);
 
     // Add any additional properties as attributes
     const nodeKeys = Object.keys(node) as (keyof ImageElement)[];
@@ -365,7 +864,7 @@ export class SlideSerializer {
       ) {
         const value = node[key];
         if (value !== undefined && value !== null) {
-          attributes[key] = String(value);
+          this.setAttribute(attributes, key, value);
         }
       }
     }
@@ -389,8 +888,9 @@ export class SlideSerializer {
           .join("\n");
 
         const attrs: Record<string, string> = {};
-        if (col.width && col.width !== "M") {
-          attrs.width = col.width;
+        const width = parseColumnWidth(col.width);
+        if (width !== null) {
+          attrs.width = String(width);
         }
 
         return `${childIndentStr}<DIV${this.serializeAttributes(attrs)}>\n${content}\n${childIndentStr}</DIV>`;
@@ -407,6 +907,17 @@ export class SlideSerializer {
     const indentStr = "  ".repeat(indent);
     const childIndent = indent + 1;
     const childIndentStr = "  ".repeat(childIndent);
+    const nodeAttrs: Record<string, string> = {};
+
+    if (node.bulletType) {
+      nodeAttrs.bulletType = node.bulletType;
+    }
+    if (node.columnSize) {
+      nodeAttrs.columnSize = node.columnSize;
+    }
+    if (node.alignment) {
+      nodeAttrs.alignment = node.alignment;
+    }
 
     const bullets = (node.children as TBulletItemElement[])
       .map((bullet) => {
@@ -414,12 +925,15 @@ export class SlideSerializer {
           .map((child) => this.serializeDescendant(child, childIndent + 1))
           .filter(Boolean)
           .join("\n");
+        const itemAttrs: Record<string, string> = {};
 
-        return `${childIndentStr}<DIV>\n${content}\n${childIndentStr}</DIV>`;
+        this.setAttribute(itemAttrs, "icon", bullet.icon);
+
+        return `${childIndentStr}<DIV${this.serializeAttributes(itemAttrs)}>\n${content}\n${childIndentStr}</DIV>`;
       })
       .join("\n");
 
-    return `${indentStr}<BULLETS>\n${bullets}\n${indentStr}</BULLETS>`;
+    return `${indentStr}<BULLETS${this.serializeAttributes(nodeAttrs)}>\n${bullets}\n${indentStr}</BULLETS>`;
   }
 
   /**
@@ -429,6 +943,15 @@ export class SlideSerializer {
     const indentStr = "  ".repeat(indent);
     const childIndent = indent + 1;
     const childIndentStr = "  ".repeat(childIndent);
+    const nodeAttrs: Record<string, string> = {};
+
+    if (node.variant) nodeAttrs.variant = node.variant;
+    if (node.orientation) nodeAttrs.orientation = node.orientation;
+    if (node.columnSize) nodeAttrs.columnSize = node.columnSize;
+    if (node.alignment) nodeAttrs.alignment = node.alignment;
+    if (typeof node.mediaSize === "number" && Number.isFinite(node.mediaSize)) {
+      nodeAttrs.mediaSize = String(node.mediaSize);
+    }
 
     const icons = (node.children as TIconListItemElement[])
       .map((item) => {
@@ -444,7 +967,6 @@ export class SlideSerializer {
             "type" in child &&
             child.type === "icon"
           ) {
-            continue;
           } else {
             const serialized = this.serializeDescendant(child, childIndent + 1);
             if (serialized) parts.push(serialized);
@@ -453,15 +975,26 @@ export class SlideSerializer {
 
         const itemAttrs: Record<string, string> = {};
 
-        if (itemIcon) {
-          itemAttrs.icon = itemIcon;
+        if (node.variant === "image") {
+          const prompt = item.prompt ?? item.query;
+
+          this.setAttribute(itemAttrs, "prompt", prompt);
+          this.setAttribute(itemAttrs, "url", item.url);
+          this.setAttribute(itemAttrs, "imageSource", item.imageSource);
+          this.setAttribute(
+            itemAttrs,
+            "stockImageProvider",
+            item.stockImageProvider,
+          );
+        } else if (itemIcon) {
+          this.setAttribute(itemAttrs, "icon", itemIcon);
         }
 
         return `${childIndentStr}<DIV${this.serializeAttributes(itemAttrs)}>\n${parts.join("\n")}\n${childIndentStr}</DIV>`;
       })
       .join("\n");
 
-    return `${indentStr}<ICONS>\n${icons}\n${indentStr}</ICONS>`;
+    return `${indentStr}<ICONS${this.serializeAttributes(nodeAttrs)}>\n${icons}\n${indentStr}</ICONS>`;
   }
 
   private getLegacyIconValue(children: Descendant[]): string | undefined {
@@ -493,12 +1026,141 @@ export class SlideSerializer {
           .map((child) => this.serializeDescendant(child, childIndent + 1))
           .filter(Boolean)
           .join("\n");
+        const itemAttrs: Record<string, string> = {};
 
-        return `${childIndentStr}<DIV>\n${content}\n${childIndentStr}</DIV>`;
+        this.setAttribute(itemAttrs, "icon", item.icon);
+
+        return `${childIndentStr}<DIV${this.serializeAttributes(itemAttrs)}>\n${content}\n${childIndentStr}</DIV>`;
       })
       .join("\n");
 
     return `${indentStr}<CYCLE>\n${items}\n${indentStr}</CYCLE>`;
+  }
+
+  private serializeSteps(node: TStepsGroupElement, indent: number): string {
+    const attrs: Record<string, string> = {};
+
+    if (node.orientation) {
+      attrs.orientation = node.orientation;
+    }
+    if (node.variant) {
+      attrs.variant = node.variant;
+    }
+    if (node.columns !== undefined) {
+      attrs.columns = String(node.columns);
+    }
+    if (node.columnSize) {
+      attrs.columnSize = node.columnSize;
+    }
+    if (typeof node.color === "string") {
+      attrs.color = node.color;
+    }
+
+    return this.serializeDivItemGroup<TStepsItemElement>({
+      attrs,
+      indent,
+      items: node.children as TStepsItemElement[],
+      tagName: "STEPS",
+    });
+  }
+
+  private serializeSlope(node: TSlopeGroupElement, indent: number): string {
+    const attrs: Record<string, string> = {};
+
+    if (node.alignment) {
+      attrs.alignment = node.alignment;
+    }
+
+    return this.serializeDivItemGroup<TSlopeItemElement>({
+      attrs,
+      indent,
+      items: node.children as TSlopeItemElement[],
+      tagName: "SLOPE",
+    });
+  }
+
+  private serializeSnake(node: TSnakeGroupElement, indent: number): string {
+    const attrs: Record<string, string> = {};
+
+    if (node.alignment) {
+      attrs.alignment = node.alignment;
+    }
+
+    return this.serializeDivItemGroup<TSnakeItemElement>({
+      attrs,
+      indent,
+      items: node.children as TSnakeItemElement[],
+      tagName: "SNAKE",
+    });
+  }
+
+  private serializeConnectedCircles(
+    node: TConnectedCirclesGroupElement,
+    indent: number,
+  ): string {
+    const attrs: Record<string, string> = {};
+
+    if (node.alignment) {
+      attrs.alignment = node.alignment;
+    }
+
+    return this.serializeDivItemGroup<TConnectedCirclesItemElement>({
+      attrs,
+      indent,
+      items: node.children as TConnectedCirclesItemElement[],
+      tagName: "CONNECTED-CIRCLES",
+    });
+  }
+
+  private serializeCircularGrid(
+    node: TCircularGridGroupElement,
+    indent: number,
+  ): string {
+    const attrs: Record<string, string> = {};
+
+    if (node.alignment) {
+      attrs.alignment = node.alignment;
+    }
+    this.setAttribute(attrs, "centerText", node.centerText);
+
+    return this.serializeDivItemGroup<TCircularGridItemElement>({
+      attrs,
+      indent,
+      items: node.children as TCircularGridItemElement[],
+      tagName: "CIRCULAR-GRID",
+    });
+  }
+
+  private serializeDivItemGroup<TItem extends TElement & { icon?: string }>({
+    attrs,
+    indent,
+    items,
+    tagName,
+  }: {
+    attrs?: Record<string, string>;
+    indent: number;
+    items: TItem[];
+    tagName: string;
+  }): string {
+    const indentStr = "  ".repeat(indent);
+    const childIndent = indent + 1;
+    const childIndentStr = "  ".repeat(childIndent);
+
+    const serializedItems = items
+      .map((item) => {
+        const content = (item.children as Descendant[])
+          .map((child) => this.serializeDescendant(child, childIndent + 1))
+          .filter(Boolean)
+          .join("\n");
+        const itemAttrs: Record<string, string> = {};
+
+        this.setAttribute(itemAttrs, "icon", item.icon);
+
+        return `${childIndentStr}<DIV${this.serializeAttributes(itemAttrs)}>\n${content}\n${childIndentStr}</DIV>`;
+      })
+      .join("\n");
+
+    return `${indentStr}<${tagName}${this.serializeAttributes(attrs ?? {})}>\n${serializedItems}\n${indentStr}</${tagName}>`;
   }
 
   /**
@@ -515,8 +1177,11 @@ export class SlideSerializer {
           .map((child) => this.serializeDescendant(child, childIndent + 1))
           .filter(Boolean)
           .join("\n");
+        const itemAttrs: Record<string, string> = {};
 
-        return `${childIndentStr}<DIV>\n${content}\n${childIndentStr}</DIV>`;
+        this.setAttribute(itemAttrs, "icon", item.icon);
+
+        return `${childIndentStr}<DIV${this.serializeAttributes(itemAttrs)}>\n${content}\n${childIndentStr}</DIV>`;
       })
       .join("\n");
 
@@ -537,8 +1202,11 @@ export class SlideSerializer {
           .map((child) => this.serializeDescendant(child, childIndent + 1))
           .filter(Boolean)
           .join("\n");
+        const itemAttrs: Record<string, string> = {};
 
-        return `${childIndentStr}<DIV>\n${content}\n${childIndentStr}</DIV>`;
+        this.setAttribute(itemAttrs, "icon", item.icon);
+
+        return `${childIndentStr}<DIV${this.serializeAttributes(itemAttrs)}>\n${content}\n${childIndentStr}</DIV>`;
       })
       .join("\n");
 
@@ -559,8 +1227,11 @@ export class SlideSerializer {
           .map((child) => this.serializeDescendant(child, childIndent + 1))
           .filter(Boolean)
           .join("\n");
+        const itemAttrs: Record<string, string> = {};
 
-        return `${childIndentStr}<DIV>\n${content}\n${childIndentStr}</DIV>`;
+        this.setAttribute(itemAttrs, "icon", item.icon);
+
+        return `${childIndentStr}<DIV${this.serializeAttributes(itemAttrs)}>\n${content}\n${childIndentStr}</DIV>`;
       })
       .join("\n");
 
@@ -577,6 +1248,35 @@ export class SlideSerializer {
     const indentStr = "  ".repeat(indent);
     const childIndent = indent + 1;
     const childIndentStr = "  ".repeat(childIndent);
+    const attrs: Record<string, string> = {};
+
+    if (node.orientation) {
+      attrs.orientation = node.orientation;
+    }
+
+    if (node.sidedness) {
+      attrs.sidedness = node.sidedness;
+    }
+
+    if (node.numbered !== undefined) {
+      attrs.numbered = String(node.numbered);
+    }
+
+    if (node.showLine !== undefined) {
+      attrs.showLine = String(node.showLine);
+    }
+
+    if (node.alignment) {
+      attrs.alignment = node.alignment;
+    }
+
+    if (node.variant) {
+      attrs.variant = node.variant;
+    }
+
+    if (typeof node.color === "string") {
+      attrs.color = node.color;
+    }
 
     const items = (node.children as TTimelineItemElement[])
       .map((item) => {
@@ -584,12 +1284,15 @@ export class SlideSerializer {
           .map((child) => this.serializeDescendant(child, childIndent + 1))
           .filter(Boolean)
           .join("\n");
+        const itemAttrs: Record<string, string> = {};
 
-        return `${childIndentStr}<DIV>\n${content}\n${childIndentStr}</DIV>`;
+        this.setAttribute(itemAttrs, "icon", item.icon);
+
+        return `${childIndentStr}<DIV${this.serializeAttributes(itemAttrs)}>\n${content}\n${childIndentStr}</DIV>`;
       })
       .join("\n");
 
-    return `${indentStr}<TIMELINE>\n${items}\n${indentStr}</TIMELINE>`;
+    return `${indentStr}<TIMELINE${this.serializeAttributes(attrs)}>\n${items}\n${indentStr}</TIMELINE>`;
   }
 
   /**
@@ -599,6 +1302,19 @@ export class SlideSerializer {
     const indentStr = "  ".repeat(indent);
     const childIndent = indent + 1;
     const childIndentStr = "  ".repeat(childIndent);
+    const groupAttrs: Record<string, string> = {};
+
+    if (node.boxType) {
+      groupAttrs.boxType = node.boxType;
+    }
+
+    if (node.orientation) {
+      groupAttrs.orientation = node.orientation;
+    }
+
+    if (node.columnSize) {
+      groupAttrs.columnSize = node.columnSize;
+    }
 
     const items = (node.children as TBoxItemElement[])
       .map((item) => {
@@ -606,12 +1322,15 @@ export class SlideSerializer {
           .map((child) => this.serializeDescendant(child, childIndent + 1))
           .filter(Boolean)
           .join("\n");
+        const itemAttrs: Record<string, string> = {};
 
-        return `${childIndentStr}<DIV>\n${content}\n${childIndentStr}</DIV>`;
+        this.setAttribute(itemAttrs, "icon", item.icon);
+
+        return `${childIndentStr}<DIV${this.serializeAttributes(itemAttrs)}>\n${content}\n${childIndentStr}</DIV>`;
       })
       .join("\n");
 
-    return `${indentStr}<BOXES>\n${items}\n${indentStr}</BOXES>`;
+    return `${indentStr}<BOXES${this.serializeAttributes(groupAttrs)}>\n${items}\n${indentStr}</BOXES>`;
   }
 
   /**
@@ -621,6 +1340,11 @@ export class SlideSerializer {
     const indentStr = "  ".repeat(indent);
     const childIndent = indent + 1;
     const childIndentStr = "  ".repeat(childIndent);
+    const groupAttrs: Record<string, string> = {};
+
+    if (node.columnSize) {
+      groupAttrs.columnSize = node.columnSize;
+    }
 
     const sides = (node.children as TCompareSideElement[])
       .map((side) => {
@@ -633,7 +1357,7 @@ export class SlideSerializer {
       })
       .join("\n");
 
-    return `${indentStr}<COMPARE>\n${sides}\n${indentStr}</COMPARE>`;
+    return `${indentStr}<COMPARE${this.serializeAttributes(groupAttrs)}>\n${sides}\n${indentStr}</COMPARE>`;
   }
 
   /**
@@ -646,6 +1370,11 @@ export class SlideSerializer {
     const indentStr = "  ".repeat(indent);
     const childIndent = indent + 1;
     const childIndentStr = "  ".repeat(childIndent);
+    const groupAttrs: Record<string, string> = {};
+
+    if (node.columnSize) {
+      groupAttrs.columnSize = node.columnSize;
+    }
 
     const sides = (node.children as TBeforeAfterSideElement[])
       .map((side) => {
@@ -658,7 +1387,7 @@ export class SlideSerializer {
       })
       .join("\n");
 
-    return `${indentStr}<BEFORE-AFTER>\n${sides}\n${indentStr}</BEFORE-AFTER>`;
+    return `${indentStr}<BEFORE-AFTER${this.serializeAttributes(groupAttrs)}>\n${sides}\n${indentStr}</BEFORE-AFTER>`;
   }
 
   /**
@@ -690,7 +1419,7 @@ export class SlideSerializer {
   }
 
   /**
-   * Serialize arrow vertical layout
+   * Serialize sequence arrow layout.
    */
   private serializeArrowVertical(
     node: TSequenceArrowGroupElement,
@@ -699,6 +1428,15 @@ export class SlideSerializer {
     const indentStr = "  ".repeat(indent);
     const childIndent = indent + 1;
     const childIndentStr = "  ".repeat(childIndent);
+    const attrs: Record<string, string> = {};
+
+    if (node.orientation) {
+      attrs.orientation = node.orientation;
+    }
+
+    if (node.alignment) {
+      attrs.alignment = node.alignment;
+    }
 
     const items = (node.children as TSequenceArrowItemElement[])
       .map((item) => {
@@ -711,7 +1449,7 @@ export class SlideSerializer {
       })
       .join("\n");
 
-    return `${indentStr}<ARROW-VERTICAL>\n${items}\n${indentStr}</ARROW-VERTICAL>`;
+    return `${indentStr}<ARROW-SEQUENCE${this.serializeAttributes(attrs)}>\n${items}\n${indentStr}</ARROW-SEQUENCE>`;
   }
 
   /**
@@ -723,16 +1461,14 @@ export class SlideSerializer {
     const childIndentStr = "  ".repeat(childIndent);
 
     const attrs: Record<string, string> = {};
-    if (node.statsType && node.statsType !== "plain") {
+    if (node.statsType) {
       attrs.statstype = node.statsType;
     }
 
     const items = (node.children as TStatsItemElement[])
       .map((item) => {
         const itemAttrs: Record<string, string> = {};
-        if (item.stat) {
-          itemAttrs.stat = item.stat;
-        }
+        this.setAttribute(itemAttrs, "stat", item.stat);
 
         const content = (item.children as Descendant[])
           .map((child) => this.serializeDescendant(child, childIndent + 1))
@@ -803,7 +1539,9 @@ export class SlideSerializer {
    */
   private serializeButton(node: TButtonElement, indent: number): string {
     const indentStr = "  ".repeat(indent);
-    const attrs: Record<string, string> = {};
+    const attrs = this.serializeBasicBlockAttributes(
+      node as unknown as Record<string, unknown>,
+    );
 
     const buttonWithProps = node as TButtonElement & {
       variant?: "filled" | "outline" | "ghost";
@@ -826,61 +1564,89 @@ export class SlideSerializer {
    * Serialize chart
    */
   private serializeChart(
-    node: TChartElement,
+    node: TChartNode,
     elementType: string,
     indent: number,
   ): string {
     const indentStr = "  ".repeat(indent);
     const dataIndent = indent + 1;
-    const dataIndentStr = "  ".repeat(dataIndent);
 
-    // Map element type to chart type
-    const typeMap: Record<string, string> = {
-      [PIE_CHART_ELEMENT]: "pie",
-      [BAR_CHART_ELEMENT]: "bar",
-      [AREA_CHART_ELEMENT]: "area",
-      [RADAR_CHART_ELEMENT]: "radar",
-      [SCATTER_CHART_ELEMENT]: "scatter",
-      [LINE_CHART_ELEMENT]: "line",
-    };
+    const attrs: Record<string, string> = {};
+    const chartOptions: Record<string, unknown> = {};
 
-    const chartType = typeMap[elementType] || "bar";
+    this.setAttribute(attrs, "charttype", getChartXmlType(elementType));
 
-    const attrs: Record<string, string> = {
-      charttype: chartType,
-    };
-
-    // Serialize data
-    const dataRows: string[] = [];
-
-    if (chartType === "scatter") {
-      const scatterData = node.data as unknown as Array<{
-        x: number;
-        y: number;
-      }>;
-      if (Array.isArray(scatterData)) {
-        for (const point of scatterData) {
-          dataRows.push(
-            `${dataIndentStr}<DATA x="${point.x}" y="${point.y}" />`,
-          );
-        }
+    for (const [key, value] of Object.entries(
+      node as unknown as Record<string, unknown>,
+    )) {
+      if (CHART_OPTION_EXCLUDED_KEYS.has(key) || value === undefined) {
+        continue;
       }
-    } else {
-      const chartData = node.data as Array<{ label: string; value: number }>;
-      if (Array.isArray(chartData)) {
-        for (const row of chartData) {
-          dataRows.push(
-            `${dataIndentStr}<DATA label="${this.escapeXml(row.label)}" value="${row.value}" />`,
-          );
-        }
+
+      if (isPrimitiveXmlValue(value)) {
+        this.setAttribute(attrs, key, value);
+      }
+
+      if (!this.isLayoutPrompt) {
+        chartOptions[key] = value;
       }
     }
 
-    if (dataRows.length === 0) {
+    const structuredParts = this.isLayoutPrompt
+      ? [
+          LAYOUT_PROMPT_CHART_DATA.split("\n")
+            .map((line) => `${"  ".repeat(dataIndent)}${line}`)
+            .join("\n"),
+        ]
+      : [
+          this.serializeChartDataChild(node.data, dataIndent),
+          Object.keys(chartOptions).length > 0
+            ? this.serializeJsonChild("OPTIONS", chartOptions, dataIndent)
+            : null,
+        ].filter((part): part is string => Boolean(part));
+
+    const childParts = structuredParts;
+
+    if (childParts.length === 0) {
       return `${indentStr}<CHART${this.serializeAttributes(attrs)} />`;
     }
 
-    return `${indentStr}<CHART${this.serializeAttributes(attrs)}>\n${dataRows.join("\n")}\n${indentStr}</CHART>`;
+    return `${indentStr}<CHART${this.serializeAttributes(attrs)}>\n${childParts.join("\n")}\n${indentStr}</CHART>`;
+  }
+
+  private serializeInfographicData(
+    node: TAntvInfographicElement,
+    indent: number,
+  ): string[] {
+    const parts: string[] = [];
+    const prompt = node.generationPrompt?.trim();
+    const sourceText = node.sourceText?.trim();
+    const syntax = node.syntax?.trim();
+
+    if (prompt) {
+      parts.push(
+        `${"  ".repeat(indent)}<PROMPT>${this.escapeXml(prompt)}</PROMPT>`,
+      );
+    }
+
+    if (sourceText) {
+      parts.push(
+        `${"  ".repeat(indent)}<SOURCE>${this.escapeXml(sourceText)}</SOURCE>`,
+      );
+    }
+
+    if (syntax) {
+      parts.push(
+        `${"  ".repeat(indent)}<SYNTAX>${this.escapeXml(syntax)}</SYNTAX>`,
+      );
+    }
+
+    const data = this.serializeJsonChild("DATA", node.data, indent);
+    if (data) {
+      parts.push(data);
+    }
+
+    return parts;
   }
 
   /**
@@ -918,6 +1684,11 @@ export class SlideSerializer {
     const indentStr = indent > 0 ? "  ".repeat(indent) : "";
     let text = node.text;
 
+    if (this.isLayoutPrompt) {
+      text = LAYOUT_PROMPT_PLACEHOLDERS.itemLabel;
+      return indent > 0 ? indentStr + text : text;
+    }
+
     // Escape the text
     text = this.escapeXml(text);
 
@@ -953,14 +1724,42 @@ export class SlideSerializer {
     const attrs: Record<string, string> = {};
 
     if (node.variant && node.variant !== "large") {
-      attrs.variant = node.variant;
+      this.setAttribute(attrs, "variant", node.variant);
     }
-    if (node.author) {
-      attrs.author = node.author;
+    this.setAttribute(attrs, "author", node.author);
+
+    const content = this.isLayoutPrompt
+      ? LAYOUT_PROMPT_PLACEHOLDERS.quote
+      : this.serializeDescendants(node.children);
+    return `${indentStr}<QUOTE${this.serializeAttributes(attrs)}>${content}</QUOTE>`;
+  }
+
+  private serializeInfographic(
+    node: TAntvInfographicElement,
+    indent: number,
+  ): string {
+    const indentStr = "  ".repeat(indent);
+    const attrs: Record<string, string> = {};
+
+    this.setAttribute(attrs, "id", node.id);
+    this.setAttribute(attrs, "isLoading", node.isLoading);
+    this.setAttribute(attrs, "slideLayoutType", node.slideLayoutType);
+    this.setAttribute(attrs, "width", node.width);
+    this.setAttribute(attrs, "align", node.align);
+
+    if (this.isLayoutPrompt) {
+      return `${indentStr}<INFOGRAPHIC${this.serializeAttributes(attrs)}>${LAYOUT_PROMPT_PLACEHOLDERS.infographic}</INFOGRAPHIC>`;
     }
 
-    const content = this.serializeDescendants(node.children);
-    return `${indentStr}<QUOTE${this.serializeAttributes(attrs)}>${content}</QUOTE>`;
+    const childParts = this.serializeInfographicData(node, indent + 1);
+
+    if (childParts.length === 0) {
+      const content =
+        node.generationPrompt?.trim() ?? "Generate an infographic";
+      return `${indentStr}<INFOGRAPHIC${this.serializeAttributes(attrs)}>${this.escapeXml(content)}</INFOGRAPHIC>`;
+    }
+
+    return `${indentStr}<INFOGRAPHIC${this.serializeAttributes(attrs)}>\n${childParts.join("\n")}\n${indentStr}</INFOGRAPHIC>`;
   }
 }
 
@@ -973,8 +1772,9 @@ export class SlideSerializer {
 export function serializeSlidesToXml(
   slides: PlateSlide[],
   includePresentationWrapper = true,
+  options?: SlideSerializerOptions,
 ): string {
-  const serializer = new SlideSerializer();
+  const serializer = new SlideSerializer(options);
   return serializer.serializeSlides(slides, includePresentationWrapper);
 }
 
@@ -983,7 +1783,10 @@ export function serializeSlidesToXml(
  * @param slide PlateSlide object
  * @returns XML string
  */
-export function serializeSlideToXml(slide: PlateSlide): string {
-  const serializer = new SlideSerializer();
+export function serializeSlideToXml(
+  slide: PlateSlide,
+  options?: SlideSerializerOptions,
+): string {
+  const serializer = new SlideSerializer(options);
   return serializer.serializeSlides([slide], false);
 }

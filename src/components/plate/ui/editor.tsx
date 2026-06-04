@@ -1,12 +1,12 @@
 "use client";
 
-import * as React from "react";
-
-import { type VariantProps } from "class-variance-authority";
-import { type PlateContentProps } from "platejs/react";
-
-import { cva } from "class-variance-authority";
-import { PlateContainer, PlateContent } from "platejs/react";
+import { cva, type VariantProps } from "class-variance-authority";
+import {
+  PlateContainer,
+  PlateContent,
+  type PlateContentProps,
+} from "platejs/react";
+import type * as React from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -25,7 +25,7 @@ const editorContainerVariants = cva(
           "has-aria-disabled:border-input has-aria-disabled:bg-muted",
         ),
         default: "h-full overflow-y-auto",
-        demo: "h-[650px] overflow-y-auto",
+        demo: "h-162.5 overflow-y-auto",
         // Notes variant: no overflow, let parent handle scrolling
         notes: "",
         select: cn(
@@ -44,6 +44,7 @@ export function EditorContainer({
 }: React.ComponentProps<"div"> & VariantProps<typeof editorContainerVariants>) {
   return (
     <PlateContainer
+      data-print-editor-surface="true"
       className={cn(
         // "ignore-click-outside/toolbar",
         editorContainerVariants({ variant }),
@@ -59,7 +60,7 @@ const editorVariants = cva(
     "group/editor",
     "relative w-full cursor-text overflow-x-hidden wrap-break-word whitespace-pre-wrap select-text",
     "rounded-md ring-offset-background focus-visible:outline-hidden",
-    "placeholder:text-muted-foreground/80 **:data-slate-placeholder:top-[auto_!important] **:data-slate-placeholder:text-muted-foreground/80 **:data-slate-placeholder:opacity-100!",
+    "placeholder:text-muted-foreground/80 data-slate-placeholder:**:top-[auto_!important] data-slate-placeholder:**:text-muted-foreground/80 data-slate-placeholder:**:opacity-100!",
     "[&_strong]:font-bold",
   ),
   {
@@ -78,7 +79,7 @@ const editorVariants = cva(
         allweone: "size-full pt-4 pb-72 text-base",
         ai: "w-full px-0 text-base md:text-sm",
         aiChat:
-          "max-h-[min(70vh,320px)] w-full max-w-[700px] overflow-y-auto px-3 py-2 text-base md:text-sm",
+          "max-h-[min(70vh,320px)] w-full max-w-175 overflow-y-auto px-3 py-2 text-base md:text-sm",
         comment: cn("rounded-none border-none bg-transparent text-sm"),
         default:
           "size-full px-16 pt-4 pb-72 text-base sm:px-[max(64px,calc(50%-350px))]",
@@ -94,25 +95,30 @@ const editorVariants = cva(
 export type EditorProps = PlateContentProps &
   VariantProps<typeof editorVariants>;
 
-export const Editor = React.forwardRef<HTMLDivElement, EditorProps>(
-  ({ className, disabled, focused, variant, ...props }, ref) => {
-    return (
-      <PlateContent
-        ref={ref}
-        className={cn(
-          editorVariants({
-            disabled,
-            focused,
-            variant,
-          }),
-          className,
-        )}
-        disabled={disabled}
-        disableDefaultStyles
-        {...props}
-      />
-    );
-  },
-);
+export const Editor = ({
+  className,
+  disabled,
+  focused,
+  variant,
+  ref,
+  ...props
+}: EditorProps & React.RefAttributes<HTMLDivElement>) => {
+  return (
+    <PlateContent
+      ref={ref}
+      className={cn(
+        editorVariants({
+          disabled,
+          focused,
+          variant,
+        }),
+        className,
+      )}
+      disabled={disabled}
+      disableDefaultStyles
+      {...props}
+    />
+  );
+};
 
 Editor.displayName = "Editor";

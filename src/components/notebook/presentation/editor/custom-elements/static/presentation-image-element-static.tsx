@@ -1,43 +1,131 @@
-import type * as React from "react";
+"use client";
 
-import { type TImageElement } from "platejs";
-import { type SlateElementProps, SlateElement } from "platejs/static";
-
-import { cn } from "@/lib/utils";
 import { ImageIcon } from "lucide-react";
-import { type ImageCropSettings } from "../../../utils/types";
+import Image from "next/image";
+import { type TImageElement } from "platejs";
+import { SlateElement, type SlateElementProps } from "platejs/static";
+import type * as React from "react";
+import { useEffect } from "react";
 
-// Alignment class mapping (matching the Resizable component behavior)
-const alignmentClasses = {
-  center: "mx-auto",
-  left: "mr-auto",
-  right: "ml-auto",
-} as const;
+import { Spinner } from "@/components/ui/spinner";
+import {
+  getElementImageGenerationKey,
+  getElementImageGenerationTarget,
+  resolvePresentationImageGenerationSource,
+} from "@/lib/presentation/image-generation";
+import { cn } from "@/lib/utils";
+import {
+  usePresentationState,
+  type PresentationStockImageProvider,
+} from "@/states/presentation-state";
+import { type ImageCropSettings } from "../../../utils/types";
+import {
+  getPresentationImageFrameStyles,
+  presentationImageAlignmentClasses,
+} from "../presentation-image-layout";
+
+type StaticPresentationImageElement = TImageElement & {
+  align?: "center" | "left" | "right";
+  cropSettings?: ImageCropSettings;
+  id?: string;
+  imageGenerationStatus?: "failed";
+  imageSource?: "generate" | "search" | "gif" | "upload";
+  prompt?: string;
+  query?: string;
+  stockImageProvider?: PresentationStockImageProvider;
+};
 
 // Static renderer for presentation image that preserves crop styles
 export function PresentationImageElementStatic(
-  props: SlateElementProps<
-    TImageElement & {
-      query?: string;
-      cropSettings?: ImageCropSettings;
-      align?: "center" | "left" | "right";
-    }
-  >,
+  props: SlateElementProps<StaticPresentationImageElement>,
 ) {
-  const { url, query, cropSettings, width, align = "center" } = props.element;
+  const { url, cropSettings, width, align = "center" } = props.element;
+  const slideId = String(props.editor.id ?? "");
+  const imagePrompt = props.element.query ?? props.element.prompt ?? "";
+  const imageSource = usePresentationState((s) => s.imageSource);
+  const imageModel = usePresentationState((s) => s.imageModel);
+  const stockImageProvider = usePresentationState((s) => s.stockImageProvider);
+  const startPresentationImageGeneration = usePresentationState(
+    (s) => s.startPresentationImageGeneration,
+  );
+  const rootImageGeneration = usePresentationState(
+    (s) => s.rootImageGeneration,
+  );
+  const elementId =
+    typeof props.element.id === "string" ? props.element.id : undefined;
+  const generationKey =
+    slideId && elementId
+      ? getElementImageGenerationKey(slideId, elementId)
+      : null;
+  const rawComputedGen = generationKey
+    ? rootImageGeneration[generationKey]
+    : undefined;
+  const computedGen =
+    rawComputedGen && rawComputedGen.query.trim() === imagePrompt.trim()
+      ? rawComputedGen
+      : undefined;
+  const computedImageUrl =
+    computedGen?.status === "success" && computedGen.url
+      ? computedGen.url
+      : url;
+  const isGenerating =
+    computedGen?.status === "queued" || computedGen?.status === "generating";
+  const hasGenerationFailed =
+    computedGen?.status === "error" ||
+    props.element.imageGenerationStatus === "failed";
 
-  const imageStyles: React.CSSProperties = {
-    objectFit: cropSettings?.objectFit ?? "cover",
-    objectPosition: cropSettings
-      ? `${cropSettings.objectPosition.x}% ${cropSettings.objectPosition.y}%`
-      : "50% 50%",
-    transform: `scale(${cropSettings?.zoom ?? 1})`,
-    transformOrigin: cropSettings
-      ? `${cropSettings.objectPosition.x}% ${cropSettings.objectPosition.y}%`
-      : "50% 50%",
-    borderRadius: "var(--presentation-border-radius, 0.5rem)",
-    boxShadow: "var(--presentation-card-shadow, 0 1px 3px rgba(0,0,0,0.12))",
-  };
+  const imageStyles = getPresentationImageFrameStyles(cropSettings);
+
+  useEffect(() => {
+    const trimmedPrompt = imagePrompt.trim();
+
+    if (
+      !slideId ||
+      !elementId ||
+      !trimmedPrompt ||
+      computedImageUrl ||
+      hasGenerationFailed
+    ) {
+      return;
+    }
+
+    if (computedGen?.query.trim() === trimmedPrompt) {
+      return;
+    }
+
+    const source = resolvePresentationImageGenerationSource({
+      globalImageSource: imageSource,
+      imageSource: props.element.imageSource,
+    });
+    const generationTarget = getElementImageGenerationTarget(
+      slideId,
+      elementId,
+    );
+
+    startPresentationImageGeneration(generationTarget, trimmedPrompt, {
+      imageModel,
+      source,
+      ...(source === "stock"
+        ? {
+            stockImageProvider:
+              props.element.stockImageProvider ?? stockImageProvider,
+          }
+        : {}),
+    });
+  }, [
+    computedGen?.query,
+    computedImageUrl,
+    elementId,
+    hasGenerationFailed,
+    imageModel,
+    imagePrompt,
+    imageSource,
+    props.element.imageSource,
+    props.element.stockImageProvider,
+    slideId,
+    startPresentationImageGeneration,
+    stockImageProvider,
+  ]);
 
   // Container styles for width and alignment
   const containerStyles: React.CSSProperties = {
@@ -45,14 +133,13 @@ export function PresentationImageElementStatic(
       typeof width === "string" || typeof width === "number" ? width : "100%",
   };
 
-  // Show placeholder when no URL exists
-  if (!url) {
+  if (!computedImageUrl) {
     return (
       <SlateElement {...props} className={cn(props.className, "block")}>
         <div
           className={cn(
             "flex aspect-video items-center justify-center rounded-md bg-muted/30",
-            alignmentClasses[align],
+            presentationImageAlignmentClasses[align],
           )}
           style={{
             ...containerStyles,
@@ -60,8 +147,24 @@ export function PresentationImageElementStatic(
           }}
         >
           <div className="flex flex-col items-center gap-2 text-muted-foreground">
-            <ImageIcon className="h-8 w-8" />
-            <span className="text-sm">No image</span>
+            {isGenerating ? (
+              <>
+                <Spinner className="size-6" />
+                <span className="text-sm">Generating image&hellip;</span>
+              </>
+            ) : (
+              <>
+                <ImageIcon
+                  className={cn(
+                    "h-8 w-8",
+                    hasGenerationFailed && "text-destructive",
+                  )}
+                />
+                <span className="text-sm">
+                  {hasGenerationFailed ? "Image generation failed" : "No image"}
+                </span>
+              </>
+            )}
           </div>
         </div>
         {props.children}
@@ -71,12 +174,20 @@ export function PresentationImageElementStatic(
 
   return (
     <SlateElement {...props} className={cn(props.className)}>
-      <div className={cn(alignmentClasses[align])} style={containerStyles}>
-        {/** biome-ignore lint/performance/noImgElement: This is a valid use case */}
-        <img
-          src={url}
-          alt={query ?? ""}
-          className="block h-auto w-full max-w-full"
+      <div
+        className={cn(
+          "my-4 text-center",
+          presentationImageAlignmentClasses[align],
+        )}
+        style={containerStyles}
+      >
+        <Image
+          unoptimized
+          width={400}
+          height={300}
+          src={computedImageUrl}
+          alt={imagePrompt}
+          className="inline-block h-auto max-w-full"
           style={imageStyles}
         />
       </div>
@@ -84,5 +195,3 @@ export function PresentationImageElementStatic(
     </SlateElement>
   );
 }
-
-

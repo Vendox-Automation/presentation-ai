@@ -1,8 +1,9 @@
-import { type CustomTheme } from "@/components/notebook/presentation/components/theme/types";
-import { type ThemeProperties, type Themes } from "@/lib/presentation/themes";
 import { create } from "zustand";
 
-export type FilterOption = {
+import { type CustomTheme } from "@/components/notebook/presentation/components/theme/types";
+import { type ThemeProperties, type Themes } from "@/lib/presentation/themes";
+
+type FilterOption = {
   style: "all" | "minimal" | "professional" | "creative";
 };
 

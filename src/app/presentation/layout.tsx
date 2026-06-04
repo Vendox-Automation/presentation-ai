@@ -1,7 +1,7 @@
-import { PresentationGenerationManager } from "@/components/notebook/presentation/components/PresentationGenerationManager";
+import type React from "react";
+
 import PresentationHeader from "@/components/presentation/core/PresentationHeader";
 import { PresentationThemeProvider } from "@/components/presentation/providers/PresentationThemeProvider";
-import type React from "react";
 
 export default async function PresentationLayout({
   children,
@@ -10,7 +10,6 @@ export default async function PresentationLayout({
 }) {
   return (
     <PresentationThemeProvider>
-      <PresentationGenerationManager />
       <div className="flex h-screen w-screen flex-col supports-[(height:100dvh)]:h-dvh">
         <PresentationHeader />
         <main className="relative flex flex-1 overflow-hidden">

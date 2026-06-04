@@ -1,16 +1,11 @@
-/** biome-ignore-all lint/suspicious/noExplicitAny: This use requires any */
 "use client";
-
-import * as React from "react";
-
-import type * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 
 import { useDraggable, useDropLine } from "@platejs/dnd";
 import {
   BlockSelectionPlugin,
   useBlockSelected,
 } from "@platejs/selection/react";
-import { setCellBackground } from "@platejs/table";
+import { isSelectingCell, setCellBackground } from "@platejs/table";
 import {
   TablePlugin,
   TableProvider,
@@ -20,8 +15,8 @@ import {
   useTableElement,
   useTableMergeState,
 } from "@platejs/table/react";
+import type * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import { PopoverAnchor } from "@radix-ui/react-popover";
-import { cva } from "class-variance-authority";
 import {
   ArrowDown,
   ArrowLeft,
@@ -32,22 +27,22 @@ import {
   Grid2X2Icon,
   GripVertical,
   PaintBucketIcon,
+  Plus,
   SquareSplitHorizontalIcon,
   Trash2Icon,
   XIcon,
 } from "lucide-react";
 import {
-  type TElement,
+  ElementApi,
+  KEYS,
+  PathApi,
+  type Path,
   type TTableCellElement,
   type TTableElement,
   type TTableRowElement,
-  KEYS,
-  PathApi,
 } from "platejs";
 import {
-  type PlateElementProps,
   PlateElement,
-  useComposedRef,
   useEditorPlugin,
   useEditorRef,
   useEditorSelector,
@@ -58,7 +53,9 @@ import {
   useRemoveNodeButton,
   useSelected,
   withHOC,
+  type PlateElementProps,
 } from "platejs/react";
+import * as React from "react";
 
 import { Button } from "@/components/plate/ui/button";
 import {
@@ -72,12 +69,8 @@ import {
 } from "@/components/plate/ui/dropdown-menu";
 import { Popover, PopoverContent } from "@/components/plate/ui/popover";
 import { cn } from "@/lib/utils";
-
 import { blockSelectionVariants } from "./block-selection";
-import {
-  ColorDropdownMenuItems,
-  DEFAULT_COLORS,
-} from "./font-color-toolbar-button";
+import { ColorDropdownMenuItems, DEFAULT_COLORS } from "./font-color-toolbar-button";
 import { ResizeHandle } from "./resize-handle";
 import {
   BorderAllIcon,
@@ -93,12 +86,56 @@ import {
   ToolbarGroup,
   ToolbarMenuGroup,
 } from "./toolbar";
+
+function setRefValue<T>(ref: React.Ref<T> | undefined, value: T | null) {
+  if (typeof ref === "function") {
+    ref(value);
+    return;
+  }
+
+  if (ref) {
+    ref.current = value;
+  }
+}
+
+function getLastTableRowPath(
+  tableElement: TTableElement,
+  tablePath: Path,
+): Path | undefined {
+  if (tableElement.children.length === 0) return undefined;
+
+  return [...tablePath, tableElement.children.length - 1];
+}
+
+function getLastTableCellPath(
+  tableElement: TTableElement,
+  tablePath: Path,
+): Path | undefined {
+  for (
+    let rowIndex = tableElement.children.length - 1;
+    rowIndex >= 0;
+    rowIndex -= 1
+  ) {
+    const row = tableElement.children[rowIndex];
+
+    if (!ElementApi.isElement(row)) continue;
+
+    if (row.children.length > 0) {
+      return [...tablePath, rowIndex, row.children.length - 1];
+    }
+  }
+
+  return undefined;
+}
+
 export const TableElement = withHOC(
   TableProvider,
   function TableElement({
     children,
     ...props
   }: PlateElementProps<TTableElement>) {
+    const editor = useEditorRef();
+    const { tf } = useEditorPlugin(TablePlugin);
     const readOnly = useReadOnly();
     const isSelectionAreaVisible = usePluginOption(
       BlockSelectionPlugin,
@@ -106,31 +143,117 @@ export const TableElement = withHOC(
     );
     const hasControls = !readOnly && !isSelectionAreaVisible;
     const selected = useSelected();
-    const {
-      isSelectingCell,
-      marginLeft,
-      props: tableProps,
-    } = useTableElement();
+    const { marginLeft, props: tableProps } = useTableElement();
+    const isSelectingCells = isSelectingCell(props.editor);
+    const tableId = props.element.id;
+    const isTableBlockSelected = useBlockSelected(
+      typeof tableId === "string" ? tableId : undefined,
+    );
+    const isSelectionInCurrentTable = useEditorSelector(
+      (currentEditor) => {
+        const tableEntry = currentEditor.api.above({
+          match: { type: KEYS.table },
+        });
+        const [selectedTable] = tableEntry ?? [];
+
+        return typeof tableId === "string" && selectedTable?.id === tableId;
+      },
+      [tableId],
+    );
+    const showTableGrowthControls =
+      hasControls && (isTableBlockSelected || isSelectionInCurrentTable);
+
+    const colSizes = props.element.colSizes ?? [];
+
+    const insertColumnAfter = React.useCallback(() => {
+      const tablePath = editor.api.findPath(props.element);
+      if (!tablePath) return;
+
+      const fromCell = getLastTableCellPath(props.element, tablePath);
+      if (!fromCell) return;
+
+      tf.insert.tableColumn({ fromCell, select: true });
+      editor.tf.focus();
+    }, [editor, props.element, tf]);
+
+    const insertRowAfter = React.useCallback(() => {
+      const tablePath = editor.api.findPath(props.element);
+      if (!tablePath) return;
+
+      const fromRow = getLastTableRowPath(props.element, tablePath);
+      if (!fromRow) return;
+
+      tf.insert.tableRow({ fromRow, select: true });
+      editor.tf.focus();
+    }, [editor, props.element, tf]);
 
     const content = (
       <PlateElement
         {...props}
         className={cn(
           "overflow-x-auto py-5",
-          hasControls && "-ml-2 *:data-[slot=block-selection]:left-2",
+          hasControls && "-ml-2 data-[slot=block-selection]:*:left-2",
         )}
         style={{ paddingLeft: marginLeft }}
       >
-        <div className="group/table relative w-fit">
+        <div
+          className={cn(
+            "group/table relative w-full bg-transparent",
+            showTableGrowthControls &&
+              "grid grid-cols-[minmax(0,1fr)_1.25rem] grid-rows-[auto_1.25rem]",
+          )}
+        >
+          {isTableBlockSelected && (
+            <div className={blockSelectionVariants()} contentEditable={false} />
+          )}
           <table
             className={cn(
-              "mr-0 ml-px table h-px table-fixed border-collapse",
-              isSelectingCell && "selection:bg-transparent",
+              "mr-0 ml-px table h-px max-w-full table-fixed border-collapse bg-transparent text-(--presentation-text)",
+              isSelectingCells && "selection:bg-transparent",
+              colSizes.length > 0 && colSizes.every((size) => size !== 0)
+                ? "w-fit"
+                : "w-full",
             )}
             {...tableProps}
           >
-            <tbody className="min-w-full">{children}</tbody>
+            <tbody className="w-full">{children}</tbody>
           </table>
+          {showTableGrowthControls && (
+            <>
+              <Button
+                aria-label="Add column"
+                className={cn(
+                  "z-40 h-full min-h-10 w-5 rounded-md border-border/80 bg-muted/80 p-0 text-muted-foreground shadow-xs backdrop-blur-sm",
+                  "transition-colors duration-100 hover:bg-background hover:text-foreground",
+                )}
+                contentEditable={false}
+                onClick={insertColumnAfter}
+                onMouseDown={(event) => event.preventDefault()}
+                size="icon"
+                title="Add column"
+                type="button"
+                variant="outline"
+              >
+                <Plus className="size-3.5" data-ppt-ignore="true" />
+              </Button>
+              <Button
+                aria-label="Add row"
+                className={cn(
+                  "z-40 col-span-2 h-5 w-auto rounded-md border-border/80 bg-muted/80 p-0 text-muted-foreground shadow-xs backdrop-blur-sm",
+                  "transition-colors duration-100 hover:bg-background hover:text-foreground",
+                )}
+                contentEditable={false}
+                onClick={insertRowAfter}
+                onMouseDown={(event) => event.preventDefault()}
+                size="icon"
+                title="Add row"
+                type="button"
+                variant="outline"
+              >
+                <Plus className="size-3.5" data-ppt-ignore="true" />
+              </Button>
+            </>
+          )}
         </div>
       </PlateElement>
     );
@@ -296,7 +419,7 @@ function TableBordersDropdownMenuContent(
 
   return (
     <DropdownMenuContent
-      className="min-w-[220px]"
+      className="min-w-55"
       onCloseAutoFocus={(e) => {
         e.preventDefault();
         editor.tf.focus();
@@ -413,7 +536,6 @@ function ColorDropdownMenu({
 export function TableRowElement(props: PlateElementProps<TTableRowElement>) {
   const { element } = props;
   const readOnly = useReadOnly();
-  const selected = useSelected();
   const editor = useEditorRef();
   const isSelectionAreaVisible = usePluginOption(
     BlockSelectionPlugin,
@@ -430,24 +552,30 @@ export function TableRowElement(props: PlateElementProps<TTableRowElement>) {
         PathApi.parent(dropEntry[1]),
       ),
     onDropHandler: (_, { dragItem }) => {
-      const dragElement = (dragItem as { element: TElement }).element;
+      const dragElement =
+        "element" in dragItem && ElementApi.isElement(dragItem.element)
+          ? dragItem.element
+          : undefined;
 
       if (dragElement) {
         editor.tf.select(dragElement);
       }
     },
   });
+  const rowRef = React.useCallback(
+    (node: HTMLTableRowElement | null) => {
+      setRefValue<HTMLElement>(props.ref, node);
+      setRefValue<HTMLElement>(previewRef, node);
+    },
+    [previewRef, props.ref],
+  );
 
   return (
     <PlateElement
       {...props}
-      ref={useComposedRef(props.ref, previewRef)}
+      ref={rowRef}
       as="tr"
       className={cn("group/row", isDragging && "opacity-50")}
-      attributes={{
-        ...props.attributes,
-        "data-selected": selected ? "true" : undefined,
-      }}
     >
       {hasControls && (
         <td className="w-2 select-none" contentEditable={false}>
@@ -461,25 +589,28 @@ export function TableRowElement(props: PlateElementProps<TTableRowElement>) {
   );
 }
 
-function RowDragHandle({ dragRef }: { dragRef: React.Ref<any> }) {
+function RowDragHandle({ dragRef }: { dragRef: React.Ref<HTMLButtonElement> }) {
   const editor = useEditorRef();
   const element = useElement();
 
   return (
-    <Button
+    <button
       ref={dragRef}
-      variant="outline"
+      type="button"
       className={cn(
-        "absolute top-1/2 left-0 z-51 h-6 w-4 -translate-y-1/2 p-0 focus-visible:ring-0 focus-visible:ring-offset-0",
+        "absolute top-1/2 z-51 w-4 -translate-y-1/2 p-0.5 focus-visible:ring-0 focus-visible:ring-offset-0",
         "cursor-grab active:cursor-grabbing",
-        'opacity-0 transition-opacity duration-100 group-hover/row:opacity-100 group-has-data-[resizing="true"]/row:opacity-0',
+        'flex items-center rounded bg-accent opacity-0 outline transition-opacity duration-100 group-hover/row:opacity-100 group-has-data-[resizing="true"]/row:opacity-0',
       )}
       onClick={() => {
         editor.tf.select(element);
       }}
     >
-      <GripVertical className="text-muted-foreground" />
-    </Button>
+      <GripVertical
+        className="size-3.5 text-muted-foreground"
+        data-ppt-ignore="true"
+      />
+    </button>
   );
 }
 
@@ -491,7 +622,7 @@ function RowDropLine() {
   return (
     <div
       className={cn(
-        "absolute inset-x-0 left-2 z-50 h-0.5 bg-brand/50",
+        "absolute inset-x-0 left-2 z-50 h-0.5 rounded-full bg-brand/50",
         dropLine === "top" ? "-top-px" : "-bottom-px",
       )}
     />
@@ -516,9 +647,14 @@ export function TableCellElement({
     BlockSelectionPlugin,
     "isSelectionAreaVisible",
   );
+  const selectedCellIds = usePluginOption(TablePlugin, "selectedCellIds");
 
   const { borders, colIndex, colSpan, minHeight, rowIndex, selected, width } =
     useTableCellElement();
+  const isCellSelected =
+    selected ||
+    (typeof element.id === "string" &&
+      (selectedCellIds?.includes(element.id) ?? false));
 
   const { bottomProps, hiddenLeft, leftProps, rightProps } =
     useTableCellElementResizable({
@@ -532,11 +668,10 @@ export function TableCellElement({
       {...props}
       as={isHeader ? "th" : "td"}
       className={cn(
-        "h-full overflow-visible border-none bg-background p-0",
-        element.background ? "bg-(--cellBackground)" : "bg-background",
+        "relative h-full overflow-visible border-none bg-transparent p-0",
         isHeader && "text-left *:m-0",
-        "before:size-full",
-        selected && "before:z-10 before:bg-brand/5",
+        "before:inset-0 before:z-10 before:size-full",
+        (isCellSelected || isSelectingRow) && "before:bg-brand/20",
         "before:absolute before:box-border before:content-[''] before:select-none",
         borders.bottom?.size && `before:border-b before:border-b-border`,
         borders.right?.size && `before:border-r before:border-r-border`,
@@ -547,7 +682,11 @@ export function TableCellElement({
         {
           "--cellBackground": element.background,
           maxWidth: width || 240,
+          width: width || undefined,
           minWidth: width || 120,
+          backgroundColor:
+            element.background ??
+            (isHeader ? "var(--presentation-card-background)" : undefined),
         } as React.CSSProperties
       }
       attributes={{
@@ -556,8 +695,18 @@ export function TableCellElement({
         rowSpan: api.table.getRowSpan(element),
       }}
     >
+      {(isCellSelected || isSelectingRow) && (
+        <div
+          className="pointer-events-none absolute inset-0 z-10 bg-brand/20"
+          contentEditable={false}
+        />
+      )}
+
       <div
-        className="relative z-20 box-border h-full px-3 py-2"
+        className={cn(
+          "relative z-20 box-border h-full rounded-md px-3 py-2",
+          isHeader ? "text-lg font-bold text-primary" : "presentation-text",
+        )}
         style={{ minHeight }}
       >
         {props.children}
@@ -589,7 +738,7 @@ export function TableCellElement({
                 className={cn(
                   "absolute top-0 z-30 hidden h-full w-1 bg-ring",
                   "right-[-1.5px]",
-                  columnResizeVariants({ colIndex: colIndex as any }),
+                  getColumnResizeClass(colIndex),
                 )}
               />
               {colIndex === 0 && (
@@ -619,20 +768,20 @@ export function TableCellHeaderElement(
   return <TableCellElement {...props} isHeader />;
 }
 
-const columnResizeVariants = cva("hidden animate-in fade-in", {
-  variants: {
-    colIndex: {
-      0: 'group-has-[[data-col="0"]:hover]/table:block group-has-[[data-col="0"][data-resizing="true"]]/table:block',
-      1: 'group-has-[[data-col="1"]:hover]/table:block group-has-[[data-col="1"][data-resizing="true"]]/table:block',
-      2: 'group-has-[[data-col="2"]:hover]/table:block group-has-[[data-col="2"][data-resizing="true"]]/table:block',
-      3: 'group-has-[[data-col="3"]:hover]/table:block group-has-[[data-col="3"][data-resizing="true"]]/table:block',
-      4: 'group-has-[[data-col="4"]:hover]/table:block group-has-[[data-col="4"][data-resizing="true"]]/table:block',
-      5: 'group-has-[[data-col="5"]:hover]/table:block group-has-[[data-col="5"][data-resizing="true"]]/table:block',
-      6: 'group-has-[[data-col="6"]:hover]/table:block group-has-[[data-col="6"][data-resizing="true"]]/table:block',
-      7: 'group-has-[[data-col="7"]:hover]/table:block group-has-[[data-col="7"][data-resizing="true"]]/table:block',
-      8: 'group-has-[[data-col="8"]:hover]/table:block group-has-[[data-col="8"][data-resizing="true"]]/table:block',
-      9: 'group-has-[[data-col="9"]:hover]/table:block group-has-[[data-col="9"][data-resizing="true"]]/table:block',
-      10: 'group-has-[[data-col="10"]:hover]/table:block group-has-[[data-col="10"][data-resizing="true"]]/table:block',
-    },
-  },
-});
+const COLUMN_RESIZE_CLASSES: Record<number, string> = {
+  0: 'group-has-[[data-col="0"]:hover]/table:block group-has-[[data-col="0"][data-resizing="true"]]/table:block',
+  1: 'group-has-[[data-col="1"]:hover]/table:block group-has-[[data-col="1"][data-resizing="true"]]/table:block',
+  2: 'group-has-[[data-col="2"]:hover]/table:block group-has-[[data-col="2"][data-resizing="true"]]/table:block',
+  3: 'group-has-[[data-col="3"]:hover]/table:block group-has-[[data-col="3"][data-resizing="true"]]/table:block',
+  4: 'group-has-[[data-col="4"]:hover]/table:block group-has-[[data-col="4"][data-resizing="true"]]/table:block',
+  5: 'group-has-[[data-col="5"]:hover]/table:block group-has-[[data-col="5"][data-resizing="true"]]/table:block',
+  6: 'group-has-[[data-col="6"]:hover]/table:block group-has-[[data-col="6"][data-resizing="true"]]/table:block',
+  7: 'group-has-[[data-col="7"]:hover]/table:block group-has-[[data-col="7"][data-resizing="true"]]/table:block',
+  8: 'group-has-[[data-col="8"]:hover]/table:block group-has-[[data-col="8"][data-resizing="true"]]/table:block',
+  9: 'group-has-[[data-col="9"]:hover]/table:block group-has-[[data-col="9"][data-resizing="true"]]/table:block',
+  10: 'group-has-[[data-col="10"]:hover]/table:block group-has-[[data-col="10"][data-resizing="true"]]/table:block',
+};
+
+function getColumnResizeClass(colIndex: number) {
+  return COLUMN_RESIZE_CLASSES[colIndex] ?? "";
+}

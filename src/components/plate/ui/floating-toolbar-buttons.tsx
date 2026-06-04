@@ -23,9 +23,9 @@ import {
   TodoListToolbarButton,
 } from "./list-toolbar-button";
 import { MarkToolbarButton } from "./mark-toolbar-button";
+import { SuggestionToolbarButton } from "./suggestion-toolbar-button";
 import { TextCaseToolbarButton } from "./text-case-toolbar-button";
 import { TextToDiagramToolbarButton } from "./text-to-diagram-toolbar-button";
-import { SuggestionToolbarButton } from "./suggestion-toolbar-button";
 import { ToolbarGroup } from "./toolbar";
 import { TurnIntoToolbarButton } from "./turn-into-toolbar-button";
 

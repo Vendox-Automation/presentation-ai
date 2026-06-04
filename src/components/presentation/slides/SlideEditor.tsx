@@ -1,13 +1,13 @@
 "use client";
 
+import { DeleteConfirmDialog } from "./slide-editor/DeleteConfirmDialog";
+import { MagicMenuDropdown } from "./slide-editor/MagicMenuDropdown";
+import { MoreOptionsDropdown } from "./slide-editor/MoreOptionsDropdown";
+import { PaletteDropdown } from "./slide-editor/PaletteDropdown";
 import {
-  DeleteConfirmDialog,
-  MagicMenuDropdown,
-  MoreOptionsDropdown,
-  PaletteDropdown,
   SlideEditorProvider,
   useSlideEditorContext,
-} from "./slide-editor";
+} from "./slide-editor/SlideEditorContext";
 
 interface SlideEditorProps {
   slideId: string;

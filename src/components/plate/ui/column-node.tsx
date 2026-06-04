@@ -1,14 +1,10 @@
 "use client";
 
-import type * as React from "react";
-
-import { type TColumnElement } from "platejs";
-import { type PlateElementProps } from "platejs/react";
-
 import { setColumns } from "@platejs/layout";
 import { useDebouncePopoverOpen } from "@platejs/layout/react";
 import { ResizableProvider } from "@platejs/resizable";
-import { type LucideProps, Trash2Icon } from "lucide-react";
+import { Trash2Icon, type LucideProps } from "lucide-react";
+import { type TColumnElement } from "platejs";
 import {
   PlateElement,
   useComposedRef,
@@ -17,7 +13,9 @@ import {
   useReadOnly,
   useRemoveNodeButton,
   withHOC,
+  type PlateElementProps,
 } from "platejs/react";
+import type * as React from "react";
 
 import { Button } from "@/components/plate/ui/button";
 import {
@@ -28,7 +26,7 @@ import {
 import { Separator } from "@/components/plate/ui/separator";
 import { cn } from "@/lib/utils";
 
-export const ColumnElement = withHOC(
+const ColumnElementPrimitive = withHOC(
   ResizableProvider,
   function ColumnElement(props: PlateElementProps<TColumnElement>) {
     return (
@@ -36,11 +34,9 @@ export const ColumnElement = withHOC(
         <PlateElement
           {...props}
           ref={useComposedRef(props.ref)}
-          className="h-full px-2 group-first/column:pl-0 group-last/column:pr-0"
+          className="px-2 group-first/column:pl-0 group-last/column:pr-0"
         >
-          <div
-            className={cn("relative h-full border border-transparent p-1.5")}
-          >
+          <div className={cn("relative border border-transparent p-1.5")}>
             {props.children}
           </div>
         </PlateElement>
@@ -49,11 +45,15 @@ export const ColumnElement = withHOC(
   },
 );
 
+export function ColumnElement(props: PlateElementProps<TColumnElement>) {
+  return <ColumnElementPrimitive {...props} />;
+}
+
 export function ColumnGroupElement(props: PlateElementProps) {
   return (
     <PlateElement className="mb-2" {...props}>
       <ColumnFloatingToolbar>
-        <div className="grid size-full auto-cols-fr grid-flow-col rounded">
+        <div className="grid w-full auto-cols-fr grid-flow-col rounded">
           {props.children}
         </div>
       </ColumnFloatingToolbar>
@@ -147,7 +147,7 @@ const DoubleColumnOutlined = (props: LucideProps) => (
   >
     <path
       clipRule="evenodd"
-      d="M8.5 3H13V13H8.5V3ZM7.5 2H8.5H13C13.5523 2 14 2.44772 14 3V13C14 13.5523 13.5523 14 13 14H8.5H7.5H3C2.44772 14 2 13.5523 2 13V3C2 2.44772 2.44772 2 3 2H7.5ZM7.5 13H3L3 3H7.5V13Z"
+      d="M8.5 3H13V13H8.5V3ZM7.5 2H8.5H13C13.55 2 14 2.45 14 3V13C14 13.55 13.55 14 13 14H8.5H7.5H3C2.45 14 2 13.55 2 13V3C2 2.45 2.45 2 3 2H7.5ZM7.5 13H3L3 3H7.5V13Z"
       fill="currentColor"
       fillRule="evenodd"
     />
@@ -165,7 +165,7 @@ const ThreeColumnOutlined = (props: LucideProps) => (
   >
     <path
       clipRule="evenodd"
-      d="M9.25 3H6.75V13H9.25V3ZM9.25 2H6.75H5.75H3C2.44772 2 2 2.44772 2 3V13C2 13.5523 2.44772 14 3 14H5.75H6.75H9.25H10.25H13C13.5523 14 14 13.5523 14 13V3C14 2.44772 13.5523 2 13 2H10.25H9.25ZM10.25 3V13H13V3H10.25ZM3 13H5.75V3H3L3 13Z"
+      d="M9.25 3H6.75V13H9.25V3ZM9.25 2H6.75H5.75H3C2.45 2 2 2.45 2 3V13C2 13.55 2.45 14 3 14H5.75H6.75H9.25H10.25H13C13.55 14 14 13.55 14 13V3C14 2.45 13.55 2 13 2H10.25H9.25ZM10.25 3V13H13V3H10.25ZM3 13H5.75V3H3L3 13Z"
       fill="currentColor"
       fillRule="evenodd"
     />
@@ -183,7 +183,7 @@ const RightSideDoubleColumnOutlined = (props: LucideProps) => (
   >
     <path
       clipRule="evenodd"
-      d="M11.25 3H13V13H11.25V3ZM10.25 2H11.25H13C13.5523 2 14 2.44772 14 3V13C14 13.5523 13.5523 14 13 14H11.25H10.25H3C2.44772 14 2 13.5523 2 13V3C2 2.44772 2.44772 2 3 2H10.25ZM10.25 13H3L3 3H10.25V13Z"
+      d="M11.25 3H13V13H11.25V3ZM10.25 2H11.25H13C13.55 2 14 2.45 14 3V13C14 13.55 13.55 14 13 14H11.25H10.25H3C2.45 14 2 13.55 2 13V3C2 2.45 2.45 2 3 2H10.25ZM10.25 13H3L3 3H10.25V13Z"
       fill="currentColor"
       fillRule="evenodd"
     />
@@ -201,7 +201,7 @@ const LeftSideDoubleColumnOutlined = (props: LucideProps) => (
   >
     <path
       clipRule="evenodd"
-      d="M5.75 3H13V13H5.75V3ZM4.75 2H5.75H13C13.5523 2 14 2.44772 14 3V13C14 13.5523 13.5523 14 13 14H5.75H4.75H3C2.44772 14 2 13.5523 2 13V3C2 2.44772 2.44772 2 3 2H4.75ZM4.75 13H3L3 3H4.75V13Z"
+      d="M5.75 3H13V13H5.75V3ZM4.75 2H5.75H13C13.55 2 14 2.45 14 3V13C14 13.55 13.55 14 13 14H5.75H4.75H3C2.45 14 2 13.55 2 13V3C2 2.45 2.45 2 3 2H4.75ZM4.75 13H3L3 3H4.75V13Z"
       fill="currentColor"
       fillRule="evenodd"
     />
@@ -219,7 +219,7 @@ const DoubleSideDoubleColumnOutlined = (props: LucideProps) => (
   >
     <path
       clipRule="evenodd"
-      d="M10.25 3H5.75V13H10.25V3ZM10.25 2H5.75H4.75H3C2.44772 2 2 2.44772 2 3V13C2 13.5523 2.44772 14 3 14H4.75H5.75H10.25H11.25H13C13.5523 14 14 13.5523 14 13V3C14 2.44772 13.5523 2 13 2H11.25H10.25ZM11.25 3V13H13V3H11.25ZM3 13H4.75V3H3L3 13Z"
+      d="M10.25 3H5.75V13H10.25V3ZM10.25 2H5.75H4.75H3C2.45 2 2 2.45 2 3V13C2 13.55 2.45 14 3 14H4.75H5.75H10.25H11.25H13C13.55 14 14 13.55 14 13V3C14 2.45 13.55 2 13 2H11.25H10.25ZM11.25 3V13H13V3H11.25ZM3 13H4.75V3H3L3 13Z"
       fill="currentColor"
       fillRule="evenodd"
     />

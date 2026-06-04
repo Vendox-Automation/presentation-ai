@@ -1,15 +1,16 @@
 "use client";
 
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Check, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+
 import {
   deleteFontPair,
   getUserFontPairs,
 } from "@/app/_actions/presentation/font-pair-actions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Trash2 } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
 
 interface FontPair {
   id: string;
@@ -74,10 +75,14 @@ export function UserFontPairs({
         toast.error(result.message || "Failed to delete font pair");
       }
     } catch {
-      toast.error("An error occurred while deleting");
-    } finally {
-      setDeletingId(null);
+      try {
+        toast.error("An error occurred while deleting");
+      } catch (reactDoctorCatchError) {
+        setDeletingId(null);
+        throw reactDoctorCatchError;
+      }
     }
+    setDeletingId(null);
   };
 
   // Don't render anything if there are no font pairs and not loading
@@ -87,9 +92,9 @@ export function UserFontPairs({
 
   return (
     <div className="space-y-3">
-      <label className="text-xs font-semibold text-muted-foreground uppercase">
+      <span className="text-xs font-semibold text-muted-foreground uppercase">
         Your Font Pairs
-      </label>
+      </span>
       <div className="space-y-2">
         {isLoading ? (
           <>
@@ -114,6 +119,7 @@ export function UserFontPairs({
                 )}
               >
                 <button
+                  type="button"
                   className="flex-1 text-left"
                   onClick={() =>
                     onSelect(
@@ -136,20 +142,21 @@ export function UserFontPairs({
 
                 <div className="flex items-center gap-2">
                   {isSelected && (
-                    <Check className="h-4 w-4 shrink-0 text-primary" />
+                    <Check className="size-4 shrink-0 text-primary" />
                   )}
                   <button
+                    type="button"
                     onClick={(e) => handleDelete(e, pair.id)}
                     disabled={isDeleting}
                     className={cn(
                       "rounded-md p-1.5 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive",
                       isDeleting &&
                         "animate-pulse text-destructive opacity-100",
-                      "focus:opacity-100 focus:outline-hidden",
+                      "focus:opacity-100 focus:outline-none",
                     )}
                     title="Delete font pair"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="size-4" />
                     <span className="sr-only">Delete</span>
                   </button>
                 </div>

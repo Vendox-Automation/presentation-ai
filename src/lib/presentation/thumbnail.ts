@@ -72,7 +72,9 @@ export function getPresentationThumbnailUrl(
   return null;
 }
 
-export function getPresentationSlidesFromContent(content: unknown): PlateSlide[] {
+export function getPresentationSlidesFromContent(
+  content: unknown,
+): PlateSlide[] {
   if (!isRecord(content)) {
     return [];
   }

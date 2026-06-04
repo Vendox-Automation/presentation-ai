@@ -1,7 +1,7 @@
 // Floating Toolbar Components
 export { LayoutFloatingToolbar } from "./LayoutFloatingToolbar";
 export { LayoutFloatingToolbarButtons } from "./LayoutFloatingToolbarButtons";
-export { LayoutPreviewSheet } from "./LayoutPreviewSheet";
+export { LayoutEditorButton, LayoutEditorPanel } from "./LayoutPreviewSheet";
 
 // Sub-components (for advanced usage)
 export { AlignmentControl } from "./AlignmentControl";

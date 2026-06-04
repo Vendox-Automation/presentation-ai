@@ -1,6 +1,19 @@
 "use client";
 
+import { DRAG_ITEM_BLOCK } from "@platejs/dnd";
+import {
+  BarChart3,
+  ImageIcon,
+  Loader2,
+  Search,
+  Sparkles,
+  Upload,
+} from "lucide-react";
+import { type TElement } from "platejs";
 import type React from "react";
+import { useRef } from "react";
+import { useDrop } from "react-dnd";
+import { toast } from "sonner";
 
 import { isChartType } from "@/components/notebook/presentation/editor/lib";
 import { useUploadFile } from "@/components/plate/hooks/use-upload-file";
@@ -13,30 +26,18 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { cn } from "@/lib/utils";
 import { useDebouncedSave } from "@/hooks/presentation/useDebouncedSave";
+import { cn } from "@/lib/utils";
 import {
-  type ImageEditorMode,
   usePresentationState,
+  type ImageEditorMode,
 } from "@/states/presentation-state";
-import { DRAG_ITEM_BLOCK } from "@platejs/dnd";
-import {
-  BarChart3,
-  ImageIcon,
-  Loader2,
-  Search,
-  Sparkles,
-  Upload,
-} from "lucide-react";
-import { type TElement } from "platejs";
-import { useRef } from "react";
-import { useDrop } from "react-dnd";
-import { toast } from "sonner";
 
 export interface ImagePlaceholderProps {
   isStatic?: boolean;
   className?: string;
   slideId: string;
+  imageNotFound?: boolean;
   onOpenEditor?: (mode: ImageEditorMode) => void;
 }
 
@@ -44,6 +45,7 @@ export default function ImagePlaceholder({
   isStatic = false,
   className,
   slideId,
+  imageNotFound = false,
   onOpenEditor,
 }: ImagePlaceholderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -52,13 +54,23 @@ export default function ImagePlaceholder({
   const { saveImmediately } = useDebouncedSave();
   const { uploadFile, isUploading, progress } = useUploadFile({
     onUploadComplete: (file) => {
+      const { clearRootImageGeneration } = usePresentationState.getState();
       if (slideId) {
+        clearRootImageGeneration(slideId);
         setSlides((slides) =>
           slides.map((slide) =>
             slide.id === slideId
               ? {
                   ...slide,
-                  rootImage: { ...slide.rootImage!, url: file.ufsUrl },
+                  rootImage: {
+                    ...slide.rootImage!,
+                    url: file.ufsUrl,
+                    imageSource: "upload",
+                    embedType: undefined,
+                    chartType: undefined,
+                    chartData: undefined,
+                    chartOptions: undefined,
+                  },
                 }
               : slide,
           ),
@@ -119,25 +131,24 @@ export default function ImagePlaceholder({
         };
 
         // Update the slide's rootImage with the chart data
-        setSlides(
-          (slides) =>
-            slides.map((slide) =>
-              slide.id === slideId
-                ? {
-                    ...slide,
-                    rootImage: {
-                      ...slide.rootImage!,
-                      chartType,
-                      chartData,
-                      chartOptions,
-                      // Clear any existing image/embed data
-                      url: undefined,
-                      embedType: undefined,
-                      imageSource: undefined,
-                    },
+        setSlides((slides) =>
+          slides.map((slide) =>
+            slide.id === slideId
+              ? {
+                  ...slide,
+                  rootImage: {
+                    ...slide.rootImage!,
+                    chartType,
+                    chartData,
+                    chartOptions,
+                    // Clear any existing image/embed data
+                    url: undefined,
+                    embedType: undefined,
+                    imageSource: undefined,
+                  },
                 }
-                : slide,
-            ),
+              : slide,
+          ),
         );
         toast.success("Chart added to slide");
       },
@@ -163,7 +174,7 @@ export default function ImagePlaceholder({
     >
       {isOver && canDrop ? (
         <div className="flex flex-col items-center gap-2 text-primary">
-          <BarChart3 className="h-12 w-12" />
+          <BarChart3 className="size-12" />
           <p className="text-sm font-medium">Drop chart here</p>
         </div>
       ) : (
@@ -173,8 +184,14 @@ export default function ImagePlaceholder({
               <EmptyMedia variant="icon">
                 <ImageIcon />
               </EmptyMedia>
-              <EmptyTitle className="text-primary">No image yet</EmptyTitle>
-              <EmptyDescription>Upload or generate an image</EmptyDescription>
+              <EmptyTitle className="text-primary">
+                {imageNotFound ? "Image not found" : "No image yet"}
+              </EmptyTitle>
+              <EmptyDescription>
+                {imageNotFound
+                  ? "Try uploading, generating, or searching for another image"
+                  : "Upload or generate an image"}
+              </EmptyDescription>
             </EmptyHeader>
 
             <EmptyContent className="flex-row gap-3 text-primary">
@@ -186,7 +203,7 @@ export default function ImagePlaceholder({
               >
                 {isUploading ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="mr-2 size-4 animate-spin" />
                     {uploadProgress}%
                   </>
                 ) : (
@@ -229,6 +246,7 @@ export default function ImagePlaceholder({
 
       {/* Hidden file input */}
       <input
+        aria-label="image placeholder control"
         ref={fileInputRef}
         type="file"
         accept="image/*"

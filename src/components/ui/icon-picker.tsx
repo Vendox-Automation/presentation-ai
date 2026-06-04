@@ -1,18 +1,28 @@
 "use client";
-import { Button, type buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import { cn } from "@/lib/utils";
+
 import { type VariantProps } from "class-variance-authority";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus, X } from "lucide-react";
+import { useReadOnly } from "platejs/react";
 import React, { useEffect, useState, type ReactNode } from "react";
-import { type IconType } from "react-icons";
+
+import {
+  DEFAULT_PRESENTATION_ICON,
+  getPopularPresentationIcons,
+  resolvePresentationIcon,
+  searchPresentationIcons,
+  type ResolvedPresentationIcon,
+} from "@/components/notebook/presentation/editor/custom-elements/presentation-icon-utils";
+import { Button } from "@/components/ui/button";
+import { type buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import { usePresentationState } from "@/states/presentation-state";
+
+const sizeClasses = {
+  sm: "h-8 w-8",
+  md: "h-10 w-10",
+  lg: "h-12 w-12",
+};
 
 // Define interfaces for type safety
 interface IconItem {
@@ -20,7 +30,21 @@ interface IconItem {
   component: ReactNode;
 }
 
-type IconModule = Record<string, IconType>;
+const renderResolvedIcon = (
+  resolvedIcon: ResolvedPresentationIcon | null,
+  iconPixelSize = 16,
+  iconClassName?: string,
+) => {
+  if (!resolvedIcon) {
+    return null;
+  }
+
+  return React.createElement(resolvedIcon.Component, {
+    "aria-hidden": true,
+    className: iconClassName,
+    size: iconPixelSize,
+  });
+};
 
 // Define the prop types
 interface IconPickerProps
@@ -28,432 +52,334 @@ interface IconPickerProps
     React.ComponentProps<"button">,
     Omit<VariantProps<typeof buttonVariants>, "size"> {
   onIconSelect?: (iconName: string, iconComponent: ReactNode) => void;
+  onIconRemove?: () => void;
   defaultIcon?: string;
-  searchTerm?: string; // Added prop to automatically search and select the first matching icon
+  hidePlaceholderWhenEmpty?: boolean;
+  iconClassName?: string;
+  iconPixelSize?: number;
+  placeholder?: ReactNode;
   size?: "sm" | "md" | "lg";
 }
 
 // Main Icon Picker Component
 const IconPicker = ({
   onIconSelect,
-  defaultIcon = "FaHome",
-  searchTerm = "",
+  onIconRemove,
+  defaultIcon,
+  placeholder,
   className,
+  hidePlaceholderWhenEmpty,
+  iconClassName,
+  iconPixelSize,
   size,
   ...props
 }: IconPickerProps) => {
-  const [icon, setIcon] = useState<string>(defaultIcon);
+  const [icon, setIcon] = useState<string>(defaultIcon?.trim() ?? "");
   const [iconComponent, setIconComponent] = useState<ReactNode>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [internalSearchTerm, setInternalSearchTerm] = useState<string>("");
-  const [filteredIcons, setFilteredIcons] = useState<IconItem[]>([]);
-  const [availableIcons, setAvailableIcons] = useState<IconItem[]>([]);
-  const [isOpen, setIsOpen] = useState<boolean>(false);
-  const [initialLoadDone, setInitialLoadDone] = useState<boolean>(false);
+  const openIconPicker = usePresentationState((state) => state.openIconPicker);
+  const readOnly = useReadOnly();
+  const hasIcon = Boolean(icon.trim());
 
   // Size mappings for the trigger button
-  const sizeClasses = {
-    sm: "h-8 w-8",
-    md: "h-10 w-10",
-    lg: "h-12 w-12",
-  };
 
-  // Load some initial popular icons when the sheet opens
   useEffect(() => {
-    if (isOpen && availableIcons.length === 0) {
-      void loadPopularIcons();
-    }
-  }, [isOpen, availableIcons.length]);
+    let cancelled = false;
 
-  // Function to load popular icons when the sheet first opens
-  const loadPopularIcons = async () => {
-    setIsLoading(true);
-    try {
-      // Load a set of common icons from Font Awesome
-      const faModule = await import("react-icons/fa");
-      const popularIconNames = [
-        "FaHome",
-        "FaUser",
-        "FaCog",
-        "FaSearch",
-        "FaBell",
-        "FaCalendar",
-        "FaEnvelope",
-        "FaHeart",
-        "FaStar",
-        "FaBookmark",
-        "FaCheck",
-        "FaTimes",
-        "FaEdit",
-        "FaTrash",
-        "FaDownload",
-        "FaUpload",
-        "FaShare",
-        "FaLink",
-        "FaMapMarker",
-        "FaClock",
-        "FaCamera",
-        "FaVideo",
-        "FaMusic",
-        "FaFile",
-        "FaFolder",
-        "FaComments",
-        "FaThumbsUp",
-        "FaPhone",
-        "FaLock",
-        "FaUserPlus",
-      ];
+    const syncCurrentIcon = async () => {
+      const normalizedDefaultIcon = defaultIcon?.trim();
+      setIcon(normalizedDefaultIcon ?? "");
 
-      const iconList = popularIconNames
-        .map((name) => ({
-          name,
-          component: faModule[name]
-            ? React.createElement(faModule[name], { size: 24 })
-            : null,
-        }))
-        .filter((item) => item.component);
-
-      setAvailableIcons(iconList);
-      setFilteredIcons(iconList);
-    } catch (error) {
-      console.error("Error loading popular icons:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Function to dynamically load icons based on search
-  const searchIcons = async (term: string) => {
-    if (!term || term.length < 2) {
-      setFilteredIcons(availableIcons);
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const termLower = term.toLowerCase();
-      const modules: IconModule[] = [];
-
-      // Try to load the most likely library based on prefix
-      if (termLower.startsWith("fa")) {
-        const mod = await import("react-icons/fa");
-        modules.push(mod as unknown as IconModule);
-      } else if (termLower.startsWith("fi")) {
-        const mod = await import("react-icons/fi");
-        modules.push(mod as unknown as IconModule);
-      } else if (termLower.startsWith("ai")) {
-        const mod = await import("react-icons/ai");
-        modules.push(mod as unknown as IconModule);
-      } else if (termLower.startsWith("bs")) {
-        const mod = await import("react-icons/bs");
-        modules.push(mod as unknown as IconModule);
-      } else if (termLower.startsWith("bi")) {
-        const mod = await import("react-icons/bi");
-        modules.push(mod as unknown as IconModule);
-      } else if (termLower.startsWith("md")) {
-        const mod = await import("react-icons/md");
-        modules.push(mod as unknown as IconModule);
-      } else {
-        // If no prefix match, search in common libraries
-        const [fa, md] = await Promise.all([
-          import("react-icons/fa"),
-          import("react-icons/md"),
-        ]);
-        modules.push(fa as unknown as IconModule, md as unknown as IconModule);
+      if (!normalizedDefaultIcon) {
+        setIconComponent(null);
+        return;
       }
 
-      // Find icons that match the search term
-      let results: IconItem[] = [];
+      setIsLoading(true);
 
-      modules.forEach((module) => {
-        const matches = Object.keys(module)
-          .filter((key) => key.toLowerCase().includes(termLower))
-          .slice(0, 40) // Limit results to prevent too many icons
-          .map((name) => ({
-            name,
-            component: module[name]
-              ? React.createElement(module[name], { size: 24 })
-              : null,
-          }))
-          .filter((item) => item.component);
+      try {
+        const resolvedIcon = await resolvePresentationIcon(
+          normalizedDefaultIcon,
+        );
 
-        results = [...results, ...matches];
-      });
-
-      setFilteredIcons(results.slice(0, 60)); // Limit total results
-    } catch (error) {
-      console.error("Error searching icons:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Function to load a specific icon component
-  const loadIconComponent = async (iconName: string): Promise<ReactNode> => {
-    setIsLoading(true);
-    try {
-      // Extract the library prefix
-      const prefix = iconName.slice(0, 2).toLowerCase();
-
-      // Dynamic import based on the prefix
-      let iconModule: IconModule;
-      switch (prefix) {
-        case "fa": {
-          const mod = await import("react-icons/fa");
-          iconModule = mod as unknown as IconModule;
-          break;
-        }
-        case "fi": {
-          const mod = await import("react-icons/fi");
-          iconModule = mod as unknown as IconModule;
-          break;
-        }
-        case "ai": {
-          const mod = await import("react-icons/ai");
-          iconModule = mod as unknown as IconModule;
-          break;
-        }
-        case "bs": {
-          const mod = await import("react-icons/bs");
-          iconModule = mod as unknown as IconModule;
-          break;
-        }
-        case "bi": {
-          const mod = await import("react-icons/bi");
-          iconModule = mod as unknown as IconModule;
-          break;
-        }
-        case "gi": {
-          const mod = await import("react-icons/gi");
-          iconModule = mod as unknown as IconModule;
-          break;
-        }
-        case "hi": {
-          const mod = await import("react-icons/hi");
-          iconModule = mod as unknown as IconModule;
-          break;
-        }
-        case "im": {
-          const mod = await import("react-icons/im");
-          iconModule = mod as unknown as IconModule;
-          break;
-        }
-        case "io": {
-          const mod = await import("react-icons/io");
-          iconModule = mod as unknown as IconModule;
-          break;
-        }
-        case "md": {
-          const mod = await import("react-icons/md");
-          iconModule = mod as unknown as IconModule;
-          break;
-        }
-        case "ri": {
-          const mod = await import("react-icons/ri");
-          iconModule = mod as unknown as IconModule;
-          break;
-        }
-        case "si": {
-          const mod = await import("react-icons/si");
-          iconModule = mod as unknown as IconModule;
-          break;
-        }
-        case "ti": {
-          const mod = await import("react-icons/ti");
-          iconModule = mod as unknown as IconModule;
-          break;
-        }
-        case "vsc": {
-          const mod = await import("react-icons/vsc");
-          iconModule = mod as unknown as IconModule;
-          break;
-        }
-        case "wi": {
-          const mod = await import("react-icons/wi");
-          iconModule = mod as unknown as IconModule;
-          break;
-        }
-        default: {
-          const mod = await import("react-icons/fa");
-          iconModule = mod as unknown as IconModule;
-          break;
-        }
-      }
-
-      const IconComponent = iconModule[iconName];
-      return IconComponent ? <IconComponent size={24} /> : null;
-    } catch (error) {
-      console.error("Error loading icon:", error);
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Handle initializing with searchTerm or defaultIcon
-  useEffect(() => {
-    const findAndSelectIcon = async () => {
-      if (searchTerm) {
-        // If a searchTerm is provided, search and select the first result
-        setIsLoading(true);
-        try {
-          // Use a simpler search approach for initialization to prevent loading too many libraries
-          const prefix = searchTerm.toLowerCase().slice(0, 2);
-          let iconModule: IconModule;
-
-          if (prefix === "fa" || !prefix) {
-            const mod = await import("react-icons/fa");
-            iconModule = mod as unknown as IconModule;
-          } else if (prefix === "md") {
-            const mod = await import("react-icons/md");
-            iconModule = mod as unknown as IconModule;
-          } else if (prefix === "bs") {
-            const mod = await import("react-icons/bs");
-            iconModule = mod as unknown as IconModule;
-          } else {
-            // Default to FA
-            const mod = await import("react-icons/fa");
-            iconModule = mod as unknown as IconModule;
+        if (cancelled) {
+          if (!cancelled) {
+            setIsLoading(false);
           }
+          return;
+        }
 
-          // Find first matching icon
-          const termLower = searchTerm.toLowerCase();
-          const matchingIconName = Object.keys(iconModule).find((key) =>
-            key.toLowerCase().includes(termLower),
+        if (resolvedIcon) {
+          setIcon(resolvedIcon.name);
+          setIconComponent(
+            renderResolvedIcon(resolvedIcon, iconPixelSize, iconClassName),
           );
-
-          if (matchingIconName) {
-            setIcon(matchingIconName);
-            const MatchedIconComponent = iconModule[matchingIconName]!;
-            const component = React.createElement(MatchedIconComponent, {
-              size: 24,
-            });
-            setIconComponent(component);
-
-            // Also notify the parent if onIconSelect is provided
-            if (onIconSelect) {
-              onIconSelect(matchingIconName, component);
-            }
-          } else {
-            // If no matches, fall back to default icon
-            const component = await loadIconComponent(defaultIcon);
-            setIconComponent(component);
+          if (!cancelled) {
+            setIsLoading(false);
           }
-        } catch (error) {
-          console.error("Error initializing from search term:", error);
-          // Fall back to default icon
-          const component = await loadIconComponent(defaultIcon);
-          setIconComponent(component);
-        } finally {
-          setIsLoading(false);
-          setInitialLoadDone(true);
+          return;
         }
-      } else {
-        // Just load the default icon
-        const component = await loadIconComponent(defaultIcon);
-        setIconComponent(component);
-        setInitialLoadDone(true);
+
+        const fallbackIcon = await resolvePresentationIcon(
+          DEFAULT_PRESENTATION_ICON,
+        );
+
+        if (cancelled) {
+          if (!cancelled) {
+            setIsLoading(false);
+          }
+          return;
+        }
+
+        setIcon(fallbackIcon?.name ?? DEFAULT_PRESENTATION_ICON);
+        setIconComponent(
+          renderResolvedIcon(fallbackIcon, iconPixelSize, iconClassName),
+        );
+      } catch (error) {
+        try {
+          console.error("Error resolving icon:", error);
+
+          if (!cancelled && normalizedDefaultIcon) {
+            const fallbackIcon = await resolvePresentationIcon(
+              DEFAULT_PRESENTATION_ICON,
+            );
+
+            if (!cancelled) {
+              setIcon(fallbackIcon?.name ?? DEFAULT_PRESENTATION_ICON);
+              setIconComponent(
+                renderResolvedIcon(fallbackIcon, iconPixelSize, iconClassName),
+              );
+            }
+          } else if (!cancelled) {
+            setIcon("");
+            setIconComponent(null);
+          }
+        } catch (reactDoctorFinallyError) {
+          if (!cancelled) {
+            setIsLoading(false);
+          }
+          throw reactDoctorFinallyError;
+        }
+      }
+      if (!cancelled) {
+        setIsLoading(false);
       }
     };
 
-    void findAndSelectIcon();
-  }, [searchTerm, defaultIcon, onIconSelect]);
+    void syncCurrentIcon();
 
-  // Handle search input changes
-  useEffect(() => {
-    // Skip during the initial load if we're handling searchTerm prop
-    if (!initialLoadDone && searchTerm) {
+    return () => {
+      cancelled = true;
+    };
+  }, [defaultIcon, iconClassName, iconPixelSize]);
+
+  const handleRemoveIcon = () => {
+    setIcon("");
+    setIconComponent(null);
+    onIconRemove?.();
+  };
+
+  const handleOpenIconPicker = (event: React.MouseEvent<HTMLButtonElement>) => {
+    props.onClick?.(event);
+
+    if (event.defaultPrevented || props.disabled) {
       return;
     }
 
-    const delayDebounceFn = setTimeout(() => {
-      void searchIcons(internalSearchTerm);
-    }, 300);
-
-    return () => clearTimeout(delayDebounceFn);
-  }, [internalSearchTerm, initialLoadDone]);
-
-  const handleSelectIcon = async (selectedName: string) => {
-    setIcon(selectedName);
-
-    // Load the new icon component
-    const component = await loadIconComponent(selectedName);
-    setIconComponent(component);
-
-    // If we have an external handler, call it with both the name and component
-    if (onIconSelect) {
-      onIconSelect(selectedName, component);
+    if (readOnly) {
+      return;
     }
 
-    // Close the sheet after selection
-    setIsOpen(false);
+    openIconPicker(
+      icon,
+      async (selectedName) => {
+        setIsLoading(true);
+
+        try {
+          const resolvedIcon = await resolvePresentationIcon(selectedName);
+          const resolvedName = resolvedIcon?.name ?? selectedName;
+          const component = renderResolvedIcon(
+            resolvedIcon,
+            iconPixelSize,
+            iconClassName,
+          );
+
+          setIcon(resolvedName);
+          setIconComponent(component);
+          onIconSelect?.(resolvedName, component);
+        } catch (error) {
+          try {
+            console.error("Error selecting icon:", error);
+          } catch (reactDoctorCatchError) {
+            setIsLoading(false);
+            throw reactDoctorCatchError;
+          }
+        }
+        setIsLoading(false);
+      },
+      handleRemoveIcon,
+    );
   };
 
   return (
-    <Sheet open={isOpen} onOpenChange={setIsOpen}>
-      <SheetTrigger asChild>
-        <Button
-          variant="outline"
-          size="icon"
-          className={cn(
-            sizeClasses[size ?? "md"],
-            "flex items-center justify-center rounded-md border shadow-2xs transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden",
-            className,
-          )}
-          aria-label="Select icon"
-          {...props}
-        >
-          {isLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            (iconComponent ?? <div className="h-4 w-4" />)
-          )}
-        </Button>
-      </SheetTrigger>
-      <SheetContent className="w-full sm:max-w-md">
-        <SheetHeader className="mb-5">
-          <SheetTitle>Choose an Icon</SheetTitle>
-        </SheetHeader>
+    <Button
+      variant="outline"
+      size="icon"
+      className={cn(
+        sizeClasses[size ?? "md"],
+        "flex items-center justify-center rounded-md border shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden",
+        className,
+        hidePlaceholderWhenEmpty &&
+          !hasIcon &&
+          !readOnly &&
+          "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100",
+        hidePlaceholderWhenEmpty && !hasIcon && readOnly && "hidden",
+      )}
+      aria-label="Select icon"
+      {...props}
+      onClick={handleOpenIconPicker}
+    >
+      {isLoading ? (
+        <Loader2 className="size-4 animate-spin" />
+      ) : (
+        (iconComponent ??
+        placeholder ?? <Plus className="size-4 text-muted-foreground" />)
+      )}
+    </Button>
+  );
+};
 
-        <div className="space-y-4">
-          <Input
-            placeholder="Search icons..."
-            value={internalSearchTerm}
-            onChange={(e) => setInternalSearchTerm(e.target.value)}
-            className="w-full"
-            autoFocus
-          />
+const IconPickerPanel = () => {
+  const initialIcon = usePresentationState(
+    (state) => state.iconPickerCurrentIcon,
+  );
+  const [currentIcon, setCurrentIcon] = useState(initialIcon);
 
-          {isLoading ? (
-            <div className="flex h-60 items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
+  useEffect(() => {
+    setCurrentIcon(initialIcon);
+  }, [initialIcon]);
+  const selectIcon = usePresentationState(
+    (state) => state.iconPickerSelectIcon,
+  );
+  const removeIcon = usePresentationState(
+    (state) => state.iconPickerRemoveIcon,
+  );
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [internalSearchTerm, setInternalSearchTerm] = useState<string>("");
+  const [filteredIcons, setFilteredIcons] = useState<IconItem[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadIcons = async () => {
+      setIsLoading(true);
+
+      try {
+        const resolvedIcons = internalSearchTerm.trim()
+          ? await searchPresentationIcons(internalSearchTerm, 60)
+          : await getPopularPresentationIcons(30);
+
+        if (cancelled) {
+          if (!cancelled) {
+            setIsLoading(false);
+          }
+          return;
+        }
+
+        setFilteredIcons(
+          resolvedIcons.map((resolvedIcon) => ({
+            name: resolvedIcon.name,
+            component: renderResolvedIcon(resolvedIcon),
+          })),
+        );
+      } catch (error) {
+        try {
+          console.error("Error loading icons:", error);
+
+          if (!cancelled) {
+            setFilteredIcons([]);
+          }
+        } catch (reactDoctorFinallyError) {
+          if (!cancelled) {
+            setIsLoading(false);
+          }
+          throw reactDoctorFinallyError;
+        }
+      }
+      if (!cancelled) {
+        setIsLoading(false);
+      }
+    };
+
+    void loadIcons();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [internalSearchTerm]);
+
+  const handleSelectIcon = (selectedName: string) => {
+    setCurrentIcon(selectedName);
+    selectIcon?.(selectedName);
+  };
+
+  const handleRemoveIcon = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setCurrentIcon("");
+    removeIcon?.();
+  };
+
+  const hasIcon = Boolean(currentIcon.trim());
+
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-4 p-4">
+      <Input
+        placeholder="Search icons..."
+        value={internalSearchTerm}
+        onChange={(e) => setInternalSearchTerm(e.target.value)}
+        className="w-full"
+        autoFocus
+      />
+
+      {isLoading ? (
+        <div className="flex h-60 items-center justify-center">
+          <Loader2 className="size-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <div className="grid min-h-0 flex-1 grid-cols-6 content-start gap-1 overflow-y-auto p-1">
+          {hasIcon && (
+            <Button
+              variant="outline"
+              className="flex aspect-square h-10 items-center justify-center p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={handleRemoveIcon}
+              title="Remove icon"
+            >
+              <X className="size-4" />
+            </Button>
+          )}
+          {filteredIcons.length > 0 ? (
+            filteredIcons.map((item, index) => (
+              <Button
+                key={`${item.name}-${index}`}
+                variant={currentIcon === item.name ? "default" : "ghost"}
+                className="flex aspect-square h-10 items-center justify-center p-0"
+                onClick={() => handleSelectIcon(item.name)}
+                title={item.name}
+              >
+                {item.component}
+              </Button>
+            ))
           ) : (
-            <div className="grid max-h-[65vh] grid-cols-5 gap-2 overflow-y-auto p-1">
-              {filteredIcons.length > 0 ? (
-                filteredIcons.map((item, index) => (
-                  <Button
-                    key={`${item.name}-${index}`}
-                    variant={icon === item.name ? "default" : "outline"}
-                    className="flex aspect-square h-12 items-center justify-center p-2"
-                    onClick={() => handleSelectIcon(item.name)}
-                    title={item.name}
-                  >
-                    {item.component}
-                  </Button>
-                ))
-              ) : (
-                <div className="col-span-5 py-8 text-center text-muted-foreground">
-                  No icons found. Try a different search term.
-                </div>
-              )}
+            <div className="col-span-5 py-8 text-center text-muted-foreground">
+              No icons found. Try a different search term.
             </div>
           )}
         </div>
-      </SheetContent>
-    </Sheet>
+      )}
+    </div>
   );
 };
 
 // Export the component
-export { IconPicker };
+export { IconPicker, IconPickerPanel };

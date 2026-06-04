@@ -1,8 +1,6 @@
 "use client";
 
-import { type PlateElementProps } from "platejs/react";
-
-import { PlateElement } from "platejs/react";
+import { PlateElement, type PlateElementProps } from "platejs/react";
 
 import { cn } from "@/lib/utils";
 

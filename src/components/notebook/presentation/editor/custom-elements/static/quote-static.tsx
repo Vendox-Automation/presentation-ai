@@ -1,15 +1,16 @@
-import { cn } from "@/lib/utils";
 import { cva } from "class-variance-authority";
-import { type SlateElementProps, SlateElement } from "platejs/static";
+import { SlateElement, type SlateElementProps } from "platejs/static";
+
+import { cn } from "@/lib/utils";
 
 // Quote variant styles (matching editor component)
-const quoteVariants = cva("relative my-6", {
+const quoteVariants = cva("relative my-3 w-full max-w-full overflow-hidden", {
   variants: {
     variant: {
-      large: "flex flex-col items-center py-8 text-center",
+      large: "flex flex-col items-center py-4 text-center",
       "sidequote-icon":
-        "rounded-r-lg border-l-4 border-(--presentation-primary) bg-(--presentation-primary)/5 py-4 pl-6",
-      sidequote: "border-l-4 border-(--presentation-primary) py-2 pl-4",
+        "rounded-r-lg border-l-4 border-(--presentation-primary) bg-(--presentation-primary)/5 py-3 pr-4 pl-12",
+      sidequote: "border-l-4 border-(--presentation-primary) py-2 pr-4 pl-4",
     },
   },
   defaultVariants: {
@@ -61,9 +62,9 @@ export function QuoteStatic(props: SlateElementProps) {
         {...props}
         className={cn(quoteVariants({ variant }), props.className)}
       >
-        <div className="flex max-w-3xl items-start gap-4">
+        <div className="relative w-full max-w-3xl px-10">
           {/* Opening quote mark */}
-          <QuoteMark className="-mt-2 shrink-0" />
+          <QuoteMark className="absolute top-0 left-0 size-8" />
 
           <div className="flex flex-1 flex-col items-center">
             {/* Quote text */}
@@ -80,7 +81,7 @@ export function QuoteStatic(props: SlateElementProps) {
           </div>
 
           {/* Closing quote mark */}
-          <QuoteMark className="-mt-2 shrink-0" flip />
+          <QuoteMark className="absolute top-0 right-0 size-8" flip />
         </div>
       </SlateElement>
     );
@@ -93,7 +94,7 @@ export function QuoteStatic(props: SlateElementProps) {
         className={cn(quoteVariants({ variant }), props.className)}
       >
         {/* Quote icon */}
-        <QuoteIcon className="mb-2" />
+        <QuoteIcon className="absolute top-3 left-4" />
 
         {/* Quote text */}
         <blockquote className="text-base text-(--presentation-foreground) italic md:text-lg">
@@ -130,5 +131,3 @@ export function QuoteStatic(props: SlateElementProps) {
     </SlateElement>
   );
 }
-
-

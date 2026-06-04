@@ -1,9 +1,10 @@
 "use client";
 
+import { AlignCenter, ArrowUpFromLine, FoldVertical } from "lucide-react";
+
 import { Label } from "@/components/ui/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
-import { AlignCenter, ArrowUpFromLine, FoldVertical } from "lucide-react";
 import { useCommonValues } from "../hooks/useCommonValues";
 import { useUpdateAllSlides } from "../hooks/useUpdateAllSlides";
 
@@ -17,7 +18,7 @@ export function AlignmentSection() {
         htmlFor="content-alignment"
         className="flex items-center gap-2 text-sm font-semibold text-foreground"
       >
-        <AlignCenter className="h-4 w-4 text-muted-foreground" />
+        <AlignCenter className="size-4 text-muted-foreground" />
         Content Alignment
       </Label>
       <ToggleGroup
@@ -41,7 +42,7 @@ export function AlignmentSection() {
           )}
           title="Align start"
         >
-          <ArrowUpFromLine className="h-4 w-4" />
+          <ArrowUpFromLine className="size-4" />
         </ToggleGroupItem>
         <ToggleGroupItem
           value="center"
@@ -54,7 +55,7 @@ export function AlignmentSection() {
           )}
           title="Align center"
         >
-          <FoldVertical className="h-4 w-4" />
+          <FoldVertical className="size-4" />
         </ToggleGroupItem>
         <ToggleGroupItem
           value="end"
@@ -67,7 +68,7 @@ export function AlignmentSection() {
           )}
           title="Align end"
         >
-          <ArrowUpFromLine className="h-4 w-4 rotate-180" />
+          <ArrowUpFromLine className="size-4 rotate-180" />
         </ToggleGroupItem>
       </ToggleGroup>
     </div>

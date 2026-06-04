@@ -1,6 +1,7 @@
-import { type SlateElementProps, SlateElement } from "platejs/static";
+import { SlateElement, type SlateElementProps } from "platejs/static";
 
 import { cn } from "@/lib/utils";
+import { PyramidHeightProvider } from "../pyramid-height-context";
 
 export default function PyramidStatic(props: SlateElementProps) {
   const { alignment = "center" } = props.element as {
@@ -20,12 +21,12 @@ export default function PyramidStatic(props: SlateElementProps) {
         )}
       >
         {/* Pyramid grid - always full width */}
-        <div className="grid w-full grid-flow-row auto-rows-fr overflow-visible">
-          {props.children}
-        </div>
+        <PyramidHeightProvider>
+          <div className="grid w-full grid-flow-row auto-rows-fr overflow-visible">
+            {props.children}
+          </div>
+        </PyramidHeightProvider>
       </div>
     </SlateElement>
   );
 }
-
-

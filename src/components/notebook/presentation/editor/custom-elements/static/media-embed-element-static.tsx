@@ -1,21 +1,34 @@
+import Image from "next/image";
+import { type TMediaEmbedElement } from "platejs";
+import { SlateElement, type SlateElementProps } from "platejs/static";
 import type * as React from "react";
-
 import LiteYouTubeEmbed from "react-lite-youtube-embed";
 import { Tweet } from "react-tweet";
 
-import { type TMediaEmbedElement } from "platejs";
-import { SlateElement, type SlateElementProps } from "platejs/static";
-
 import { embedTypeConfig } from "@/components/plate/ui/media-embeds";
 import { cn } from "@/lib/utils";
-import { Video } from "lucide-react";
 
 // Extended properties for media embed elements
 interface MediaEmbedProps {
   provider?: string;
   url?: string;
   id?: string;
+  alignment?: "center" | "left" | "right";
   align?: "center" | "left" | "right";
+  width?: number | string;
+}
+
+function getEmbedAspectRatioClass(provider: string): string {
+  switch (provider) {
+    case "vimeo":
+      return "pb-[75%]";
+    case "coub":
+      return "pb-[51.25%]";
+    case "dailymotion":
+      return "pb-[56.0417%]";
+    default:
+      return "pb-[56.25%]";
+  }
 }
 
 // Static placeholder for media embed (no interactivity)
@@ -29,6 +42,7 @@ function MediaEmbedPlaceholderStatic({
   const config =
     embedTypeConfig[embedType as keyof typeof embedTypeConfig] ||
     embedTypeConfig.youtube;
+  const isInfographic = embedType === "infographic";
 
   return (
     <div
@@ -37,11 +51,21 @@ function MediaEmbedPlaceholderStatic({
         className,
       )}
     >
-      <div className="relative flex min-h-[200px] flex-col items-center justify-center space-y-4 p-6">
-        <div className="flex flex-col items-center space-y-2">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/30 text-3xl shadow-xs">
-            {config?.icon || <Video className="h-8 w-8" />}
-          </div>
+      {isInfographic && (
+        <>
+          <Image
+            unoptimized
+            width={400}
+            height={300}
+            src="/placeholder.svg"
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover opacity-45"
+          />
+          <div className="absolute inset-0 bg-background/5" />
+        </>
+      )}
+      <div className="relative flex min-h-50 flex-col items-center justify-center gap-y-4 p-6">
+        <div className="flex flex-col items-center gap-y-2">
           <div className="text-center">
             <h3 className="text-lg font-semibold text-muted-foreground">
               {config?.name || "Media Embed"}
@@ -60,16 +84,18 @@ export function MediaEmbedElementStatic(
 ) {
   const element = props.element;
 
-  const align = element.align || "center";
+  const align = element.alignment || element.align || "center";
   const provider = element.provider || "";
   const url = element.url || "";
   const id = element.id || "";
+  const width = element.width;
 
   // Determine embed type and if we should show placeholder
   const shouldShowPlaceholder = !url || url.trim() === "";
   const isTweet = provider === "twitter";
   const isVideo = provider && ["youtube", "vimeo", "loom"].includes(provider);
   const isYoutube = provider === "youtube";
+  const isInfographic = provider === "infographic";
 
   const containerStyles: React.CSSProperties = {
     display: "flex",
@@ -88,7 +114,7 @@ export function MediaEmbedElementStatic(
         contentEditable={false}
       >
         <div style={containerStyles}>
-          <div className="w-full max-w-full">
+          <div className="w-full max-w-full" style={{ width }}>
             {shouldShowPlaceholder ? (
               <MediaEmbedPlaceholderStatic
                 embedType={provider || "youtube"}
@@ -102,11 +128,11 @@ export function MediaEmbedElementStatic(
                   wrapperClass={cn(
                     "rounded-sm",
                     "relative block cursor-pointer bg-black bg-cover bg-center contain-content",
-                    "[&.lyt-activated]:before:absolute [&.lyt-activated]:before:top-0 [&.lyt-activated]:before:h-[60px] [&.lyt-activated]:before:w-full [&.lyt-activated]:before:bg-top [&.lyt-activated]:before:bg-repeat-x [&.lyt-activated]:before:pb-[50px] [&.lyt-activated]:before:[transition:all_0.2s_cubic-bezier(0,0,0.2,1)]",
+                    "[&.lyt-activated]:before:absolute [&.lyt-activated]:before:top-0 [&.lyt-activated]:before:h-15 [&.lyt-activated]:before:w-full [&.lyt-activated]:before:bg-top [&.lyt-activated]:before:bg-repeat-x [&.lyt-activated]:before:pb-12.5 [&.lyt-activated]:before:[transition:all_0.2s_cubic-bezier(0,0,0.2,1)]",
                     "[&.lyt-activated]:before:bg-[url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAADGCAYAAAAT+OqFAAAAdklEQVQoz42QQQ7AIAgEF/T/D+kbq/RWAlnQyyazA4aoAB4FsBSA/bFjuF1EOL7VbrIrBuusmrt4ZZORfb6ehbWdnRHEIiITaEUKa5EJqUakRSaEYBJSCY2dEstQY7AuxahwXFrvZmWl2rh4JZ07z9dLtesfNj5q0FU3A5ObbwAAAABJRU5ErkJggg==)]",
                     'after:block after:pb-(--aspect-ratio) after:content-[""]',
                     "[&_>_iframe]:absolute [&_>_iframe]:top-0 [&_>_iframe]:left-0 [&_>_iframe]:size-full",
-                    "[&_>_.lty-playbtn]:z-1 [&_>_.lty-playbtn]:h-[46px] [&_>_.lty-playbtn]:w-[70px] [&_>_.lty-playbtn]:rounded-[14%] [&_>_.lty-playbtn]:bg-[#212121] [&_>_.lty-playbtn]:opacity-80 [&_>_.lty-playbtn]:[transition:all_0.2s_cubic-bezier(0,0,0.2,1)]",
+                    "[&_>_.lty-playbtn]:z-1 [&_>_.lty-playbtn]:h-11.5 [&_>_.lty-playbtn]:w-17.5 [&_>_.lty-playbtn]:rounded-[14%] [&_>_.lty-playbtn]:bg-[#212121] [&_>_.lty-playbtn]:opacity-80 [&_>_.lty-playbtn]:[transition:all_0.2s_cubic-bezier(0,0,0.2,1)]",
                     "[&:hover_>_.lty-playbtn]:bg-[red] [&:hover_>_.lty-playbtn]:opacity-100",
                     '[&_>_.lty-playbtn]:before:border-y-11 [&_>_.lty-playbtn]:before:border-r-0 [&_>_.lty-playbtn]:before:border-l-19 [&_>_.lty-playbtn]:before:border-[transparent_transparent_transparent_#fff] [&_>_.lty-playbtn]:before:content-[""]',
                     "[&_>_.lty-playbtn]:absolute [&_>_.lty-playbtn]:top-1/2 [&_>_.lty-playbtn]:left-1/2 [&_>_.lty-playbtn]:transform-[translate3d(-50%,-50%,0)]",
@@ -119,19 +145,17 @@ export function MediaEmbedElementStatic(
               ) : (
                 <div
                   className={cn(
-                    provider === "vimeo" && "pb-[75%]",
-                    provider === "youku" && "pb-[56.25%]",
-                    provider === "dailymotion" && "pb-[56.0417%]",
-                    provider === "coub" && "pb-[51.25%]",
+                    "relative w-full",
+                    getEmbedAspectRatioClass(provider),
                   )}
                 >
                   <iframe
                     className={cn(
-                      "absolute top-0 left-0 size-full rounded-sm",
-                      isVideo && "border-0",
+                      "absolute top-0 left-0 size-full rounded-sm border-0",
                     )}
                     title="embed"
                     src={url}
+                    sandbox="allow-forms allow-scripts allow-popups allow-popups-to-escape-sandbox allow-presentation"
                     allowFullScreen
                   />
                 </div>
@@ -140,12 +164,14 @@ export function MediaEmbedElementStatic(
               <div className="[&_.react-tweet-theme]:my-0">
                 <Tweet id={id} />
               </div>
-            ) : provider === "image" ? (
+            ) : provider === "image" || isInfographic ? (
               // Image embed - display as img with proper sizing
-              // biome-ignore lint/performance/noImgElement: This is necessary to support different image URL formats
-              <img
+              <Image
+                unoptimized
+                width={400}
+                height={300}
                 src={url}
-                alt="Embedded image"
+                alt={isInfographic ? "Embedded infographic" : "Embedded image"}
                 className="h-auto w-full rounded-sm object-contain"
               />
             ) : (
@@ -157,6 +183,7 @@ export function MediaEmbedElementStatic(
                   src={url}
                   allowFullScreen
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  sandbox="allow-forms allow-scripts allow-popups allow-popups-to-escape-sandbox allow-presentation"
                 />
               </div>
             )}
@@ -167,5 +194,3 @@ export function MediaEmbedElementStatic(
     </SlateElement>
   );
 }
-
-

@@ -1,4 +1,4 @@
-import { type SlateLeafProps, SlateLeaf } from "platejs/static";
+import { SlateLeaf, type SlateLeafProps } from "platejs/static";
 
 import { usePresentationState } from "@/states/presentation-state";
 
@@ -15,22 +15,18 @@ export function GeneratingLeafStatic(props: SlateLeafProps) {
 
   return (
     <SlateLeaf {...props}>
-      <span className="flex items-end gap-1">
-        {props.children}
-        {isGenerating && (
-          <span
-            style={{
-              color: "var(--presentation-text , black) !important",
-              backgroundColor: "var(--presentation-text , black) !important",
-            }}
-            className="animate-blink z-1000 max-h-8"
-          >
-            |
-          </span>
-        )}
-      </span>
+      {props.children}
+      {isGenerating && (
+        <span
+          aria-hidden="true"
+          className="ml-0.5 inline-flex items-baseline gap-1"
+        >
+          <span className="animate-blink inline-block h-[1.6em] w-0.5 translate-y-[0.45em] bg-purple-600" />
+          <sup className="text-[0.85em] font-semibold leading-none text-purple-600">
+            Generating
+          </sup>
+        </span>
+      )}
     </SlateLeaf>
   );
 }
-
-
