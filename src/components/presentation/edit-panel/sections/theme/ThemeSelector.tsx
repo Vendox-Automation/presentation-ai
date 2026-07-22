@@ -69,6 +69,10 @@ export function ThemeSelector({
   const applyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeKeyRef = useRef(activeKey);
   const pendingKeyboardIndexRef = useRef<number | null>(null);
+  const setPreviewThemeData = usePresentationState((s) => s.setPreviewThemeData);
+
+  // Clear any lingering hover preview when the panel unmounts.
+  useEffect(() => () => setPreviewThemeData(null), [setPreviewThemeData]);
 
   useEffect(() => {
     activeKeyRef.current = activeKey;
@@ -128,9 +132,12 @@ export function ThemeSelector({
 
       pendingKeyboardIndexRef.current = null;
       setSelectedIndex(index);
+      // Clearing the preview lets the committed theme render (avoids a stale
+      // hover preview sticking after selection).
+      setPreviewThemeData(null);
       commitSelection(index);
     },
-    [commitSelection],
+    [commitSelection, setPreviewThemeData],
   );
 
   const schedulePendingKeyboardCommit = useCallback(() => {
@@ -245,7 +252,10 @@ export function ThemeSelector({
   }
 
   return (
-    <div className="scrollbar-thin max-h-[calc(100vh-64px-2*80px)] overflow-y-auto scrollbar-thumb-primary scrollbar-track-transparent">
+    <div
+      className="scrollbar-thin max-h-[calc(100vh-64px-2*80px)] overflow-y-auto scrollbar-thumb-primary scrollbar-track-transparent"
+      onMouseLeave={() => setPreviewThemeData(null)}
+    >
       {hasUserThemes && (
         <div className="px-4 pt-3">
           <h3 className="mb-3 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
@@ -253,31 +263,36 @@ export function ThemeSelector({
           </h3>
           <div className="grid grid-cols-2 gap-3">
             {userThemes.map((item, index) => (
-              <ThemeCard
+              <div
                 key={item.themeId}
-                themeId={item.themeId}
-                theme={item.theme}
-                isSelected={activeKey === item.themeId}
-                isFavorite={item.isFavorite}
-                likeCount={item.likeCount}
-                isLiked={item.isLiked}
-                showLikeButton={item.canLike ?? false}
-                showFavoriteButton={item.showFavoriteButton}
-                personalizeLabel="Personlize"
-                isOwner={item.isUserTheme}
-                isPublic={false}
-                isAdminTheme={item.isAdminTheme}
-                canEditSystemTheme={item.canEditSystemTheme}
-                isFocused={selectedIndex === index}
-                refCallback={(node) => {
-                  cardRefs.current[index] = node;
-                }}
-                tabIndex={selectedIndex === index ? 0 : -1}
-                onSelect={() => selectItem(index)}
-                onFocus={() => setSelectedIndex(index)}
-                onKeyDown={(event) => handleCardKeyDown(event, index)}
-                onKeyUp={handleCardKeyUp}
-              />
+                onMouseEnter={() => setPreviewThemeData(item.theme)}
+                onFocusCapture={() => setPreviewThemeData(item.theme)}
+              >
+                <ThemeCard
+                  themeId={item.themeId}
+                  theme={item.theme}
+                  isSelected={activeKey === item.themeId}
+                  isFavorite={item.isFavorite}
+                  likeCount={item.likeCount}
+                  isLiked={item.isLiked}
+                  showLikeButton={item.canLike ?? false}
+                  showFavoriteButton={item.showFavoriteButton}
+                  personalizeLabel="Personlize"
+                  isOwner={item.isUserTheme}
+                  isPublic={false}
+                  isAdminTheme={item.isAdminTheme}
+                  canEditSystemTheme={item.canEditSystemTheme}
+                  isFocused={selectedIndex === index}
+                  refCallback={(node) => {
+                    cardRefs.current[index] = node;
+                  }}
+                  tabIndex={selectedIndex === index ? 0 : -1}
+                  onSelect={() => selectItem(index)}
+                  onFocus={() => setSelectedIndex(index)}
+                  onKeyDown={(event) => handleCardKeyDown(event, index)}
+                  onKeyUp={handleCardKeyUp}
+                />
+              </div>
             ))}
           </div>
         </div>
@@ -295,31 +310,36 @@ export function ThemeSelector({
               const index = userThemes.length + publicIndex;
 
               return (
-                <ThemeCard
+                <div
                   key={item.themeId}
-                  themeId={item.themeId}
-                  theme={item.theme}
-                  isSelected={activeKey === item.themeId}
-                  isFavorite={item.isFavorite}
-                  likeCount={item.likeCount}
-                  isLiked={item.isLiked}
-                  showLikeButton={item.canLike ?? false}
-                  showFavoriteButton={item.showFavoriteButton}
-                  personalizeLabel="Personlize"
-                  isOwner={item.isUserTheme}
-                  isPublic={!item.isUserTheme}
-                  isAdminTheme={item.isAdminTheme}
-                  canEditSystemTheme={item.canEditSystemTheme}
-                  isFocused={selectedIndex === index}
-                  refCallback={(node) => {
-                    cardRefs.current[index] = node;
-                  }}
-                  tabIndex={selectedIndex === index ? 0 : -1}
-                  onSelect={() => selectItem(index)}
-                  onFocus={() => setSelectedIndex(index)}
-                  onKeyDown={(event) => handleCardKeyDown(event, index)}
-                  onKeyUp={handleCardKeyUp}
-                />
+                  onMouseEnter={() => setPreviewThemeData(item.theme)}
+                  onFocusCapture={() => setPreviewThemeData(item.theme)}
+                >
+                  <ThemeCard
+                    themeId={item.themeId}
+                    theme={item.theme}
+                    isSelected={activeKey === item.themeId}
+                    isFavorite={item.isFavorite}
+                    likeCount={item.likeCount}
+                    isLiked={item.isLiked}
+                    showLikeButton={item.canLike ?? false}
+                    showFavoriteButton={item.showFavoriteButton}
+                    personalizeLabel="Personlize"
+                    isOwner={item.isUserTheme}
+                    isPublic={!item.isUserTheme}
+                    isAdminTheme={item.isAdminTheme}
+                    canEditSystemTheme={item.canEditSystemTheme}
+                    isFocused={selectedIndex === index}
+                    refCallback={(node) => {
+                      cardRefs.current[index] = node;
+                    }}
+                    tabIndex={selectedIndex === index ? 0 : -1}
+                    onSelect={() => selectItem(index)}
+                    onFocus={() => setSelectedIndex(index)}
+                    onKeyDown={(event) => handleCardKeyDown(event, index)}
+                    onKeyUp={handleCardKeyUp}
+                  />
+                </div>
               );
             })}
           </div>

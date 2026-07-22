@@ -131,6 +131,9 @@ interface PresentationState {
   customThemeData: ThemeProperties | null;
   themeDataByTheme: Record<string, ThemeProperties | null | undefined>;
   generatedThemeData: ThemeProperties | null;
+  // Transient theme used only for live hover/focus preview of the canvas.
+  // Never persisted, never pushed to history — cleared when the pointer leaves.
+  previewThemeData: ThemeProperties | null;
   language: string;
   modelProvider: "openrouter";
   modelId: string;
@@ -255,6 +258,7 @@ interface PresentationState {
     themeDataByTheme: Record<string, ThemeProperties | null | undefined>,
   ) => void;
   setGeneratedThemeData: (data: ThemeProperties | null) => void;
+  setPreviewThemeData: (data: ThemeProperties | null) => void;
   shouldShowExitHeader: boolean;
   setShouldShowExitHeader: (udpdate: boolean) => void;
   thumbnailUrl?: string;
@@ -563,6 +567,7 @@ export const usePresentationState = create<PresentationState>()(
       customThemeData: null,
       themeDataByTheme: {},
       generatedThemeData: null,
+      previewThemeData: null,
       imageModel: DEFAULT_IMAGE_MODEL,
       imageSource: "automatic",
       stockImageProvider: "unsplash",
@@ -1105,6 +1110,7 @@ export const usePresentationState = create<PresentationState>()(
       },
       setThemeDataByTheme: (themeDataByTheme) => set({ themeDataByTheme }),
       setGeneratedThemeData: (data) => set({ generatedThemeData: data }),
+      setPreviewThemeData: (data) => set({ previewThemeData: data }),
       setPageStyle: (style) => set({ pageStyle: style }),
       setPresentationInput: (input) => set({ presentationInput: input }),
       setOutline: (topics) => set({ outline: topics }),

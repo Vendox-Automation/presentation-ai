@@ -32,6 +32,7 @@ export function ThemeBackground({
 }: ThemeBackgroundProps) {
   const presentationTheme = usePresentationState((s) => s.theme);
   const customThemeData = usePresentationState((s) => s.customThemeData);
+  const previewThemeData = usePresentationState((s) => s.previewThemeData);
   // Use our custom presentation theme hook for isolated theme control
   const { resolvedTheme, setTheme: setPresentationThemeMode } =
     usePresentationTheme();
@@ -39,8 +40,11 @@ export function ThemeBackground({
   const themeBackgroundRef = useRef<HTMLDivElement>(null);
 
   const theme = themeOverride ?? presentationTheme;
+  // Precedence: an explicit override (e.g. modal preview) wins; otherwise a
+  // transient hover preview; otherwise the committed theme.
   const themeData =
     themeDataOverride ??
+    (suppressThemeUpdates ? null : previewThemeData) ??
     resolvePresentationThemeData({ customThemeData, theme });
   const themeMode = themeModeOverride ?? themeData?.mode ?? resolvedTheme;
 

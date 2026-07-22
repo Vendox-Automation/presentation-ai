@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+
 import { ThemeCard } from "@/components/presentation/edit-panel/sections/theme/ThemeCard";
 import { Button } from "@/components/ui/button";
 import { ImageSourceSelector } from "@/components/ui/image-source-selector";
@@ -19,6 +21,7 @@ export function ThemeSettings() {
     generatedThemeData,
     customThemeData,
     setTheme,
+    setPreviewThemeData,
     imageModel,
     setImageModel,
     imageSource,
@@ -26,6 +29,9 @@ export function ThemeSettings() {
     stockImageProvider,
     setStockImageProvider,
   } = usePresentationState();
+
+  // Clear any lingering hover preview when this section unmounts.
+  useEffect(() => () => setPreviewThemeData(null), [setPreviewThemeData]);
 
   const themeDataToUse = customThemeData ?? generatedThemeData;
   const autoThemeOption: [string, ThemeProperties][] = themeDataToUse
@@ -73,9 +79,17 @@ export function ThemeSettings() {
               </ThemeModal>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+          <div
+            className="grid grid-cols-2 gap-3 lg:grid-cols-3"
+            onMouseLeave={() => setPreviewThemeData(null)}
+          >
             {visibleThemes.map(([key, themeOption]) => (
-              <div key={key} className="h-44">
+              <div
+                key={key}
+                className="h-44"
+                onMouseEnter={() => setPreviewThemeData(themeOption)}
+                onFocusCapture={() => setPreviewThemeData(themeOption)}
+              >
                 <ThemeCard
                   theme={themeOption}
                   themeId={key}
@@ -83,12 +97,13 @@ export function ThemeSettings() {
                   showEllipsis={false}
                   showFavoriteButton={false}
                   personalizeLabel="Personalize"
-                  onSelect={() =>
+                  onSelect={() => {
+                    setPreviewThemeData(null);
                     setTheme(
                       key,
                       isBuiltInPresentationTheme(key) ? undefined : themeOption,
-                    )
-                  }
+                    );
+                  }}
                 />
               </div>
             ))}
