@@ -1,12 +1,12 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, Sparkles, Upload } from "lucide-react";
+import { Loader2, UploadCloud } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { createThemeFromSkill } from "@/app/_actions/presentation/skill-theme-actions";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 // Only text-bearing files carry a skill's design language; ignore binaries.
 const TEXT_EXTENSIONS = [".md", ".markdown", ".txt", ".mdx"];
@@ -17,12 +17,61 @@ function isTextFileName(name: string): boolean {
   return TEXT_EXTENSIONS.some((ext) => lower.endsWith(ext));
 }
 
+/** Recursively read a dropped FileSystem entry (file or folder) into Files. */
+async function readEntry(entry: FileSystemEntry): Promise<File[]> {
+  if (entry.isFile) {
+    return new Promise((resolve) => {
+      (entry as FileSystemFileEntry).file(
+        (file) => resolve([file]),
+        () => resolve([]),
+      );
+    });
+  }
+  if (entry.isDirectory) {
+    const reader = (entry as FileSystemDirectoryEntry).createReader();
+    const readBatch = () =>
+      new Promise<FileSystemEntry[]>((resolve) => {
+        reader.readEntries(
+          (entries) => resolve(entries),
+          () => resolve([]),
+        );
+      });
+
+    const collected: File[] = [];
+    // readEntries yields in batches; keep calling until it returns nothing.
+    let batch = await readBatch();
+    while (batch.length > 0) {
+      for (const child of batch) {
+        collected.push(...(await readEntry(child)));
+      }
+      batch = await readBatch();
+    }
+    return collected;
+  }
+  return [];
+}
+
+/** Expand a drop's items — including whole folders — into a flat File list. */
+async function filesFromDrop(dataTransfer: DataTransfer): Promise<File[]> {
+  const items = Array.from(dataTransfer.items);
+  const entries = items
+    .map((item) => item.webkitGetAsEntry?.() ?? null)
+    .filter((entry): entry is FileSystemEntry => entry !== null);
+
+  if (entries.length === 0) {
+    // Browser didn't expose the entry API; fall back to the flat file list.
+    return Array.from(dataTransfer.files);
+  }
+
+  const nested = await Promise.all(entries.map(readEntry));
+  return nested.flat();
+}
+
 /**
- * Pull readable skill text out of the user's selection. Supports a single
- * SKILL.md, several markdown files (e.g. a whole skill folder via directory
- * pick), or a .zip bundle whose text entries we unpack with jszip. SKILL.md is
- * always hoisted first so the model sees the primary instructions before
- * reference files.
+ * Pull readable skill text out of a set of files. Supports a single SKILL.md,
+ * several markdown files (a whole skill folder), or a .zip bundle whose text
+ * entries we unpack with jszip. SKILL.md is hoisted first so the model sees the
+ * primary instructions before reference files.
  */
 async function readSkillText(files: File[]): Promise<string> {
   const parts: { name: string; text: string }[] = [];
@@ -31,18 +80,21 @@ async function readSkillText(files: File[]): Promise<string> {
     if (file.name.toLowerCase().endsWith(".zip")) {
       const JSZip = (await import("jszip")).default;
       const zip = await JSZip.loadAsync(await file.arrayBuffer());
-      const entries = Object.values(zip.files).filter(
+      const zipEntries = Object.values(zip.files).filter(
         (entry) => !entry.dir && isTextFileName(entry.name),
       );
-      for (const entry of entries) {
+      for (const entry of zipEntries) {
         parts.push({ name: entry.name, text: await entry.async("string") });
       }
     } else if (isTextFileName(file.name)) {
-      parts.push({ name: file.name, text: await file.text() });
+      parts.push({
+        name: (file as File & { webkitRelativePath?: string })
+          .webkitRelativePath || file.name,
+        text: await file.text(),
+      });
     }
   }
 
-  // SKILL.md first, then everything else, each labeled with its path.
   parts.sort((a, b) => {
     const aSkill = a.name.toLowerCase().endsWith("skill.md") ? 0 : 1;
     const bSkill = b.name.toLowerCase().endsWith("skill.md") ? 0 : 1;
@@ -57,13 +109,13 @@ async function readSkillText(files: File[]): Promise<string> {
 
 export function SkillThemeImport() {
   const [isImporting, setIsImporting] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const queryClient = useQueryClient();
 
-  const handleFiles = useCallback(
-    async (fileList: FileList | null) => {
-      if (!fileList || fileList.length === 0) return;
-      const files = Array.from(fileList);
+  const importFromFiles = useCallback(
+    async (files: File[]) => {
+      if (files.length === 0) return;
 
       setIsImporting(true);
       const pending = toast.loading("Reading skill and extracting a theme…");
@@ -73,7 +125,7 @@ export function SkillThemeImport() {
           toast.error("No readable skill text found", {
             id: pending,
             description:
-              "Select a SKILL.md, a folder of markdown files, or a skill .zip.",
+              "Drop a SKILL.md, a skill folder, or a skill .zip with real content.",
           });
           return;
         }
@@ -84,7 +136,7 @@ export function SkillThemeImport() {
             id: pending,
             description: "Find it below in My Themes.",
           });
-          // Two different call sites list user themes under different keys.
+          // Two call sites list user themes under different query keys.
           await Promise.all([
             queryClient.invalidateQueries({ queryKey: ["userThemes"] }),
             queryClient.invalidateQueries({
@@ -107,46 +159,91 @@ export function SkillThemeImport() {
     [queryClient],
   );
 
+  const handleDrop = useCallback(
+    async (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      setIsDragging(false);
+      if (isImporting) return;
+      const files = await filesFromDrop(e.dataTransfer);
+      void importFromFiles(files);
+    },
+    [importFromFiles, isImporting],
+  );
+
   return (
-    <div className="rounded-lg border border-dashed border-border bg-muted/30 p-4">
-      <div className="flex items-start gap-3">
-        <div className="mt-0.5 rounded-md bg-primary/10 p-2 text-primary">
-          <Sparkles className="size-4" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium">Import a theme from a skill</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Upload a slide-design skill (SKILL.md, a skill folder, or a .zip) and
-            AI will extract its palette and typography into a reusable theme.
-          </p>
-          <Button
-            size="sm"
-            variant="outline"
-            className="mt-3"
-            disabled={isImporting}
-            onClick={() => inputRef.current?.click()}
-          >
-            {isImporting ? (
-              <>
-                <Loader2 className="mr-1.5 size-3.5 animate-spin" />
-                Extracting…
-              </>
-            ) : (
-              <>
-                <Upload className="mr-1.5 size-3.5" />
-                Upload skill
-              </>
-            )}
-          </Button>
-        </div>
+    <div
+      role="button"
+      tabIndex={0}
+      aria-label="Import a theme from a skill: drop files or browse"
+      onDragOver={(e) => {
+        e.preventDefault();
+        if (!isImporting) setIsDragging(true);
+      }}
+      onDragLeave={(e) => {
+        e.preventDefault();
+        setIsDragging(false);
+      }}
+      onDrop={(e) => void handleDrop(e)}
+      onClick={() => !isImporting && inputRef.current?.click()}
+      onKeyDown={(e) => {
+        if ((e.key === "Enter" || e.key === " ") && !isImporting) {
+          e.preventDefault();
+          inputRef.current?.click();
+        }
+      }}
+      className={cn(
+        "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-6 text-center transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none",
+        isDragging
+          ? "border-primary bg-primary/10"
+          : "border-border bg-muted/30 hover:border-primary/50 hover:bg-muted/50",
+      )}
+    >
+      <div
+        className={cn(
+          "rounded-full p-2.5 transition-colors",
+          isDragging ? "bg-primary/20 text-primary" : "bg-primary/10 text-primary",
+        )}
+      >
+        {isImporting ? (
+          <Loader2 className="size-5 animate-spin" />
+        ) : (
+          <UploadCloud className="size-5" />
+        )}
       </div>
+
+      <div className="space-y-0.5">
+        <p className="text-sm font-medium">
+          {isImporting
+            ? "Extracting a theme…"
+            : isDragging
+              ? "Drop to import"
+              : "Import a theme from a skill"}
+        </p>
+        {!isImporting && (
+          <p className="text-xs text-muted-foreground">
+            Drag a skill here, or{" "}
+            <span className="font-medium text-primary underline underline-offset-2">
+              browse files
+            </span>
+          </p>
+        )}
+      </div>
+
+      {!isImporting && (
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          Accepts a SKILL.md, a skill folder, or a .zip — AI extracts its palette
+          and typography.
+        </p>
+      )}
+
       <input
         ref={inputRef}
         type="file"
         multiple
         accept=".md,.markdown,.mdx,.txt,.zip"
         className="hidden"
-        onChange={(e) => void handleFiles(e.target.files)}
+        onClick={(e) => e.stopPropagation()}
+        onChange={(e) => void importFromFiles(Array.from(e.target.files ?? []))}
       />
     </div>
   );
