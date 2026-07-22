@@ -22,37 +22,19 @@ const GoogleLogo = () => (
   </svg>
 );
 
-const FluxLogo = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-    <rect width="24" height="24" rx="5" fill="#0a0a0a" />
-    <path d="M6 7h5l-3 5h3l-5 5 2-3.5H6L8.5 7" fill="url(#fg)" />
-    <path
-      d="M13 7h5l-3 5h3l-5 5 2-3.5H13L15.5 7"
-      fill="url(#fg)"
-      opacity="0.5"
-    />
-    <defs>
-      <linearGradient id="fg" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#c084fc" />
-        <stop offset="100%" stopColor="#818cf8" />
-      </linearGradient>
-    </defs>
-  </svg>
-);
-
 const MODELS = [
   {
-    id: "fal-ai/nano-banana-pro",
+    id: "google/gemini-3-pro-image",
     name: "Nano Banana Pro",
     provider: "Google",
     logo: <GoogleLogo />,
     premium: true,
   },
   {
-    id: "fal-ai/flux-2/flash",
-    name: "Flux 2.0",
-    provider: "Black Forest Labs",
-    logo: <FluxLogo />,
+    id: "google/gemini-2.5-flash-image",
+    name: "Nano Banana (fast)",
+    provider: "Google",
+    logo: <GoogleLogo />,
   },
 ];
 

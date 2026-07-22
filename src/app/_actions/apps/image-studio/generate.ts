@@ -3,30 +3,22 @@
 import { utapi } from "@/app/api/uploadthing/core";
 import {
   DEFAULT_IMAGE_MODEL,
-  getFalImageGenerationInput,
   type ImageAspectRatio,
   type ImageModelList,
 } from "@/constants/image-models";
-import { env } from "@/env";
 import { requireOptionalIntegration } from "@/lib/env/optional-integrations";
+import { env } from "@/env";
+import { dataUrlToBuffer, generateOpenRouterImage } from "@/lib/openrouter-image";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
-import { fal } from "@fal-ai/client";
 import { UTFile } from "uploadthing/server";
 
 async function persistGeneratedImage(
-  imageUrl: string,
+  imageBuffer: Buffer,
   prompt: string,
   userId: string,
   filePrefix: string,
 ) {
-  const imageResponse = await fetch(imageUrl);
-  if (!imageResponse.ok) {
-    throw new Error("Failed to download generated image");
-  }
-
-  const imageBlob = await imageResponse.blob();
-  const imageBuffer = await imageBlob.arrayBuffer();
   const filename = `${filePrefix}_${Date.now()}.png`;
   const utFile = new UTFile([new Uint8Array(imageBuffer)], filename);
   const uploadResult = await utapi.uploadFiles([utFile]);
@@ -44,40 +36,38 @@ async function persistGeneratedImage(
   });
 }
 
-async function generateFalImage(
+async function generateOpenRouterImageAndPersist(
   prompt: string,
   model: ImageModelList,
   userId: string,
   aspectRatio: ImageAspectRatio,
 ) {
-  const falConfig = requireOptionalIntegration({
-    integration: "FAL",
-    envVar: "FAL_API_KEY",
-    value: env.FAL_API_KEY,
+  const openRouterConfig = requireOptionalIntegration({
+    integration: "OpenRouter",
+    envVar: "OPENROUTER_API_KEY",
+    value: env.OPENROUTER_API_KEY,
     feature: "AI image generation",
   });
 
-  if (!falConfig.ok) {
+  if (!openRouterConfig.ok) {
     return {
       success: false,
-      error: falConfig.error,
+      error: openRouterConfig.error,
     };
   }
 
-  fal.config({
-    credentials: falConfig.value,
+  const { dataUrl } = await generateOpenRouterImage({
+    model,
+    prompt,
+    aspectRatio,
   });
 
-  const result = await fal.subscribe(model, {
-    input: getFalImageGenerationInput({ model, prompt, aspectRatio }),
-  });
-
-  const imageUrl = result.data?.images?.[0]?.url;
-  if (!imageUrl) {
-    throw new Error("Failed to generate image");
-  }
-
-  const image = await persistGeneratedImage(imageUrl, prompt, userId, "image");
+  const image = await persistGeneratedImage(
+    dataUrlToBuffer(dataUrl),
+    prompt,
+    userId,
+    "image",
+  );
 
   return {
     success: true,
@@ -101,7 +91,7 @@ export async function generateImageAction(
 
   try {
     const actualModel = session.user.isAdmin ? model : DEFAULT_IMAGE_MODEL;
-    return await generateFalImage(
+    return await generateOpenRouterImageAndPersist(
       prompt,
       actualModel,
       session.user.id,

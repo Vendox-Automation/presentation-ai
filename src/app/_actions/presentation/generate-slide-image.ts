@@ -3,14 +3,12 @@
 import { utapi } from "@/app/api/uploadthing/core";
 import { env } from "@/env";
 import { requireOptionalIntegration } from "@/lib/env/optional-integrations";
+import { dataUrlToBuffer, generateOpenRouterImage } from "@/lib/openrouter-image";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
-import { fal } from "@fal-ai/client";
 import { UTFile } from "uploadthing/server";
 
-// Nano Banana Pro model for presentation slide images
-// const SLIDE_IMAGE_MODEL = "fal-ai/nano-banana-pro";
-const DEFAULT_SLIDE_IMAGE_MODEL = "fal-ai/flux-2/flash";
+const DEFAULT_SLIDE_IMAGE_MODEL = "google/gemini-2.5-flash-image";
 
 export async function generateSlideImageAction(
   prompt: string,
@@ -34,57 +32,33 @@ export async function generateSlideImageAction(
   }
 
   try {
-    const falConfig = requireOptionalIntegration({
-      integration: "FAL",
-      envVar: "FAL_API_KEY",
-      value: env.FAL_API_KEY,
+    const openRouterConfig = requireOptionalIntegration({
+      integration: "OpenRouter",
+      envVar: "OPENROUTER_API_KEY",
+      value: env.OPENROUTER_API_KEY,
       feature: "slide image generation",
     });
 
-    if (!falConfig.ok) {
+    if (!openRouterConfig.ok) {
       return {
         success: false,
-        error: falConfig.error,
+        error: openRouterConfig.error,
       };
     }
 
-    fal.config({
-      credentials: falConfig.value,
-    });
-
     console.log(`Generating slide image with model: ${imageModel}`);
 
-    const result = await fal.subscribe(imageModel, {
-      input: {
-        prompt: prompt,
-        num_images: 1,
-        aspect_ratio: "16:9",
-      },
+    const { dataUrl } = await generateOpenRouterImage({
+      model: imageModel,
+      prompt,
+      aspectRatio: "16:9",
     });
-
-    const imageUrl = result.data?.images?.[0]?.url;
-
-    if (!imageUrl) {
-      console.log("Failed to generate slide image", result);
-      throw new Error("Failed to generate slide image");
-    }
-
-    console.log(`Generated slide image URL: ${imageUrl}`);
-
-    // Download the image from fal.ai URL
-    const imageResponse = await fetch(imageUrl);
-    if (!imageResponse.ok) {
-      throw new Error("Failed to download image from fal.ai");
-    }
-
-    const imageBlob = await imageResponse.blob();
-    const imageBuffer = await imageBlob.arrayBuffer();
 
     // Generate a filename
     const filename = `slide_${Date.now()}.png`;
 
-    // Create a UTFile from the downloaded image
-    const utFile = new UTFile([new Uint8Array(imageBuffer)], filename);
+    // Create a UTFile from the generated image
+    const utFile = new UTFile([new Uint8Array(dataUrlToBuffer(dataUrl))], filename);
 
     // Upload to UploadThing
     const uploadResult = await utapi.uploadFiles([utFile]);

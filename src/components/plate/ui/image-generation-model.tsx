@@ -23,22 +23,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { type ImageModelList } from "@/constants/image-models";
+import {
+  DEFAULT_IMAGE_MODEL,
+  type ImageModelList,
+} from "@/constants/image-models";
 import { raiseError } from "@/lib/raise-error";
 import { useNotesState } from "@/states/notes-state";
 
 const MODEL_OPTIONS = [
   {
-    label: "Flux 2 Flash",
-    value: "fal-ai/flux-2/flash",
+    label: "Nano Banana (fast)",
+    value: "google/gemini-2.5-flash-image",
   },
   {
-    label: "Flux Dev",
-    value: "fal-ai/flux/dev",
+    label: "Nano Banana 2",
+    value: "google/gemini-3.1-flash-image",
   },
   {
-    label: "Flux 2 Pro",
-    value: "fal-ai/flux-2-pro",
+    label: "Nano Banana Pro",
+    value: "google/gemini-3-pro-image",
   },
 ];
 
@@ -54,7 +57,7 @@ function GenerateImageDialogContent({
   const editor = useEditorRef();
   const [prompt, setPrompt] = useState("");
   const [selectedModel, setSelectedModel] = useState<ImageModelList>(
-    "fal-ai/flux-2/flash",
+    DEFAULT_IMAGE_MODEL,
   );
 
   const generateImage = async () => {

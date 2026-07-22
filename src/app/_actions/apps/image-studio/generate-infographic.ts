@@ -1,22 +1,16 @@
 "use server";
 
-import { fal } from "@fal-ai/client";
 import { UTFile } from "uploadthing/server";
 
 import { utapi } from "@/app/api/uploadthing/lib";
 import {
   DEFAULT_IMAGE_MODEL,
-  getFalImageGenerationInput,
   type ImageModelList,
 } from "@/constants/image-models";
-import { env } from "@/env";
+import { dataUrlToBuffer, generateOpenRouterImage } from "@/lib/openrouter-image";
 import { logger } from "@/lib/observability/server/logger";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
-
-fal.config({
-  credentials: env.FAL_API_KEY,
-});
 
 type GenerateInfographicImageActionInput = {
   illustrationStyle?: string;
@@ -113,33 +107,18 @@ export async function generateInfographicImageAction({
       "allweone.server.image_generation.model": actualModel,
     });
 
-    const result = await fal.subscribe(actualModel, {
-      input: getFalImageGenerationInput({
-        model: actualModel,
-        prompt: fullPrompt,
-        aspectRatio: "16:9",
-      }),
+    const { dataUrl } = await generateOpenRouterImage({
+      model: actualModel,
+      prompt: fullPrompt,
+      aspectRatio: "16:9",
     });
-
-    const imageUrl = result.data?.images?.[0]?.url;
-
-    if (!imageUrl) {
-      throw new Error("Failed to generate infographic");
-    }
 
     span.event("allweone.server.image_generation.image_ready", {
       "allweone.server.image_generation.source_url_available": true,
     });
 
-    const imageResponse = await fetch(imageUrl);
-    if (!imageResponse.ok) {
-      throw new Error("Failed to download generated infographic");
-    }
-
-    const imageBlob = await imageResponse.blob();
-    const imageBuffer = await imageBlob.arrayBuffer();
     const filename = `infographic_${Date.now()}.png`;
-    const utFile = new UTFile([new Uint8Array(imageBuffer)], filename);
+    const utFile = new UTFile([new Uint8Array(dataUrlToBuffer(dataUrl))], filename);
     const uploadResult = await utapi.uploadFiles([utFile]);
     const permanentUrl = uploadResult[0]?.data?.ufsUrl;
 
