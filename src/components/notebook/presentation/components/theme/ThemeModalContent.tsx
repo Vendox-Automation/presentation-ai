@@ -40,6 +40,8 @@ interface ThemeModalContentProps {
   onTabChange: (tab: string) => void;
   selectedThemeId: string | null;
   onPreviewTheme: (id: string, theme: ThemeProperties) => void;
+  onHoverTheme: (theme: ThemeProperties) => void;
+  onClearHover: () => void;
   userThemes: CustomTheme[];
   isLoadingUserThemes: boolean;
   onApplyTheme: () => void;
@@ -55,6 +57,8 @@ export function ThemeModalContent({
   selectedThemeId,
 
   onPreviewTheme,
+  onHoverTheme,
+  onClearHover,
   userThemes,
   isLoadingUserThemes,
   onApplyTheme,
@@ -103,9 +107,17 @@ export function ThemeModalContent({
 
         <ScrollArea className="min-h-0 flex-1 overflow-hidden">
           <TabsContent value="allweone-themes" className="m-0 p-4 pb-6">
-            <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 xl:grid-cols-2">
+            <div
+              className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 xl:grid-cols-2"
+              onMouseLeave={onClearHover}
+            >
               {Object.entries(builtInThemes).map(([key, theme]) => (
-                <div key={key} className="h-44">
+                <div
+                  key={key}
+                  className="h-44"
+                  onMouseEnter={() => onHoverTheme(theme)}
+                  onFocusCapture={() => onHoverTheme(theme)}
+                >
                   <ThemeCard
                     themeId={key}
                     theme={theme}
@@ -134,9 +146,17 @@ export function ThemeModalContent({
                     ))}
                   </div>
                 ) : hasUserThemes ? (
-                  <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 xl:grid-cols-3">
+                  <div
+                    className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 xl:grid-cols-3"
+                    onMouseLeave={onClearHover}
+                  >
                     {userThemes.map((item) => (
-                      <div key={item.id} className="h-44">
+                      <div
+                        key={item.id}
+                        className="h-44"
+                        onMouseEnter={() => onHoverTheme(item.themeData)}
+                        onFocusCapture={() => onHoverTheme(item.themeData)}
+                      >
                         <ThemeCard
                           themeId={item.id}
                           theme={item.themeData}

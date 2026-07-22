@@ -44,12 +44,17 @@ export function useThemeModalState(
   const [selectedThemeId, setSelectedThemeId] = useState<string | null>(null);
   const [selectedThemeData, setSelectedThemeData] =
     useState<ThemeProperties | null>(null);
+  // Theme currently hovered/focused in the list; drives the preview panel
+  // without committing the selection. Falls back to the selected theme.
+  const [hoveredThemeData, setHoveredThemeData] =
+    useState<ThemeProperties | null>(null);
   const [hasInitialized, setHasInitialized] = useState(false);
 
   // Initialize selected theme from current theme when opening
   useEffect(() => {
     if (!isOpen) {
       setHasInitialized(false);
+      setHoveredThemeData(null);
       return;
     }
 
@@ -108,6 +113,17 @@ export function useThemeModalState(
     setSelectedThemeData(theme);
   };
 
+  const handleHoverTheme = (theme: ThemeProperties) => {
+    setHoveredThemeData(theme);
+  };
+
+  const handleClearHover = () => {
+    setHoveredThemeData(null);
+  };
+
+  // Preview follows the hovered theme when present, else the selected one.
+  const previewThemeData = hoveredThemeData ?? selectedThemeData;
+
   const handleApplyTheme = () => {
     if (selectedThemeId && selectedThemeData) {
       setTheme(
@@ -124,9 +140,12 @@ export function useThemeModalState(
     setActiveTab,
     selectedThemeId,
     selectedThemeData,
+    previewThemeData,
     userThemes,
     isLoadingUserThemes,
     handlePreviewTheme,
+    handleHoverTheme,
+    handleClearHover,
     handleApplyTheme,
   };
 }

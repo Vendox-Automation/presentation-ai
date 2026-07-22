@@ -33,10 +33,12 @@ export function ThemeModal({ children, initialPreviewTheme }: ThemeModalProps) {
     activeTab,
     setActiveTab,
     selectedThemeId,
-    selectedThemeData,
+    previewThemeData,
     userThemes,
     isLoadingUserThemes,
     handlePreviewTheme,
+    handleHoverTheme,
+    handleClearHover,
     handleApplyTheme,
   } = useThemeModalState(isOpen, initialPreviewTheme);
 
@@ -64,14 +66,16 @@ export function ThemeModal({ children, initialPreviewTheme }: ThemeModalProps) {
             onTabChange={setActiveTab}
             selectedThemeId={selectedThemeId}
             onPreviewTheme={handlePreviewTheme}
+            onHoverTheme={handleHoverTheme}
+            onClearHover={handleClearHover}
             userThemes={userThemes}
             isLoadingUserThemes={isLoadingUserThemes}
             onApplyTheme={onApplyTheme}
             onClose={() => setIsOpen(false)}
           />
 
-          {/* Right Panel - Preview */}
-          <ThemeModalPreview selectedThemeData={selectedThemeData} />
+          {/* Right Panel - Preview (follows hover, else selection) */}
+          <ThemeModalPreview selectedThemeData={previewThemeData} />
         </div>
       </CredenzaContent>
     </Credenza>
