@@ -8,7 +8,10 @@ import {
   normalizePresentationValue,
 } from "@/components/notebook/presentation/utils/normalizePresentationSlate";
 import { type PlateSlide } from "@/components/notebook/presentation/utils/parser";
-import { type ImageModelList } from "@/constants/image-models";
+import {
+  DEFAULT_IMAGE_MODEL,
+  type ImageModelList,
+} from "@/constants/image-models";
 import { type NotebookAgentToolCall } from "@/lib/notebook/agent-activity";
 import {
   type NotebookAttachment,
@@ -104,7 +107,7 @@ type PendingPresentationCreateRequest = {
   attachments?: NotebookAttachment[];
   language: string;
   modelId: string;
-  modelProvider: "openai" | "ollama" | "lmstudio";
+  modelProvider: "openrouter";
   numSlides: number;
   generationAspectRatio?: PresentationGenerationAspectRatio;
   outputFormat?: "flow" | "html";
@@ -129,7 +132,7 @@ interface PresentationState {
   themeDataByTheme: Record<string, ThemeProperties | null | undefined>;
   generatedThemeData: ThemeProperties | null;
   language: string;
-  modelProvider: "openai" | "ollama" | "lmstudio";
+  modelProvider: "openrouter";
   modelId: string;
   pageStyle: string;
   presentationInput: string;
@@ -257,7 +260,7 @@ interface PresentationState {
   thumbnailUrl?: string;
   setThumbnailUrl: (url: string | undefined) => void;
   setLanguage: (lang: string) => void;
-  setModelProvider: (provider: "openai" | "ollama" | "lmstudio") => void;
+  setModelProvider: (provider: "openrouter") => void;
   setModelId: (id: string) => void;
   setPageStyle: (style: string) => void;
   setPresentationInput: (input: string) => void;
@@ -546,8 +549,8 @@ export const usePresentationState = create<PresentationState>()(
       setThumbnailUrl: (url) => set({ thumbnailUrl: url }),
       numSlides: 5,
       language: "en-US",
-      modelProvider: "openai",
-      modelId: "gpt-4o-mini",
+      modelProvider: "openrouter",
+      modelId: "openai/gpt-4o-mini",
       pageStyle: "default",
       presentationInput: "",
       outline: [],
@@ -560,7 +563,7 @@ export const usePresentationState = create<PresentationState>()(
       customThemeData: null,
       themeDataByTheme: {},
       generatedThemeData: null,
-      imageModel: "fal-ai/flux-2/flash",
+      imageModel: DEFAULT_IMAGE_MODEL,
       imageSource: "automatic",
       stockImageProvider: "unsplash",
       presentationStyle: "professional",

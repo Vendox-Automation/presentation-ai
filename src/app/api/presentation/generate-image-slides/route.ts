@@ -17,7 +17,7 @@ interface ImageSlidesRequest {
   outline: string[];
   language: string;
   modelId?: string;
-  modelProvider?: "openai" | "ollama" | "lmstudio";
+  modelProvider?: "openrouter";
   presentationId?: string;
 }
 
@@ -119,7 +119,7 @@ export async function POST(req: Request) {
       outline,
       language,
       modelId,
-      modelProvider = "openai",
+      modelProvider = "openrouter",
       presentationId,
     } = (await req.json()) as ImageSlidesRequest;
 

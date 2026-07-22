@@ -27,7 +27,7 @@ interface OutlineMessageMetadata {
   numberOfCards?: number;
   language?: string;
   modelId?: string;
-  modelProvider?: "openai" | "ollama" | "lmstudio";
+  modelProvider?: "openrouter";
   webSearch?: boolean;
   autoTheme?: boolean;
   textContent?: "minimal" | "concise" | "detailed" | "extensive";
@@ -206,7 +206,7 @@ export async function POST(req: Request) {
       (latestUserMessage?.metadata as OutlineMessageMetadata | undefined) ?? {};
     const numberOfCards = metadata.numberOfCards ?? 0;
     const language = metadata.language ?? "";
-    const modelProvider = metadata.modelProvider ?? "openai";
+    const modelProvider = metadata.modelProvider ?? "openrouter";
     const modelId = metadata.modelId;
     const webSearch = Boolean(metadata.webSearch);
     const autoTheme = metadata.autoTheme ?? false;

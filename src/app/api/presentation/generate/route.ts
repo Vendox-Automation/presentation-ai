@@ -18,7 +18,7 @@ import { auth } from "@/server/auth";
 
 type SlidesRequest = Omit<PresentationGenerationPromptInput, "currentDate"> & {
   modelId?: string;
-  modelProvider?: "openai" | "ollama" | "lmstudio";
+  modelProvider?: "openrouter";
   presentationId?: string;
 };
 
@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     }
 
     const request = (await req.json()) as SlidesRequest;
-    const { modelId, modelProvider = "openai" } = request;
+    const { modelId, modelProvider = "openrouter" } = request;
 
     if (
       !request.title ||
