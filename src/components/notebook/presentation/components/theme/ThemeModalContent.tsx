@@ -2,6 +2,7 @@
 
 import { X } from "lucide-react";
 
+import { SkillThemeImport } from "@/components/notebook/presentation/components/theme/SkillThemeImport";
 import { ThemeCardSkeleton } from "@/components/notebook/presentation/components/theme/ThemeCardSkeleton";
 import { ThemeCard } from "@/components/presentation/edit-panel/sections/theme/ThemeCard";
 import { Button } from "@/components/ui/button";
@@ -121,6 +122,7 @@ export function ThemeModalContent({
 
           <TabsContent value="explore" className="m-0 p-4 pb-6">
             <div className="space-y-6">
+              <SkillThemeImport />
               <div className="space-y-3">
                 <h3 className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
                   My Themes
