@@ -1,13 +1,11 @@
 "use server";
 
-import { UTFile } from "uploadthing/server";
-
-import { utapi } from "@/app/api/uploadthing/lib";
 import {
   DEFAULT_IMAGE_MODEL,
   type ImageModelList,
 } from "@/constants/image-models";
 import { dataUrlToBuffer, generateOpenRouterImage } from "@/lib/openrouter-image";
+import { saveGeneratedImage } from "@/lib/image-storage";
 import { logger } from "@/lib/observability/server/logger";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
@@ -118,13 +116,10 @@ export async function generateInfographicImageAction({
     });
 
     const filename = `infographic_${Date.now()}.png`;
-    const utFile = new UTFile([new Uint8Array(dataUrlToBuffer(dataUrl))], filename);
-    const uploadResult = await utapi.uploadFiles([utFile]);
-    const permanentUrl = uploadResult[0]?.data?.ufsUrl;
-
-    if (!permanentUrl) {
-      throw new Error("Failed to upload generated infographic");
-    }
+    const permanentUrl = await saveGeneratedImage(
+      dataUrlToBuffer(dataUrl),
+      filename,
+    );
 
     span.event("allweone.server.image_generation.upload_completed", {
       "allweone.server.image_generation.uploaded": true,

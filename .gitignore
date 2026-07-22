@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# locally-stored generated images (used when UPLOADTHING_TOKEN is unset)
+/public/generated-images/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

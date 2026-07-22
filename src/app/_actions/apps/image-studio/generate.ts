@@ -1,6 +1,5 @@
 "use server";
 
-import { utapi } from "@/app/api/uploadthing/core";
 import {
   DEFAULT_IMAGE_MODEL,
   type ImageAspectRatio,
@@ -9,9 +8,9 @@ import {
 import { requireOptionalIntegration } from "@/lib/env/optional-integrations";
 import { env } from "@/env";
 import { dataUrlToBuffer, generateOpenRouterImage } from "@/lib/openrouter-image";
+import { saveGeneratedImage } from "@/lib/image-storage";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
-import { UTFile } from "uploadthing/server";
 
 async function persistGeneratedImage(
   imageBuffer: Buffer,
@@ -20,16 +19,11 @@ async function persistGeneratedImage(
   filePrefix: string,
 ) {
   const filename = `${filePrefix}_${Date.now()}.png`;
-  const utFile = new UTFile([new Uint8Array(imageBuffer)], filename);
-  const uploadResult = await utapi.uploadFiles([utFile]);
-
-  if (!uploadResult[0]?.data?.ufsUrl) {
-    throw new Error("Failed to upload generated image");
-  }
+  const url = await saveGeneratedImage(imageBuffer, filename);
 
   return db.generatedImage.create({
     data: {
-      url: uploadResult[0].data.ufsUrl,
+      url,
       prompt,
       userId,
     },

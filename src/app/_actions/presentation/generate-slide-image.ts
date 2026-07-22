@@ -1,12 +1,11 @@
 "use server";
 
-import { utapi } from "@/app/api/uploadthing/core";
 import { env } from "@/env";
 import { requireOptionalIntegration } from "@/lib/env/optional-integrations";
 import { dataUrlToBuffer, generateOpenRouterImage } from "@/lib/openrouter-image";
+import { saveGeneratedImage } from "@/lib/image-storage";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
-import { UTFile } from "uploadthing/server";
 
 const DEFAULT_SLIDE_IMAGE_MODEL = "google/gemini-2.5-flash-image";
 
@@ -56,20 +55,11 @@ export async function generateSlideImageAction(
 
     // Generate a filename
     const filename = `slide_${Date.now()}.png`;
-
-    // Create a UTFile from the generated image
-    const utFile = new UTFile([new Uint8Array(dataUrlToBuffer(dataUrl))], filename);
-
-    // Upload to UploadThing
-    const uploadResult = await utapi.uploadFiles([utFile]);
-
-    if (!uploadResult[0]?.data?.ufsUrl) {
-      console.error("Upload error:", uploadResult[0]?.error);
-      throw new Error("Failed to upload image to UploadThing");
-    }
-
-    const permanentUrl = uploadResult[0].data.ufsUrl;
-    console.log(`Uploaded slide image to: ${permanentUrl}`);
+    const permanentUrl = await saveGeneratedImage(
+      dataUrlToBuffer(dataUrl),
+      filename,
+    );
+    console.log(`Saved slide image to: ${permanentUrl}`);
 
     // Store in database
     const generatedImage = await db.generatedImage.create({

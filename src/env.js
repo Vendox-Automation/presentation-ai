@@ -14,6 +14,7 @@ export const env = createEnv({
     SEARCH_ENGINE_CX: z.string().optional(),
     PINECONE_API_KEY: z.string().optional(),
     UNSPLASH_ACCESS_KEY: z.string().optional(),
+    UPLOADTHING_TOKEN: z.string().optional(),
     NEXTAUTH_URL: z.preprocess(
       (str) => process.env.VERCEL_URL ?? str,
       process.env.VERCEL ? z.string() : z.string().url(),
@@ -27,6 +28,7 @@ export const env = createEnv({
   runtimeEnv: {
     DATABASE_URL: process.env.DATABASE_URL,
     UNSPLASH_ACCESS_KEY: process.env.UNSPLASH_ACCESS_KEY,
+    UPLOADTHING_TOKEN: process.env.UPLOADTHING_TOKEN,
     TAVILY_API_KEY: process.env.TAVILY_API_KEY,
     NODE_ENV: process.env.NODE_ENV,
     OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
