@@ -91,7 +91,6 @@ Before you begin, ensure you have the following installed:
 - Node.js 18.x or higher
 - npm, yarn, or pnpm package manager
 - PostgreSQL database
-- Google Client ID and Secret (for authentication)
 - An [OpenRouter](https://openrouter.ai) API key (required for both text and image generation)
 - Optional provider keys depending on the features you want to use:
   - Tavily API key (for web search)
@@ -120,13 +119,9 @@ Before you begin, ensure you have the following installed:
    # Database
    DATABASE_URL="postgresql://username:password@localhost:5432/presentation_ai"
 
-   # Authentication
+   # Authentication (no login screen — auto-signs in as a local dev user)
    NEXTAUTH_SECRET=""
    NEXTAUTH_URL="http://localhost:3000"
-
-   # Google OAuth Provider
-   GOOGLE_CLIENT_ID=""
-   GOOGLE_CLIENT_SECRET=""
 
    # AI Provider
    OPENROUTER_API_KEY=""

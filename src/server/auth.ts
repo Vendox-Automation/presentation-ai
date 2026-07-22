@@ -1,9 +1,10 @@
-import { env } from "@/env";
 import { db } from "@/server/db";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import NextAuth, { type DefaultSession, type Session } from "next-auth";
 import { type Adapter } from "next-auth/adapters";
-import GoogleProvider from "next-auth/providers/google";
+import CredentialsProvider from "next-auth/providers/credentials";
+
+const DEV_USER_EMAIL = "dev@localhost";
 declare module "next-auth" {
   interface Session extends DefaultSession {
     user: {
@@ -71,7 +72,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
       return session;
     },
     async signIn({ user, account }) {
-      if (account?.provider === "google") {
+      if (account?.provider === "dev") {
         const dbUser = await db.user.findUnique({
           where: { email: user.email! },
           select: { id: true, hasAccess: true, role: true },
@@ -92,9 +93,22 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
 
   adapter: PrismaAdapter(db) as Adapter,
   providers: [
-    GoogleProvider({
-      clientId: env.GOOGLE_CLIENT_ID,
-      clientSecret: env.GOOGLE_CLIENT_SECRET,
+    CredentialsProvider({
+      id: "dev",
+      name: "Development",
+      credentials: {},
+      async authorize() {
+        return db.user.upsert({
+          where: { email: DEV_USER_EMAIL },
+          update: {},
+          create: {
+            email: DEV_USER_EMAIL,
+            name: "Dev User",
+            hasAccess: true,
+            role: "ADMIN",
+          },
+        });
+      },
     }),
   ],
 });
