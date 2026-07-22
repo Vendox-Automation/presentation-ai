@@ -116,6 +116,12 @@ type PendingPresentationCreateRequest = {
   autoThemeEnabled?: boolean;
 };
 
+export type PresentationAnimationLevel =
+  | "off"
+  | "subtle"
+  | "balanced"
+  | "dynamic";
+
 interface PresentationState {
   currentPresentationId: string | null;
   currentPresentationTitle: string | null;
@@ -134,6 +140,8 @@ interface PresentationState {
   // Transient theme used only for live hover/focus preview of the canvas.
   // Never persisted, never pushed to history — cleared when the pointer leaves.
   previewThemeData: ThemeProperties | null;
+  // Entrance-animation intensity applied to slide content in present mode.
+  animationLevel: PresentationAnimationLevel;
   language: string;
   modelProvider: "openrouter";
   modelId: string;
@@ -259,6 +267,7 @@ interface PresentationState {
   ) => void;
   setGeneratedThemeData: (data: ThemeProperties | null) => void;
   setPreviewThemeData: (data: ThemeProperties | null) => void;
+  setAnimationLevel: (level: PresentationAnimationLevel) => void;
   shouldShowExitHeader: boolean;
   setShouldShowExitHeader: (udpdate: boolean) => void;
   thumbnailUrl?: string;
@@ -568,6 +577,7 @@ export const usePresentationState = create<PresentationState>()(
       themeDataByTheme: {},
       generatedThemeData: null,
       previewThemeData: null,
+      animationLevel: "off",
       imageModel: DEFAULT_IMAGE_MODEL,
       imageSource: "automatic",
       stockImageProvider: "unsplash",
@@ -1111,6 +1121,7 @@ export const usePresentationState = create<PresentationState>()(
       setThemeDataByTheme: (themeDataByTheme) => set({ themeDataByTheme }),
       setGeneratedThemeData: (data) => set({ generatedThemeData: data }),
       setPreviewThemeData: (data) => set({ previewThemeData: data }),
+      setAnimationLevel: (level) => set({ animationLevel: level }),
       setPageStyle: (style) => set({ pageStyle: style }),
       setPresentationInput: (input) => set({ presentationInput: input }),
       setOutline: (topics) => set({ outline: topics }),

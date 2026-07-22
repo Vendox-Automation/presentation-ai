@@ -51,6 +51,7 @@ export const useDebouncedSave = (options: UseDebouncedSaveOptions = {}) => {
           tone,
           audience,
           scenario,
+          animationLevel,
         } = usePresentationState.getState();
 
         // Don't save if there's no presentation or slides
@@ -86,6 +87,7 @@ export const useDebouncedSave = (options: UseDebouncedSaveOptions = {}) => {
               audience,
               scenario,
               pageBackground,
+              animationLevel,
             }),
           });
 

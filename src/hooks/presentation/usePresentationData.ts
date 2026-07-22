@@ -52,6 +52,7 @@ export function usePresentationData(id: string, forcedReadOnly = false) {
     (s) => s.setPresentationStyle,
   );
   const setPageStyle = usePresentationState((s) => s.setPageStyle);
+  const setAnimationLevel = usePresentationState((s) => s.setAnimationLevel);
   const setLanguage = usePresentationState((s) => s.setLanguage);
   const setTextContent = usePresentationState((s) => s.setTextContent);
   const setTone = usePresentationState((s) => s.setTone);
@@ -83,6 +84,7 @@ export function usePresentationData(id: string, forcedReadOnly = false) {
           audience: state.audience,
           scenario: state.scenario,
           pageBackground: state.pageBackground,
+          animationLevel: state.animationLevel,
         }),
       })
         .then((result) => {
@@ -267,6 +269,7 @@ export function usePresentationData(id: string, forcedReadOnly = false) {
       if (customization?.scenario) {
         setScenario(customization.scenario);
       }
+      setAnimationLevel(customization?.animationLevel ?? "off");
 
       // Set language if available
       if (presentationData.presentation?.language) {
@@ -296,6 +299,7 @@ export function usePresentationData(id: string, forcedReadOnly = false) {
     setTone,
     setAudience,
     setScenario,
+    setAnimationLevel,
     setIsReadOnly,
     clearHistory,
     forcedReadOnly,

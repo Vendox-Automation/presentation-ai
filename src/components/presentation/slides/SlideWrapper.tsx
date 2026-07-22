@@ -8,6 +8,7 @@ import React, { useEffect, useMemo } from "react";
 import { usePresentationTheme } from "@/components/presentation/providers/PresentationThemeProvider";
 import { Button } from "@/components/ui/button";
 import { useSlideContentScaling } from "@/hooks/presentation/useSlideContentScaling";
+import { useSlideEntranceAnimation } from "@/hooks/presentation/useSlideEntranceAnimation";
 import { useSlideOperations } from "@/hooks/presentation/useSlideOperations";
 import { DEFAULT_PRESENTATION_SLIDE_ASPECT_RATIO } from "@/lib/presentation/aspect-ratio";
 import { resolvePresentationThemeData } from "@/lib/presentation/theme-resolution";
@@ -105,6 +106,15 @@ export function SlideWrapper({
   );
 
   const { contentRef, scaledHeight } = scalingConfig;
+
+  // Play the entrance animation when this slide becomes active in present mode.
+  const animationLevel = usePresentationState((s) => s.animationLevel);
+  useSlideEntranceAnimation({
+    contentRef,
+    isActive: currentSlideId === id,
+    isPresenting,
+    level: animationLevel,
+  });
   const {
     attributes,
     listeners,

@@ -48,6 +48,7 @@ export type PresentationCustomization = {
   selectedSlideTemplates?: string[];
   outlineItemIds?: string[];
   outlineTemplateOverrides?: Record<string, string | null>;
+  animationLevel?: "off" | "subtle" | "balanced" | "dynamic";
 };
 
 export type PresentationCustomizationState = {
@@ -84,6 +85,7 @@ export type PresentationCustomizationState = {
   selectedSlideTemplates?: string[];
   outlineItemIds?: string[];
   outlineTemplateOverrides?: Record<string, string | null>;
+  animationLevel?: "off" | "subtle" | "balanced" | "dynamic";
 };
 
 export function getPresentationCustomization(
@@ -111,6 +113,10 @@ export function buildPresentationCustomization(
     audience: state.audience,
     scenario: state.scenario,
   };
+
+  if (state.animationLevel && state.animationLevel !== "off") {
+    customization.animationLevel = state.animationLevel;
+  }
 
   if (state.theme !== undefined) {
     customization.themeSource = state.theme === "auto" ? "auto" : "selected";
