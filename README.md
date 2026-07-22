@@ -29,7 +29,7 @@ An open-source, AI-powered presentation generator alternative to Gamma.app that 
 - [Usage](#-usage)
   - [Creating a Presentation](#creating-a-presentation)
   - [Custom Themes](#custom-themes)
-- [Local Models Guide](#-local-models-guide)
+- [Model Provider](#-model-provider)
 - [Project Structure](#-project-structure)
 - [Roadmap](#️-roadmap)
 - [Contributing](#-contributing)
@@ -75,7 +75,7 @@ An open-source, AI-powered presentation generator alternative to Gamma.app that 
 | **Framework**      | Next.js, React, TypeScript                 |
 | **Styling**        | Tailwind CSS                               |
 | **Database**       | PostgreSQL with Prisma ORM                 |
-| **AI Integration** | OpenAI API, Together AI, Ollama, LM Studio |
+| **AI Integration** | OpenRouter (text + image generation) |
 | **Authentication** | NextAuth.js                                |
 | **UI Components**  | Radix UI                                   |
 | **Text Editor**    | Plate Editor                               |
@@ -92,10 +92,8 @@ Before you begin, ensure you have the following installed:
 - npm, yarn, or pnpm package manager
 - PostgreSQL database
 - Google Client ID and Secret (for authentication)
+- An [OpenRouter](https://openrouter.ai) API key (required for both text and image generation)
 - Optional provider keys depending on the features you want to use:
-  - OpenAI API key (for cloud text generation)
-  - Together AI API key (for image generation)
-  - FAL API key (for additional image generation flows)
   - Tavily API key (for web search)
   - Unsplash access key (for stock images)
 
@@ -130,10 +128,8 @@ Before you begin, ensure you have the following installed:
    GOOGLE_CLIENT_ID=""
    GOOGLE_CLIENT_SECRET=""
 
-   # AI Providers
-   OPENAI_API_KEY=""
-   TOGETHER_AI_API_KEY=""
-   FAL_API_KEY=""
+   # AI Provider
+   OPENROUTER_API_KEY=""
 
    # File Upload Service
    UPLOADTHING_TOKEN=""
@@ -143,7 +139,7 @@ Before you begin, ensure you have the following installed:
    TAVILY_API_KEY=""
    ```
 
-   > 💡 **Tip**: Copy `.env.example` to `.env` and fill in your actual values. If you plan to use local text models through Ollama or LM Studio, you can run text generation without an `OPENAI_API_KEY`.
+   > 💡 **Tip**: Copy `.env.example` to `.env` and fill in your actual values. All text and image generation is routed through [OpenRouter](https://openrouter.ai), so `OPENROUTER_API_KEY` is required.
 
 ### Database Setup
 
@@ -185,7 +181,7 @@ Follow these steps to create your first AI-generated presentation:
 1. Sign in to the app
 1. Navigate to the presentation dashboard
 1. Enter your presentation topic
-1. Choose a text model (OpenAI, Ollama, or LM Studio)
+1. Choose a text model (served via OpenRouter)
 1. Choose the number of slides (recommended: 5-10)
 1. Select your preferred language
 1. Toggle web search if you want outside context included
@@ -208,34 +204,14 @@ Create personalized themes to match your brand or style:
 3. Customize colors, fonts, and layout
 4. Save your theme for future use
 
-## 🧠 Local Models Guide
+## 🧠 Model Provider
 
-ALLWEONE Presentation AI now supports both Ollama and LM Studio as local model providers.
+All text and image generation is routed through [OpenRouter](https://openrouter.ai), which exposes an OpenAI-compatible API in front of 400+ models from OpenAI, Anthropic, Google, and others.
 
-### LM Studio
-
-1. Install [LM Studio](https://lmstudio.ai).
-2. In the LM Studio app, turn the Server ON and enable CORS.
-3. Download any model you want to use inside LM Studio.
-
-### Ollama
-
-1. Install [Ollama](https://ollama.com).
-2. Download whichever model you want to use (for example: `ollama pull llama3.1`).
-
-### Using Local Models in the App
-
-1. Open the app and open the text model selector.
-2. Choose the model you want to use.
-3. For LM Studio, load the model in LM Studio first.
-4. For Ollama, installed models appear automatically, and some recommended models can be downloaded on first use.
-5. Enjoy the generation.
-
-Notes:
-
-- OpenAI remains available as the default cloud text model.
-- Models will automatically appear in the Model Selector when the LM Studio server or the Ollama daemon is running.
-- Make sure LM Studio has CORS enabled so the browser can connect.
+1. Create an API key at [openrouter.ai/keys](https://openrouter.ai/keys).
+2. Set `OPENROUTER_API_KEY` in your `.env` file.
+3. Pick a text model from the model selector in the app — the list ships with a curated set (GPT-4o family, GPT-5 family, Claude Sonnet 4.5, Gemini 2.5) and can be extended by editing `src/components/notebook/presentation/components/ModelPicker.tsx`.
+4. Image generation (slide images and infographics) uses OpenRouter's [Image API](https://openrouter.ai/docs/guides/overview/multimodal/image-generation) with Gemini/Nano Banana models by default; see `src/constants/image-models.ts` to change the model list.
 
 ## 📁 Project Structure
 
