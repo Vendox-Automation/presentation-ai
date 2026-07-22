@@ -1,4 +1,4 @@
-import { type RefObject, useEffect } from "react";
+import { type RefObject, useLayoutEffect } from "react";
 
 import { type PresentationAnimationLevel } from "@/states/presentation-state";
 
@@ -58,15 +58,23 @@ export function useSlideEntranceAnimation({
   contentRef,
   isActive,
   isPresenting,
+  isPresentingLoading,
   level,
 }: {
   contentRef: RefObject<HTMLElement | null>;
   isActive: boolean;
   isPresenting: boolean;
+  isPresentingLoading: boolean;
   level: PresentationAnimationLevel;
 }) {
-  useEffect(() => {
+  // useLayoutEffect so the initial opacity:0 keyframe is applied before the
+  // browser paints the revealed slide — otherwise the content would flash in
+  // at full opacity and then jump back to animate.
+  useLayoutEffect(() => {
     if (!isPresenting || !isActive || level === "off") return;
+    // Wait until the present-mode loading overlay has cleared; animating while
+    // it's still up would play the whole entrance behind the spinner.
+    if (isPresentingLoading) return;
     if (prefersReducedMotion()) return;
 
     const root = contentRef.current;
@@ -96,5 +104,5 @@ export function useSlideEntranceAnimation({
       // Reverting to the element's natural (visible) style if we leave mid-run.
       animations.forEach((animation) => animation.cancel());
     };
-  }, [contentRef, isActive, isPresenting, level]);
+  }, [contentRef, isActive, isPresenting, isPresentingLoading, level]);
 }

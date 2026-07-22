@@ -109,10 +109,14 @@ export function SlideWrapper({
 
   // Play the entrance animation when this slide becomes active in present mode.
   const animationLevel = usePresentationState((s) => s.animationLevel);
+  const isPresentingLoading = usePresentationState(
+    (s) => s.isPresentingLoading,
+  );
   useSlideEntranceAnimation({
     contentRef,
     isActive: currentSlideId === id,
     isPresenting,
+    isPresentingLoading,
     level: animationLevel,
   });
   const {
