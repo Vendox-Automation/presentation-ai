@@ -207,6 +207,46 @@ export async function updateAdminPresentationTheme(
   }
 }
 
+// Delete a custom theme owned by the current user
+export async function deleteCustomTheme(themeId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return {
+        success: false,
+        message: "You must be signed in to delete a theme",
+      };
+    }
+
+    const existingTheme = await db.presentationTheme.findUnique({
+      where: { id: themeId },
+      select: { userId: true, isAdmin: true },
+    });
+
+    if (!existingTheme) {
+      return { success: false, message: "Theme not found" };
+    }
+
+    if (existingTheme.isAdmin || existingTheme.userId !== session.user.id) {
+      return {
+        success: false,
+        message: "You can only delete your own themes",
+      };
+    }
+
+    // Likes and favorites cascade via the schema's onDelete rules.
+    await db.presentationTheme.delete({ where: { id: themeId } });
+
+    return { success: true, message: "Theme deleted" };
+  } catch (error) {
+    console.error("Failed to delete custom theme:", error);
+    return {
+      success: false,
+      message: "Something went wrong deleting the theme. Please try again.",
+    };
+  }
+}
+
 // Get system themes that are stored in the database
 export async function getSystemPresentationThemes() {
   try {

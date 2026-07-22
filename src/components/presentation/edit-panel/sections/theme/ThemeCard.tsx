@@ -4,7 +4,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Settings2, Star } from "lucide-react";
 import type React from "react";
 import { useEffect, useState, useTransition, type KeyboardEvent } from "react";
+import { toast } from "sonner";
 
+import { deleteCustomTheme } from "@/app/_actions/presentation/theme-actions";
 import { toggleFavoriteTheme } from "@/app/_actions/presentation/theme-favorite-actions";
 import { toggleLikeTheme } from "@/app/_actions/presentation/theme-like-actions";
 import { isBuiltInPresentationTheme } from "@/lib/presentation/theme-resolution";
@@ -77,6 +79,8 @@ export function ThemeCard({
   const [localIsFavorite, setLocalIsFavorite] = useState(isFavorite ?? false);
   const [localLikeCount, setLocalLikeCount] = useState(likeCount);
   const [localIsLiked, setLocalIsLiked] = useState(isLiked);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [isDeleting, startDeleteTransition] = useTransition();
 
   const queryClient = useQueryClient();
   const invalidateFavorites = () => {
@@ -185,7 +189,46 @@ export function ThemeCard({
 
   const handleEditMenuToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
+    setIsConfirmingDelete(false);
     setOpenEditMenu(showEditMenu ? null : identifier);
+  };
+
+  // Reset the inline delete confirmation whenever the menu closes.
+  useEffect(() => {
+    if (!showEditMenu) setIsConfirmingDelete(false);
+  }, [showEditMenu]);
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!themeId) return;
+
+    // First click arms the confirmation; second click performs the delete.
+    if (!isConfirmingDelete) {
+      setIsConfirmingDelete(true);
+      return;
+    }
+
+    startDeleteTransition(async () => {
+      const result = await deleteCustomTheme(themeId);
+      if (result.success) {
+        toast.success("Theme deleted");
+        setOpenEditMenu(null);
+        setIsConfirmingDelete(false);
+        void queryClient.invalidateQueries({ queryKey: ["userThemes"] });
+        void queryClient.invalidateQueries({
+          queryKey: ["presentation", "themes", "user"],
+        });
+        void queryClient.invalidateQueries({
+          queryKey: ["presentation", "themes", "public"],
+        });
+        void queryClient.invalidateQueries({
+          queryKey: ["presentation", "themes", "favorites"],
+        });
+      } else {
+        toast.error(result.message || "Failed to delete theme");
+        setIsConfirmingDelete(false);
+      }
+    });
   };
 
   // Only show ellipsis if user is owner
@@ -297,12 +340,15 @@ export function ThemeCard({
                 {canDelete && (
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                    }}
-                    className="w-full px-3 py-1.5 text-left text-xs text-red-600 transition-colors hover:bg-muted"
+                    onClick={handleDelete}
+                    disabled={isDeleting}
+                    className="w-full px-3 py-1.5 text-left text-xs text-red-600 transition-colors hover:bg-muted disabled:opacity-50"
                   >
-                    Delete
+                    {isDeleting
+                      ? "Deleting…"
+                      : isConfirmingDelete
+                        ? "Click to confirm"
+                        : "Delete"}
                   </button>
                 )}
               </div>
