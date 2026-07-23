@@ -1,22 +1,14 @@
 import { type RefObject, useLayoutEffect } from "react";
 
+import {
+  autoEffectFor,
+  buildAnimationKeyframes,
+  classifySlideElement,
+  getLevelTiming,
+  SLIDE_ANIMATION_EFFECTS,
+  type SlideAnimationOverride,
+} from "@/lib/presentation/slide-animations";
 import { type PresentationAnimationLevel } from "@/states/presentation-state";
-
-/**
- * Per-level entrance tuning. Larger travel + longer duration + wider stagger
- * reads as "more animated". Kept intentionally small (3 levels) so the effect
- * stays tasteful rather than chaotic.
- */
-const LEVEL_CONFIG: Record<
-  Exclude<PresentationAnimationLevel, "off">,
-  { distance: number; duration: number; stagger: number }
-> = {
-  subtle: { distance: 8, duration: 300, stagger: 40 },
-  balanced: { distance: 22, duration: 480, stagger: 80 },
-  dynamic: { distance: 44, duration: 640, stagger: 130 },
-};
-
-const EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
 
 function prefersReducedMotion(): boolean {
   return (
@@ -26,83 +18,117 @@ function prefersReducedMotion(): boolean {
   );
 }
 
-/**
- * Resolve the set of elements to stagger. Prefer the top-level blocks of the
- * slide's rich-text editor; if that root wraps everything in a single
- * container, drill one level so we still get a staggered reveal rather than
- * one big fade.
- */
-function resolveTargets(root: HTMLElement): HTMLElement[] {
-  const editor = root.querySelector<HTMLElement>("[data-slate-editor]");
-  let candidates: Element[] = editor
-    ? Array.from(editor.children)
-    : Array.from(root.children);
+const VALID_EFFECTS = new Set(SLIDE_ANIMATION_EFFECTS.map((e) => e.effect));
 
-  if (candidates.length === 1 && candidates[0]!.children.length > 1) {
-    candidates = Array.from(candidates[0]!.children);
+/** Read a validated animation override off a Plate node, if present. */
+function readOverride(node: unknown): SlideAnimationOverride | undefined {
+  if (!node || typeof node !== "object") return undefined;
+  const anim = (node as { animation?: unknown }).animation;
+  if (!anim || typeof anim !== "object") return undefined;
+  const effect = (anim as { effect?: unknown }).effect;
+  if (typeof effect !== "string" || !VALID_EFFECTS.has(effect as never)) {
+    return undefined;
   }
+  const direction = (anim as { direction?: unknown }).direction;
+  return {
+    effect: effect as SlideAnimationOverride["effect"],
+    direction:
+      direction === "up" ||
+      direction === "down" ||
+      direction === "left" ||
+      direction === "right"
+        ? direction
+        : undefined,
+  };
+}
 
-  return candidates.filter(
-    (el): el is HTMLElement => el instanceof HTMLElement,
+/** Recursively index a slide's content nodes by their block id. */
+function indexNodesById(
+  nodes: unknown,
+  map: Map<string, unknown>,
+): Map<string, unknown> {
+  if (!Array.isArray(nodes)) return map;
+  for (const node of nodes) {
+    if (node && typeof node === "object") {
+      const id = (node as { id?: unknown }).id;
+      if (typeof id === "string") map.set(id, node);
+      const children = (node as { children?: unknown }).children;
+      if (Array.isArray(children)) indexNodesById(children, map);
+    }
+  }
+  return map;
+}
+
+/** Leaf content blocks: elements with an id that contain no nested id blocks. */
+function resolveLeafTargets(root: HTMLElement): HTMLElement[] {
+  const withId = Array.from(
+    root.querySelectorAll<HTMLElement>("[data-block-id]"),
   );
+  return withId.filter((el) => !el.querySelector("[data-block-id]"));
 }
 
 /**
  * Animate a slide's content in when it becomes the active slide during present
- * mode. No-op while editing, when animations are off, or when the viewer has
- * requested reduced motion. Uses the Web Animations API so we don't have to
- * wrap every rich-text node in a motion component (which would risk layout and
- * export regressions).
+ * mode. Each leaf content block gets an entrance effect: its own per-element
+ * override if set, otherwise the deck-level's auto choreography for that kind
+ * of element (image / heading / text / list). No-op while editing, when off,
+ * behind the loading overlay, or under reduced-motion.
  */
 export function useSlideEntranceAnimation({
   contentRef,
+  slideContent,
   isActive,
   isPresenting,
   isPresentingLoading,
   level,
 }: {
   contentRef: RefObject<HTMLElement | null>;
+  slideContent: unknown;
   isActive: boolean;
   isPresenting: boolean;
   isPresentingLoading: boolean;
   level: PresentationAnimationLevel;
 }) {
-  // useLayoutEffect so the initial opacity:0 keyframe is applied before the
-  // browser paints the revealed slide — otherwise the content would flash in
-  // at full opacity and then jump back to animate.
+  // useLayoutEffect so the opening keyframe applies before the revealed slide
+  // paints (no flash of fully-visible content).
   useLayoutEffect(() => {
     if (!isPresenting || !isActive || level === "off") return;
-    // Wait until the present-mode loading overlay has cleared; animating while
-    // it's still up would play the whole entrance behind the spinner.
     if (isPresentingLoading) return;
     if (prefersReducedMotion()) return;
 
     const root = contentRef.current;
     if (!root) return;
 
-    const targets = resolveTargets(root);
+    const targets = resolveLeafTargets(root);
     if (targets.length === 0) return;
 
-    const { distance, duration, stagger } = LEVEL_CONFIG[level];
+    const nodesById = indexNodesById(slideContent, new Map());
+    const { duration, stagger, distance } = getLevelTiming(level);
 
-    const animations = targets.map((el, index) =>
-      el.animate(
-        [
-          { opacity: 0, transform: `translateY(${distance}px)` },
-          { opacity: 1, transform: "translateY(0)" },
-        ],
-        {
-          duration,
-          delay: index * stagger,
-          easing: EASING,
-          fill: "both",
-        },
-      ),
-    );
+    const animations = targets.map((el, index) => {
+      const blockId = el.getAttribute("data-block-id");
+      const override = blockId ? readOverride(nodesById.get(blockId)) : undefined;
+      const resolved =
+        override ?? autoEffectFor(level, classifySlideElement(el));
+      const { keyframes, easing } = buildAnimationKeyframes(resolved, distance);
+
+      return el.animate(keyframes, {
+        duration,
+        delay: index * stagger,
+        easing,
+        fill: "both",
+      });
+    });
 
     return () => {
-      // Reverting to the element's natural (visible) style if we leave mid-run.
       animations.forEach((animation) => animation.cancel());
     };
-  }, [contentRef, isActive, isPresenting, isPresentingLoading, level]);
+  }, [
+    contentRef,
+    slideContent,
+    isActive,
+    isPresenting,
+    isPresentingLoading,
+    level,
+  ]);
 }

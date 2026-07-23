@@ -114,6 +114,7 @@ export function SlideWrapper({
   );
   useSlideEntranceAnimation({
     contentRef,
+    slideContent: currentSlide?.content,
     isActive: currentSlideId === id,
     isPresenting,
     isPresentingLoading,
