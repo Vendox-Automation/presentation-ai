@@ -110,14 +110,32 @@ export function autoEffectFor(
   }
 }
 
-/** Classify a rendered leaf element by its Plate type / tag. */
+function hasBackgroundImage(el: HTMLElement): boolean {
+  if (typeof window === "undefined") return false;
+  const bg = window.getComputedStyle(el).backgroundImage;
+  return !!bg && bg !== "none" && bg.includes("url(");
+}
+
+/** Classify a rendered leaf element by its Plate type / tag / rendering. */
 export function classifySlideElement(el: HTMLElement): SlideElementKind {
   const type = (el.getAttribute("data-slate-type") ?? "").toLowerCase();
   const tag = el.tagName.toLowerCase();
 
-  if (el.querySelector("img") || tag === "img" || type.includes("img"))
+  // Images may render as an <img> or as a CSS background-image on a block.
+  if (
+    tag === "img" ||
+    el.querySelector("img") ||
+    type.includes("img") ||
+    type.includes("image") ||
+    type.includes("photo") ||
+    hasBackgroundImage(el)
+  )
     return "image";
-  if (/^h[1-6]$/.test(tag) || /(heading|title)/.test(type) || /^h[1-6]$/.test(type))
+  if (
+    /^h[1-6]$/.test(tag) ||
+    /(heading|title)/.test(type) ||
+    /^h[1-6]$/.test(type)
+  )
     return "heading";
   if (tag === "li" || type.includes("bullet") || type.includes("list-item"))
     return "list";

@@ -16,6 +16,7 @@ import {
 import { TooltipProvider } from "@/components/ui/tooltip";
 // Sub-components
 import { AlignmentControl } from "./AlignmentControl";
+import { AnimationControl } from "./AnimationControl";
 import { CalloutVariantControl } from "./CalloutVariantControl";
 import { ChartControls } from "./ChartControls";
 import { ColorControl } from "./ColorControl";
@@ -149,6 +150,7 @@ function ToolbarContent() {
           )}
           <ColorControl />
           <AlignmentControl />
+          <AnimationControl />
           <DeleteButton />
         </div>
       </TooltipProvider>
@@ -162,6 +164,7 @@ function ToolbarContent() {
           <CustomItemControls />
           <ColorControl />
           <AlignmentControl />
+          <AnimationControl />
           <CustomItemDeleteButton />
         </div>
       </TooltipProvider>
@@ -194,6 +197,7 @@ function ToolbarContent() {
         <ChartControls />
         <ColorControl />
         <AlignmentControl />
+        <AnimationControl />
         <DeleteButton />
       </div>
     </TooltipProvider>

@@ -25,6 +25,7 @@ import { type ImageCropSettings } from "@/components/notebook/presentation/utils
 import { useUploadFile } from "@/components/plate/hooks/use-upload-file";
 import { SharedGenerateControls } from "@/components/presentation/shared/SharedGenerateControls";
 import { SharedGifSearchControls } from "@/components/presentation/shared/SharedGifSearchControls";
+import { AnimationPicker } from "@/components/presentation/animation/AnimationPicker";
 import { SharedImageSearchControls } from "@/components/presentation/shared/SharedImageSearchControls";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +36,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { type SlideAnimationOverride } from "@/lib/presentation/slide-animations";
 import { getPresentationTitleSearchQuery } from "@/lib/presentation/title-search-query";
 import {
   usePresentationState,
@@ -207,6 +209,18 @@ export function PresentationImageEditorPanel() {
         },
       }));
     }
+  };
+
+  const currentAnimation =
+    (currentElement?.animation as SlideAnimationOverride | undefined) ?? null;
+
+  const handleAnimationChange = (override: SlideAnimationOverride | null) => {
+    if (!boundUpdateElement) return;
+    boundUpdateElement({ animation: override });
+    setCurrentElementState(({ element }) => ({
+      key: editorElementKey,
+      element: { ...(element ?? {}), animation: override },
+    }));
   };
 
   const handleCropSave = (settings: ImageCropSettings) => {
@@ -461,6 +475,19 @@ export function PresentationImageEditorPanel() {
 
       {/* Content Area */}
       <div className="min-h-0 flex-1 overflow-hidden">{renderContent()}</div>
+
+      {/* Animation */}
+      <Separator />
+      <div className="space-y-3 px-6 py-4">
+        <div className="flex items-center gap-2">
+          <Sparkles className="size-4 text-muted-foreground" />
+          <h3 className="text-sm font-semibold">Animation</h3>
+        </div>
+        <AnimationPicker
+          value={currentAnimation}
+          onChange={handleAnimationChange}
+        />
+      </div>
 
       {currentImageUrl ? (
         <CropModal
