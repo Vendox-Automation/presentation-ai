@@ -210,6 +210,9 @@ export type RootImage = {
   chartData?: unknown;
   chartOptions?: Record<string, unknown>;
   paletteDropMutable?: boolean;
+  // Entrance-animation override for present mode; unset = follow the deck's
+  // auto choreography for images.
+  animation?: { effect: string; direction?: string };
 };
 
 export type PlateSlide = {

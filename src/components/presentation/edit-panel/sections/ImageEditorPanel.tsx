@@ -15,6 +15,7 @@ import {
   ErrorDisplay,
   GenerateControls,
 } from "@/components/notebook/presentation/editor/custom-elements/image-editor";
+import { AnimationPicker } from "@/components/presentation/animation/AnimationPicker";
 import { CropModal } from "@/components/notebook/presentation/editor/custom-elements/image-editor/CropModal";
 import { EmbedControls } from "@/components/notebook/presentation/editor/custom-elements/image-editor/EmbedControls";
 import { GeneratedImagesGrid } from "@/components/notebook/presentation/editor/custom-elements/image-editor/GeneratedImagesGrid";
@@ -35,6 +36,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { useDebouncedSave } from "@/hooks/presentation/useDebouncedSave";
 import { getPresentationTitleSearchQuery } from "@/lib/presentation/title-search-query";
+import { type SlideAnimationOverride } from "@/lib/presentation/slide-animations";
 import {
   usePresentationState,
   type ImageEditorMode,
@@ -105,6 +107,28 @@ export function ImageEditorPanel() {
     cropSettings: rootImage?.cropSettings,
     imageSource: rootImage?.imageSource,
     size: rootImage?.size,
+  };
+
+  const currentAnimation =
+    (rootImage?.animation as SlideAnimationOverride | undefined) ?? null;
+
+  const handleAnimationChange = (override: SlideAnimationOverride | null) => {
+    setPaletteDropTarget(null);
+    setSlides((slides) =>
+      slides.map((slide) =>
+        slide.id === slideId
+          ? {
+              ...slide,
+              rootImage: {
+                ...slide.rootImage!,
+                animation: override ?? undefined,
+                paletteDropMutable: false,
+              },
+            }
+          : slide,
+      ),
+    );
+    void saveImmediately();
   };
 
   // Local state for current tab
@@ -433,6 +457,19 @@ export function ImageEditorPanel() {
       <div className="min-h-0 flex-1 overflow-hidden">
         <ErrorDisplay error={undefined} localError={null} />
         {renderContent()}
+      </div>
+
+      {/* Animation */}
+      <Separator />
+      <div className="space-y-3 px-6 py-4">
+        <div className="flex items-center gap-2">
+          <Sparkles className="size-4 text-muted-foreground" />
+          <h3 className="text-sm font-semibold">Animation</h3>
+        </div>
+        <AnimationPicker
+          value={currentAnimation}
+          onChange={handleAnimationChange}
+        />
       </div>
 
       {element.url && (

@@ -12,6 +12,7 @@ import { useEditorReadOnly } from "platejs/react";
 
 import { AIToolbarButton } from "./ai-toolbar-button";
 import { AlignToolbarButton } from "./align-toolbar-button";
+import { AnimationToolbarButton } from "./animation-toolbar-button";
 import { CommentToolbarButton } from "./comment-toolbar-button";
 import { FontColorPickerToolbarButton } from "./font-color-picker-toolbar-button";
 import { FontFamilyToolbarButton } from "./font-family-toolbar-button";
@@ -86,6 +87,7 @@ export function FloatingToolbarButtons() {
             </AIToolbarButton>
 
             <TextToDiagramToolbarButton />
+            <AnimationToolbarButton />
             <CommentToolbarButton />
             <SuggestionToolbarButton />
           </ToolbarGroup>

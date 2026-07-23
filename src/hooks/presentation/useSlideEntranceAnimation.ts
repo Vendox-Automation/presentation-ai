@@ -60,11 +60,24 @@ function indexNodesById(
 }
 
 /** Leaf content blocks: elements with an id that contain no nested id blocks. */
-function resolveLeafTargets(root: HTMLElement): HTMLElement[] {
+function resolvePlateLeafTargets(root: HTMLElement): HTMLElement[] {
   const withId = Array.from(
     root.querySelectorAll<HTMLElement>("[data-block-id]"),
   );
   return withId.filter((el) => !el.querySelector("[data-block-id]"));
+}
+
+/**
+ * The slide's root/hero image is not a Plate node (it's rendered by a plain
+ * React component driven by slide.rootImage), so it never carries
+ * data-block-id. It does carry data-root-image on several nested wrappers;
+ * the innermost one is the actual content box.
+ */
+function resolveRootImageTarget(root: HTMLElement): HTMLElement | undefined {
+  const candidates = Array.from(
+    root.querySelectorAll<HTMLElement>("[data-root-image]"),
+  );
+  return candidates.find((el) => !el.querySelector("[data-root-image]"));
 }
 
 /**
@@ -77,6 +90,7 @@ function resolveLeafTargets(root: HTMLElement): HTMLElement[] {
 export function useSlideEntranceAnimation({
   contentRef,
   slideContent,
+  rootImageAnimation,
   isActive,
   isPresenting,
   isPresentingLoading,
@@ -84,6 +98,8 @@ export function useSlideEntranceAnimation({
 }: {
   contentRef: RefObject<HTMLElement | null>;
   slideContent: unknown;
+  /** slide.rootImage?.animation — not part of the Plate node tree. */
+  rootImageAnimation?: unknown;
   isActive: boolean;
   isPresenting: boolean;
   isPresentingLoading: boolean;
@@ -99,22 +115,39 @@ export function useSlideEntranceAnimation({
     const root = contentRef.current;
     if (!root) return;
 
-    const targets = resolveLeafTargets(root);
+    const plateTargets = resolvePlateLeafTargets(root);
+    const rootImageTarget = resolveRootImageTarget(root);
+    const targets: { el: HTMLElement; isRootImage: boolean }[] = [
+      ...(rootImageTarget ? [{ el: rootImageTarget, isRootImage: true }] : []),
+      ...plateTargets.map((el) => ({ el, isRootImage: false })),
+    ];
     if (targets.length === 0) return;
 
     const nodesById = indexNodesById(slideContent, new Map());
     const { duration, stagger, distance } = getLevelTiming(level);
+    const validatedRootImageOverride = readOverride({
+      animation: rootImageAnimation,
+    });
+    // Cap the total stagger window so slides with many bullets/items still
+    // finish revealing within a couple seconds rather than trickling in.
+    const MAX_STAGGER_WINDOW_MS = 900;
+    const effectiveStagger =
+      targets.length > 1
+        ? Math.min(stagger, MAX_STAGGER_WINDOW_MS / (targets.length - 1))
+        : stagger;
 
-    const animations = targets.map((el, index) => {
-      const blockId = el.getAttribute("data-block-id");
-      const override = blockId ? readOverride(nodesById.get(blockId)) : undefined;
+    const animations = targets.map(({ el, isRootImage }, index) => {
+      const override = isRootImage
+        ? validatedRootImageOverride
+        : readOverride(nodesById.get(el.getAttribute("data-block-id") ?? ""));
       const resolved =
-        override ?? autoEffectFor(level, classifySlideElement(el));
+        override ??
+        autoEffectFor(level, isRootImage ? "image" : classifySlideElement(el));
       const { keyframes, easing } = buildAnimationKeyframes(resolved, distance);
 
       return el.animate(keyframes, {
         duration,
-        delay: index * stagger,
+        delay: index * effectiveStagger,
         easing,
         fill: "both",
       });
@@ -126,6 +159,7 @@ export function useSlideEntranceAnimation({
   }, [
     contentRef,
     slideContent,
+    rootImageAnimation,
     isActive,
     isPresenting,
     isPresentingLoading,
